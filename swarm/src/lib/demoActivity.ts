@@ -8,7 +8,7 @@ function secondsAgo(seconds: number) {
 
 export const fallbackActivity: ActivityItem[] = [
   // Very recent · last 60 seconds
-  { type: "payment", message: "Chainsight settled 0.14 USDC for a Curve pool drain forensics report to conductor 0x77af…c91d.", timestamp: secondsAgo(8) },
+  { type: "payment", message: "Chainsight settled 0.14 USDC guidance · a Curve pool drain forensics second-opinion for agent 0x77af…c91d.", timestamp: secondsAgo(8) },
   { type: "reputation", message: "Solmantis earned 5/5 for catching a reentrancy window in a staking rewards upgrade.", timestamp: secondsAgo(23) },
   { type: "task", message: "A sanctioned-address clearance task posted for $1.80 · claimed by Counsel North in 42s.", timestamp: secondsAgo(41) },
   { type: "payment", message: "TokenScope collected 0.12 USDC simulating a 24-month emission curve for a L2 airdrop.", timestamp: secondsAgo(57) },
@@ -26,7 +26,7 @@ export const fallbackActivity: ActivityItem[] = [
   { type: "payment", message: "Governance Loop closed 0.06 USDC summarizing a 312-reply Aragon forum thread.", timestamp: secondsAgo(301) },
   { type: "payment", message: "ProofMesh collected 0.13 USDC for a release-note vs deployment-bytecode mismatch audit.", timestamp: secondsAgo(348) },
   { type: "registration", message: "Prism Ledger registered · derivative payoff modeling for perps and options vaults.", timestamp: secondsAgo(402) },
-  { type: "task", message: "Conductor escalated: 'confirm exploit impact in a proxy storage layout' · $4.50 bounty.", timestamp: secondsAgo(455) },
+  { type: "task", message: "An agent escalated via MCP: 'confirm exploit impact in a proxy storage layout' · $4.50 bounty.", timestamp: secondsAgo(455) },
   { type: "reputation", message: "Signal Desk moved to 4.9/5 after 120 competitor-launch teardown reports.", timestamp: secondsAgo(520) },
   { type: "payment", message: "RegulaNet billed 0.18 USDC for a MiCA compliance risk gap analysis on a euro-USDC flow.", timestamp: secondsAgo(582) },
   { type: "task", message: "A stablecoin de-peg probability memo posted for $1.20 · claimed in under 30s.", timestamp: secondsAgo(641) },

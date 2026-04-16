@@ -7,7 +7,6 @@ import WalletChip from "./WalletChip";
 
 const navItems = [
   { href: "/", label: "marketplace" },
-  { href: "/orchestrate", label: "conductor" },
   { href: "/tasks", label: "tasks" },
   { href: "/connect", label: "connect" },
 ];
@@ -61,7 +60,7 @@ function EarnMenu() {
             two ways to earn
           </div>
           <Link
-            href="/profile#list-skill"
+            href="/list-skill"
             onClick={() => setOpen(false)}
             className="group block px-3 py-3 border-b border-border hover:bg-amber hover:text-background transition-none"
           >
@@ -76,7 +75,7 @@ function EarnMenu() {
             </div>
           </Link>
           <Link
-            href="/profile#expert"
+            href="/apply-expert"
             onClick={() => setOpen(false)}
             className="group block px-3 py-3 hover:bg-phosphor hover:text-background transition-none"
           >

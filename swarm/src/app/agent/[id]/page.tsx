@@ -8,7 +8,13 @@ import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import { PromptTextarea } from "@/components/Prompt";
 import CopyChip from "@/components/CopyChip";
-import { fetchAgent, callAgent, quoteAgent, rateAgent, type Agent, type AgentQuote } from "@/lib/api";
+import {
+  fetchAgent,
+  askAgent,
+  rateAgent,
+  type Agent,
+  type GuidanceBreakdown,
+} from "@/lib/api";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
@@ -38,11 +44,7 @@ export default function AgentDetailPage() {
   const [rating, setRating] = useState(0);
   const [rated, setRated] = useState(false);
   const ratingInFlight = useRef(false);
-  const [quote, setQuote] = useState<AgentQuote | null>(null);
-  const [quoting, setQuoting] = useState(false);
-  const [quoteError, setQuoteError] = useState<string>("");
-  const [replyInput, setReplyInput] = useState("");
-  const [history, setHistory] = useState<{ user: string; agent: string }[]>([]);
+  const [breakdown, setBreakdown] = useState<GuidanceBreakdown | null>(null);
 
   const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,7 +52,6 @@ export default function AgentDetailPage() {
     fetchAgent(id).then(setAgent).catch(() => router.push("/"));
   }, [id, router]);
 
-  // Keyboard: 1-5 to rate after response
   useEffect(() => {
     if (!log.find((l) => l.kind === "result") || rated) return;
     const onKey = (e: KeyboardEvent) => {
@@ -64,84 +65,45 @@ export default function AgentDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, rated]);
 
-  const resetQuote = () => {
-    setQuote(null);
-    setQuoteError("");
-  };
-
-  const getQuote = async () => {
-    if (!input.trim() || quoting) return;
-    resetQuote();
-    setQuoting(true);
-    setLog([{ kind: "prompt", text: `❯ ${input}` }, { kind: "info", text: `[quote] asking ${agent?.name} to price this task…` }]);
-    try {
-      const q = await quoteAgent(id, input);
-      setQuote(q);
-      setLog((prev) => [
-        ...prev,
-        { kind: "info", text: `[quote] scope: ${q.scope}` },
-        { kind: "info", text: `[quote] ${q.basePrice} base + ${q.overage} overage = ${q.totalPrice}` },
-      ]);
-    } catch (err) {
-      setQuoteError(getErrorMessage(err));
-      setLog((prev) => [...prev, { kind: "error", text: `! quote error: ${getErrorMessage(err)}` }]);
-    } finally {
-      setQuoting(false);
-    }
-  };
-
-  const approveAndCall = async (quotedPrice?: string, followUpText?: string) => {
-    const message = (followUpText ?? input).trim();
+  const askForGuidance = async () => {
+    const message = input.trim();
     if (!message || loading) return;
     setLoading(true);
     setRated(false);
     setRating(0);
+    setBreakdown(null);
     ratingInFlight.current = false;
-    const priceToShow = quotedPrice ?? quote?.totalPrice ?? agent?.price ?? "";
 
-    if (followUpText) {
-      setLog((prev) => [...prev, { kind: "prompt", text: `❯ ${followUpText}` }]);
-      await pause(400);
-    } else {
-      // Fresh call — reset conversation history. For flat agents, also seed the prompt
-      // into the log (the quoted path already did this in getQuote).
-      setHistory([]);
-      if (!quote) {
-        setLog([{ kind: "prompt", text: `❯ ${input}` }]);
-        await pause(300);
-      }
-    }
-
+    setLog([{ kind: "prompt", text: `❯ ${message}` }]);
+    await pause(300);
     setLog((prev) => [
       ...prev,
-      { kind: "info", text: `[paying] ${priceToShow} → ${agent?.address.slice(0, 8)}…` },
+      { kind: "info", text: `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin` },
     ]);
-    await pause(900);
-    setLog((prev) => [
-      ...prev,
-      { kind: "success", text: `[approved] ${priceToShow} authorized` },
-    ]);
-    await pause(700);
+    await pause(500);
     setThinking(true);
 
     try {
-      const effectiveHistory = followUpText ? history : [];
-      const contextual = effectiveHistory.length > 0
-        ? `Prior conversation with user:\n${effectiveHistory
-            .map((h) => `User: ${h.user}\nYou: ${h.agent}`)
-            .join("\n\n")}\n\nUser: ${message}`
-        : message;
-      const response = await callAgent(id, contextual, quotedPrice ?? quote?.totalPrice);
+      const result = await askAgent(id, message);
       setThinking(false);
+      if (result.status !== "ready" || !result.response) {
+        setLog((prev) => [
+          ...prev,
+          { kind: "error", text: `! guidance ${result.status}: ${result.errorMessage ?? "no response"}` },
+        ]);
+        return;
+      }
+      setBreakdown(result.breakdown);
+      const total = result.breakdown?.totalUsd ?? "?";
       setLog((prev) => [
         ...prev,
-        { kind: "info", text: `[stream] response from ${response.agent}` },
-        { kind: "result", text: response.result },
+        { kind: "success", text: `[settled] $${total} total charged` },
+        { kind: "info", text: `[stream] response from ${agent?.name ?? "agent"}` },
+        { kind: "result", text: result.response ?? "" },
       ]);
-      setHistory((prev) => [...prev, { user: message, agent: response.result }]);
       const updated = await fetchAgent(id);
       setAgent(updated);
-      resetQuote();
+      setInput("");
     } catch (err) {
       setThinking(false);
       setLog((prev) => [...prev, { kind: "error", text: `! error: ${getErrorMessage(err)}` }]);
@@ -149,22 +111,6 @@ export default function AgentDetailPage() {
       setLoading(false);
     }
   };
-
-  // For flat-priced agents, skip the quote ceremony entirely.
-  const callFlat = () => approveAndCall(agent?.price);
-
-  const sendReply = async () => {
-    const text = replyInput.trim();
-    if (!text || loading) return;
-    setReplyInput("");
-    await approveAndCall(agent?.price, text);
-  };
-
-  // Reset quote when user edits the input after quoting.
-  useEffect(() => {
-    if (quote) resetQuote();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input]);
 
   const handleRate = async (score: number) => {
     if (rated || ratingInFlight.current) return;
@@ -210,7 +156,6 @@ export default function AgentDetailPage() {
         </button>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)]">
-          {/* Left — metadata pane */}
           <TerminalWindow title={`swarm://agent/${agent.id}`} subtitle={TYPE_LABEL[agent.type]}>
             <div className="p-5">
               <div className={`text-[10px] uppercase tracking-widest mb-3 ${TYPE_COLOR[agent.type]}`}>
@@ -222,15 +167,7 @@ export default function AgentDetailPage() {
 
               <div className="space-y-3 text-sm border-t border-border pt-4">
                 {[
-                  { k: "price", v: <span className="text-amber tabular-nums">{agent.price}</span> },
-                  {
-                    k: "pricing model",
-                    v: (
-                      <span className="text-foreground text-xs">
-                        {(agent.pricingModel ?? "flat").replace("_", " ")}
-                      </span>
-                    ),
-                  },
+                  { k: "commission", v: <span className="text-amber tabular-nums">{agent.price}</span> },
                   {
                     k: "rating",
                     v:
@@ -259,14 +196,14 @@ export default function AgentDetailPage() {
                   </div>
                 ))}
 
-                {agent.pricingNote && (
-                  <div className="border-t border-border pt-3 mt-3">
-                    <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
-                      how this bills
-                    </div>
-                    <p className="text-[11px] text-muted leading-relaxed">{agent.pricingNote}</p>
+                <div className="border-t border-border pt-3 mt-3">
+                  <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
+                    how this bills
                   </div>
-                )}
+                  <p className="text-[11px] text-muted leading-relaxed">
+                    You pay {agent.price} commission (creator gets 100%) + measured Gemini token cost + 10% platform margin. Exact breakdown shows after each call.
+                  </p>
+                </div>
                 <div className="flex items-start justify-between pt-2">
                   <span className="text-[10px] uppercase tracking-widest text-dim">address</span>
                   <CopyChip
@@ -279,7 +216,6 @@ export default function AgentDetailPage() {
             </div>
           </TerminalWindow>
 
-          {/* Right — try it pane */}
           {isHuman ? (
             <TerminalWindow title="swarm://hire-human" subtitle="escalation">
               <div className="p-6 space-y-5">
@@ -307,96 +243,63 @@ export default function AgentDetailPage() {
               </div>
             </TerminalWindow>
           ) : (
-            <TerminalWindow title={`swarm://agent/${agent.id}/try`} subtitle={loading ? "running…" : "ready"}>
+            <TerminalWindow title={`swarm://agent/${agent.id}/ask`} subtitle={loading ? "asking…" : "ready"}>
               <div className="p-0">
                 <PromptTextarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={`enter a request for ${agent.name}…`}
+                  placeholder={`ask ${agent.name} for guidance…`}
                   rows={4}
                   className="border-0 border-b border-border"
                 />
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                   <span className="text-[11px] text-dim uppercase tracking-widest">
-                    base · <span className="text-amber">{agent.price}</span>
-                    {agent.pricingModel && agent.pricingModel !== "flat" && (
-                      <> · <span className="text-muted">{agent.pricingModel.replace("_", " ")}</span></>
-                    )}
+                    commission <span className="text-amber">{agent.price}</span>
+                    <span className="text-muted"> + gemini + 10% margin</span>
                     {" · settles via x402"}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {/* Flat agents: single-click call. Everyone else goes through quote. */}
-                    {agent.pricingModel === "flat" ? (
-                      <button
-                        onClick={callFlat}
-                        disabled={loading || !input.trim()}
-                        className="border border-amber bg-amber px-4 py-1.5 text-xs font-bold text-background hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {loading ? "processing…" : `[ call · ${agent.price} ]`}
-                      </button>
-                    ) : !quote ? (
-                      <button
-                        onClick={getQuote}
-                        disabled={quoting || !input.trim()}
-                        className="border border-amber px-4 py-1.5 text-xs font-bold text-amber hover:bg-amber hover:text-background transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {quoting ? "getting quote…" : `[ get quote ]`}
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => resetQuote()}
-                          disabled={loading}
-                          className="border border-border-hi px-3 py-1.5 text-xs text-muted hover:text-foreground transition-none disabled:opacity-40"
-                        >
-                          [ revise ]
-                        </button>
-                        <button
-                          onClick={() => approveAndCall()}
-                          disabled={loading}
-                          className="border border-phosphor bg-phosphor px-4 py-1.5 text-xs font-bold text-background hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {loading ? "processing…" : `[ approve · pay ${quote.totalPrice} ]`}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <button
+                    onClick={askForGuidance}
+                    disabled={loading || !input.trim()}
+                    className="border border-amber bg-amber px-4 py-1.5 text-xs font-bold text-background hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "asking…" : `[ ask · pay ${agent.price}+ ]`}
+                  </button>
                 </div>
 
-                {/* Quote panel — shown after a successful quote, hidden once approved */}
-                {quote && !loading && (
-                  <div className="border-b border-border bg-surface-1 px-4 py-3 text-xs space-y-2 animate-fade-up">
-                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-amber">
-                      ❯ quote_received
-                      <span className="text-dim">·</span>
-                      <span className="text-muted">tier {quote.tier}</span>
+                {breakdown && (
+                  <div className="border-b border-border bg-surface-1 px-4 py-3 text-xs animate-fade-up">
+                    <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                      ❯ payment_breakdown
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-[1fr_auto] items-start">
+                    <div className="grid grid-cols-4 gap-2 tabular-nums">
                       <div>
-                        <div className="text-foreground leading-relaxed">{quote.scope}</div>
-                        <div className="text-muted leading-relaxed mt-1 text-[11px]">{quote.rationale}</div>
+                        <div className="text-dim text-[10px] uppercase tracking-widest">commission</div>
+                        <div className="text-phosphor">${breakdown.commissionUsd}</div>
+                        <div className="text-dim text-[10px]">→ creator</div>
                       </div>
-                      <div className="text-right tabular-nums">
-                        <div className="text-dim text-[10px] uppercase tracking-widest">base</div>
-                        <div className="text-muted">{quote.basePrice}</div>
-                        <div className="text-dim text-[10px] uppercase tracking-widest mt-1">overage</div>
-                        <div className={quote.overage === "$0.00" ? "text-dim" : "text-amber"}>{quote.overage}</div>
-                        <div className="text-dim text-[10px] uppercase tracking-widest mt-1">total</div>
-                        <div className="text-phosphor text-sm font-bold">{quote.totalPrice}</div>
+                      <div>
+                        <div className="text-dim text-[10px] uppercase tracking-widest">gemini</div>
+                        <div className="text-muted">${breakdown.geminiCostUsd}</div>
+                        <div className="text-dim text-[10px]">passthrough</div>
+                      </div>
+                      <div>
+                        <div className="text-dim text-[10px] uppercase tracking-widest">platform</div>
+                        <div className="text-muted">${breakdown.platformFeeUsd}</div>
+                        <div className="text-dim text-[10px]">10% margin</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-dim text-[10px] uppercase tracking-widest">total</div>
+                        <div className="text-amber text-sm font-bold">${breakdown.totalUsd}</div>
                       </div>
                     </div>
-                  </div>
-                )}
-                {quoteError && !quote && (
-                  <div className="border-b border-border bg-danger/5 text-danger px-4 py-2 text-xs">
-                    {quoteError}
                   </div>
                 )}
 
                 <div className="min-h-[220px] bg-background">
                   {log.length === 0 ? (
                     <div className="p-6 text-dim text-sm">
-                      output streams here after you call the agent.
+                      guidance streams here after you ask the agent.
                     </div>
                   ) : (
                     <div className="p-4 space-y-2 text-sm">
@@ -454,30 +357,6 @@ export default function AgentDetailPage() {
                                 {s}
                               </button>
                             ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {log.find((l) => l.kind === "result") && !loading && (
-                        <div className="pt-3 mt-3 border-t border-border space-y-2">
-                          <div className="text-[11px] uppercase tracking-widest text-dim">
-                            ❯ reply · pay {agent.price} per message
-                          </div>
-                          <PromptTextarea
-                            value={replyInput}
-                            onChange={(e) => setReplyInput(e.target.value)}
-                            placeholder={`reply to ${agent.name}…`}
-                            rows={2}
-                            className="border border-border"
-                          />
-                          <div className="flex justify-end">
-                            <button
-                              onClick={sendReply}
-                              disabled={!replyInput.trim() || loading}
-                              className="border border-phosphor px-3 py-1.5 text-xs font-bold text-phosphor hover:bg-phosphor hover:text-background transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              [ send reply · {agent.price} ]
-                            </button>
                           </div>
                         </div>
                       )}

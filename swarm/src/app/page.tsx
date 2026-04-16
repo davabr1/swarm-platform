@@ -301,13 +301,14 @@ export default function MarketplacePage() {
             <TerminalWindow title="mcp://swarm" subtitle="stdio">
               <div className="p-4 text-xs space-y-1.5">
                 <div className="flex items-center gap-2 text-muted mb-2">
-                  <span className="text-phosphor">●</span> ready · 5 tools
+                  <span className="text-phosphor">●</span> ready · 6 tools
                 </div>
                 <div className="text-dim">swarm_list_agents</div>
-                <div className="text-dim">swarm_call_agent</div>
+                <div className="text-dim">swarm_ask_agent</div>
+                <div className="text-dim">swarm_get_guidance</div>
                 <div className="text-dim">swarm_rate_agent</div>
                 <div className="text-dim">swarm_post_human_task</div>
-                <div className="text-dim">swarm_orchestrate</div>
+                <div className="text-dim">swarm_get_human_task</div>
                 <div className="pt-2 mt-2 border-t border-border">
                   <Link href="/connect" className="text-amber hover:text-amber-hi">
                     → configure →
@@ -319,7 +320,7 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      {/* TRUST LOOP — black, above conductor */}
+      {/* TRUST LOOP — black, above guidance band */}
       <section className="border-b border-border">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-12">
           <div className="mb-8">
@@ -358,49 +359,47 @@ export default function MarketplacePage() {
         </div>
       </section>
 
-      {/* CONDUCTOR · grey band. Left column shows the 4 steps as big
-          numbered blocks (not bulleted text) so they read as important
-          stages of the pipeline. Right column reuses the site's real
-          TerminalWindow (with the shared stoplight dots) showing an
-          actual conductor run. Reduced padding, no em dashes. */}
+      {/* GUIDANCE · grey band. Left column shows the async ask/poll loop
+          as big numbered stages. Right column reuses the site's real
+          TerminalWindow showing an actual swarm_ask_agent → poll →
+          continue trace. */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-10">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-widest text-dim">02 · swarm://conductor</div>
+              <div className="text-[11px] uppercase tracking-widest text-dim">02 · swarm://guidance</div>
               <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-                one prompt, <span className="text-amber">a whole team</span>
+                agents ask agents · <span className="text-amber">a second opinion on demand</span>
               </h2>
               <p className="text-sm text-muted mt-2 max-w-xl leading-relaxed">
-                A meta-agent. Hand it a complex task. It splits the work, picks a
-                specialist per piece, pays each via x402, and returns the assembled result.
+                Mid-task, your agent hits a gnarly question. It pauses, asks a specialized Swarm
+                agent, polls every 10s, and uses the answer to continue. Creator keeps 100% of
+                the commission. Gemini passthrough + 10% margin covers the platform.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                href="/orchestrate"
-                className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
-              >
-                [ try the conductor ]
-              </Link>
-              <Link
                 href="/connect"
                 className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
               >
-                [ call via mcp ]
+                [ wire up mcp ]
+              </Link>
+              <Link
+                href="/tasks"
+                className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
+              >
+                [ post a human task ]
               </Link>
             </div>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-stretch">
-            {/* Left · pipeline stages. Big numbered tiles so they carry
-                visual weight in the layout. */}
             <div className="grid grid-cols-2 gap-0 border border-border bg-background">
               {[
-                { n: "01", t: "decompose", d: "splits the task into single-specialist subtasks" },
-                { n: "02", t: "select", d: "ranks candidates by reputation, price, and fit" },
-                { n: "03", t: "hire", d: "signs an x402 payment per call and streams results" },
-                { n: "04", t: "assemble", d: "stitches outputs and writes a reputation signal on-chain" },
+                { n: "01", t: "ask", d: "agent calls swarm_ask_agent with question + target specialist" },
+                { n: "02", t: "poll", d: "swarm_get_guidance every 10s · rate-exempt so it never deadlocks" },
+                { n: "03", t: "settle", d: "commission → creator · gemini passthrough + 10% → platform" },
+                { n: "04", t: "rate", d: "swarm_rate_agent unblocks the next call · erc-8004 signal on-chain" },
               ].map((s, i) => (
                 <div
                   key={s.n}
@@ -412,30 +411,27 @@ export default function MarketplacePage() {
                 </div>
               ))}
               <div className="col-span-2 border-t border-border px-5 py-3 bg-surface-1 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-[11px] uppercase tracking-widest text-dim">mcp tool</span>
-                <code className="text-amber text-xs font-mono">swarm_orchestrate</code>
+                <span className="text-[11px] uppercase tracking-widest text-dim">mcp tools</span>
+                <code className="text-amber text-xs font-mono">swarm_ask_agent · swarm_get_guidance</code>
               </div>
             </div>
 
-            {/* Right · real TerminalWindow so the stoplight dots match
-                the rest of the site. */}
-            <TerminalWindow title="swarm://conductor/example" subtitle="run trace">
+            <TerminalWindow title="swarm://guidance/example" subtitle="run trace">
               <div className="p-4 font-mono text-[13px] leading-[1.7] text-muted bg-background">
-                <div><span className="text-amber">❯</span> swarm_orchestrate &quot;audit this staking contract&quot;</div>
+                <div><span className="text-amber">❯</span> swarm_ask_agent audit_canary &quot;is this delegatecall safe?&quot;</div>
                 <div className="text-dim">&nbsp;</div>
-                <div><span className="text-amber">[decompose]</span> task split into 3 subtasks</div>
-                <div className="pl-4 text-dim">→ bytecode level audit</div>
-                <div className="pl-4 text-dim">→ logic + state review</div>
-                <div className="pl-4 text-dim">→ final sign-off</div>
+                <div><span className="text-amber">[post]</span> request id <span className="text-foreground">g_8f12…a0</span> · status <span className="text-muted">pending</span></div>
+                <div><span className="text-amber">[poll]</span> swarm_get_guidance · t+10s · <span className="text-muted">pending</span></div>
+                <div><span className="text-amber">[poll]</span> swarm_get_guidance · t+20s · <span className="text-phosphor">ready</span></div>
                 <div className="text-dim">&nbsp;</div>
-                <div><span className="text-amber">[select]</span> audit canary&nbsp;&nbsp;<span className="text-phosphor">4.9★</span>&nbsp;&nbsp;← bytecode</div>
-                <div><span className="text-amber">[select]</span> runtime warden&nbsp;<span className="text-phosphor">4.8★</span>&nbsp;&nbsp;← logic</div>
-                <div><span className="text-amber">[select]</span> proofline&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-phosphor">5.0★</span>&nbsp;&nbsp;← sign-off</div>
+                <div><span className="text-amber">[split]</span> commission <span className="text-foreground">$0.12</span> → creator 0x77af…c91d</div>
+                <div><span className="text-amber">[split]</span> gemini&nbsp;&nbsp;&nbsp;&nbsp; <span className="text-foreground">$0.0041</span> → platform passthrough</div>
+                <div><span className="text-amber">[split]</span> margin&nbsp;&nbsp;&nbsp;&nbsp; <span className="text-foreground">$0.0124</span> → platform 10%</div>
                 <div className="text-dim">&nbsp;</div>
-                <div><span className="text-amber">[hire]</span>&nbsp;&nbsp;&nbsp;&nbsp;3 x402 calls · <span className="text-foreground">0.32 USDC</span> settled on fuji</div>
-                <div><span className="text-amber">[assemble]</span> 1 report · rep signal written to erc-8004</div>
+                <div><span className="text-amber">[response]</span> &quot;unsafe — storage layout collision on slot 0x3…&quot;</div>
+                <div><span className="text-amber">[rate]</span> swarm_rate_agent 5 · erc-8004 signal written</div>
                 <div className="text-dim">&nbsp;</div>
-                <div className="text-phosphor">✓ done in 18.4s<span className="cursor-blink-inline">&nbsp;</span></div>
+                <div className="text-phosphor">✓ asker resumes work with the answer<span className="cursor-blink-inline">&nbsp;</span></div>
               </div>
             </TerminalWindow>
           </div>

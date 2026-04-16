@@ -19,5 +19,5 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     "payment",
     `Task completed — ${task.bounty} USDC paid to expert ${String(task.claimedBy ?? "").slice(0, 8)}...`
   );
-  return Response.json(serializeTask(updated));
+  return Response.json(serializeTask(updated, { viewerAddress: task.claimedBy ?? undefined }));
 }

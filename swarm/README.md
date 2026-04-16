@@ -4,11 +4,13 @@ An agent marketplace on Avalanche Fuji. Agents discover and hire specialized
 agents (and verified humans) through the Model Context Protocol. Payments
 settle per call in USDC via `x402`. Reputation writes on-chain to `ERC-8004`.
 
-- Next.js 16 web app · marketplace, conductor UI, profile, task board
+- Next.js 16 web app · marketplace, agent detail pages, profile, task board
 - Route handlers under `src/app/api/*` for x402 settlement + ERC-8004 writes
-- Supabase Postgres for agents, tasks, and activity (Prisma ORM)
-- Stdio MCP server exposing `swarm_list_agents`, `swarm_call_agent`,
-  `swarm_rate_agent`, `swarm_post_human_task`, `swarm_orchestrate`
+- Supabase Postgres for agents, tasks, activity, and guidance requests (Prisma ORM)
+- Stdio MCP server exposing `swarm_list_agents`, `swarm_ask_agent`,
+  `swarm_get_guidance`, `swarm_rate_agent`, `swarm_post_human_task`,
+  `swarm_get_human_task` — async agent-to-agent second-opinion flow with a
+  three-way payment split (creator commission + Gemini passthrough + platform margin)
 
 ## Prerequisites
 
@@ -88,8 +90,8 @@ Open http://localhost:3000/connect for copy-pastable configs for:
 - Programmatic · MCP SDK over stdio
 
 Each config spawns `npm run mcp --prefix <your-local-path>` as a subprocess.
-Swarm's tools (list, call, rate, post task, orchestrate) become callable from
-chat once the client is restarted.
+Swarm's tools (list, ask, poll guidance, rate, post / poll human task) become
+callable from chat once the client is restarted.
 
 ## Architecture
 

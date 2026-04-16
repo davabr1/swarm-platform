@@ -55,25 +55,45 @@ export function serializeTask(
     postedBy: string | null;
     claimedBy: string | null;
     result: string | null;
+    assignedTo: string | null;
+    requiredSkill: string | null;
+    minReputation: number | null;
+    visibility: string;
+    posterRating: number | null;
+    posterRatedAt: Date | null;
     createdAt: Date;
+    claimedAt: Date | null;
+    completedAt: Date | null;
   },
-  opts: { revealPayload?: boolean } = {}
+  opts: { viewerAddress?: string } = {}
 ) {
-  // Payload is hidden until the task is claimed — that's the whole point of
-  // having a separate field from `description`. Callers that should see it
-  // (claim endpoint, the claimer themselves) pass revealPayload=true.
-  const revealPayload = opts.revealPayload ?? t.status !== "open";
+  const viewer = opts.viewerAddress?.toLowerCase();
+  const poster = t.postedBy?.toLowerCase();
+  const claimer = t.claimedBy?.toLowerCase();
+  const isPublic = t.visibility === "public" && t.status !== "open";
+  const canSeePrivate = !!viewer && (viewer === poster || viewer === claimer);
+  const reveal = canSeePrivate || isPublic;
+
   return {
     id: t.id,
     description: t.description,
     bounty: t.bounty,
     skill: t.skill,
-    payload: revealPayload ? t.payload ?? undefined : undefined,
+    payload: reveal ? t.payload ?? undefined : undefined,
     hasPayload: !!t.payload,
     status: t.status,
     postedBy: t.postedBy ?? "orchestrator",
     claimedBy: t.claimedBy ?? undefined,
-    result: t.result ?? undefined,
+    result: reveal ? t.result ?? undefined : undefined,
+    hasResult: !!t.result,
+    assignedTo: t.assignedTo ?? undefined,
+    requiredSkill: t.requiredSkill ?? undefined,
+    minReputation: t.minReputation ?? undefined,
+    visibility: t.visibility,
+    posterRating: t.posterRating ?? undefined,
+    posterRatedAt: t.posterRatedAt ? t.posterRatedAt.getTime() : undefined,
     createdAt: t.createdAt.getTime(),
+    claimedAt: t.claimedAt ? t.claimedAt.getTime() : undefined,
+    completedAt: t.completedAt ? t.completedAt.getTime() : undefined,
   };
 }

@@ -27,7 +27,36 @@ export interface Task {
   postedBy: string;
   claimedBy?: string;
   result?: string;
+  hasResult?: boolean;
+  assignedTo?: string;
+  requiredSkill?: string;
+  minReputation?: number;
+  visibility: "public" | "private";
+  posterRating?: number;
+  posterRatedAt?: number;
   createdAt: number;
+  claimedAt?: number;
+  completedAt?: number;
+}
+
+export interface UserProfile {
+  walletAddress: string;
+  displayName?: string;
+  bio?: string;
+  email?: string;
+  spendCapPerTask?: string;
+  spendCapPerSession?: string;
+  autoTopup: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProfilePortfolio {
+  profile: UserProfile;
+  agents: Agent[];
+  postedTasks: Task[];
+  claimedTasks: Task[];
+  inbox: Task[];
 }
 
 export interface ActivityItem {
@@ -36,16 +65,31 @@ export interface ActivityItem {
   timestamp: number;
 }
 
-export interface OrchestrateResult {
-  originalTask: string;
-  subtasks: Array<{
-    agent: string;
-    subtask: string;
-    result: string;
-    price: string;
-    type: "agent" | "human";
-  }>;
-  totalCost: string;
+export interface GuidanceBreakdown {
+  commissionUsd: string;
+  geminiCostUsd: string;
+  platformFeeUsd: string;
+  totalUsd: string;
+}
+
+export interface GuidanceTokens {
+  prompt: number;
+  output: number;
+  thoughts: number;
+}
+
+export interface GuidanceRequest {
+  id: string;
+  agentId?: string;
+  askerAddress?: string;
+  status: "pending" | "ready" | "failed";
+  response: string | null;
+  errorMessage?: string | null;
+  breakdown: GuidanceBreakdown | null;
+  tokens?: GuidanceTokens | null;
+  agent?: { id: string; name: string; creatorAddress: string };
+  createdAt?: string;
+  readyAt?: string | null;
 }
 
 export async function fetchAgents(): Promise<Agent[]> {
@@ -58,39 +102,28 @@ export async function fetchAgent(id: string): Promise<Agent> {
   return res.json();
 }
 
-export async function callAgent(
-  id: string,
-  input: string,
-  quotedPrice?: string
-): Promise<{ agent: string; result: string; price: string; basePrice?: string; paidTo: string }> {
-  const res = await fetch(`/api/agents/${id}/call`, {
+export async function askAgent(
+  agentId: string,
+  question: string,
+  askerAddress?: string,
+): Promise<GuidanceRequest> {
+  const res = await fetch(`/api/guidance`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input, quotedPrice }),
+    body: JSON.stringify({ agentId, question, askerAddress }),
   });
-  return res.json();
-}
-
-export interface AgentQuote {
-  basePrice: string;
-  totalPrice: string;
-  overage: string;
-  tier: "base" | "standard" | "deep" | string;
-  scope: string;
-  rationale: string;
-  pricingModel: string;
-  pricingNote: string;
-}
-
-export async function quoteAgent(id: string, input: string): Promise<AgentQuote> {
-  const res = await fetch(`/api/agents/${id}/quote`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input }),
-  });
+  const data = await res.json();
   if (!res.ok) {
-    const payload = await res.json().catch(() => ({}));
-    throw new Error(payload.error || "quote failed");
+    throw new Error(data.error || "guidance request failed");
+  }
+  return data;
+}
+
+export async function fetchGuidance(id: string): Promise<GuidanceRequest> {
+  const res = await fetch(`/api/guidance/${id}`);
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to fetch guidance");
   }
   return res.json();
 }
@@ -104,17 +137,37 @@ export async function rateAgent(id: string, score: number): Promise<{ success: b
   return res.json();
 }
 
-export async function orchestrate(task: string): Promise<OrchestrateResult> {
-  const res = await fetch(`/api/orchestrate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ task }),
-  });
+export async function fetchTasks(viewer?: string): Promise<Task[]> {
+  const qs = viewer ? `?viewer=${encodeURIComponent(viewer)}` : "";
+  const res = await fetch(`/api/tasks${qs}`);
   return res.json();
 }
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch(`/api/tasks`);
+export async function fetchInbox(viewer: string): Promise<Task[]> {
+  const res = await fetch(`/api/tasks?viewer=${encodeURIComponent(viewer)}&inbox=1`);
+  return res.json();
+}
+
+export async function postTask(data: {
+  description: string;
+  bounty: string;
+  skill: string;
+  postedBy: string;
+  payload?: string;
+  assignedTo?: string;
+  requiredSkill?: string;
+  minReputation?: number;
+  visibility?: "public" | "private";
+}): Promise<Task> {
+  const res = await fetch(`/api/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to post task");
+  }
   return res.json();
 }
 
@@ -124,6 +177,10 @@ export async function claimTask(id: string, expertAddress?: string): Promise<Tas
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ expertAddress }),
   });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to claim task");
+  }
   return res.json();
 }
 
@@ -133,6 +190,74 @@ export async function submitTask(id: string, result: string): Promise<Task> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ result }),
   });
+  return res.json();
+}
+
+export async function updateTaskVisibility(
+  id: string,
+  viewer: string,
+  visibility: "public" | "private",
+): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}?viewer=${encodeURIComponent(viewer)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ visibility }),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to update visibility");
+  }
+  return res.json();
+}
+
+export async function rateTask(
+  id: string,
+  viewer: string,
+  score: number,
+): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}/rate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ viewer, score }),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to rate task");
+  }
+  return res.json();
+}
+
+export async function fetchProfile(address: string, viewer?: string): Promise<ProfilePortfolio> {
+  const qs = viewer ? `?viewer=${encodeURIComponent(viewer)}` : "";
+  const res = await fetch(`/api/profile/${address}${qs}`);
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to load profile");
+  }
+  return res.json();
+}
+
+export async function updateProfile(
+  address: string,
+  viewer: string,
+  data: Partial<{
+    displayName: string;
+    bio: string;
+    email: string;
+    spendCapPerTask: string;
+    spendCapPerSession: string;
+    autoTopup: boolean;
+  }>,
+): Promise<UserProfile> {
+  const res = await fetch(`/api/profile/${address}?viewer=${encodeURIComponent(viewer)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to update profile");
+  }
   return res.json();
 }
 

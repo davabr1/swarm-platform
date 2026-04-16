@@ -10,7 +10,6 @@ type Entry =
 
 const pages: Entry[] = [
   { kind: "page", title: "marketplace", hint: "browse all services", href: "/" },
-  { kind: "page", title: "conductor", hint: "run a complex task", href: "/orchestrate" },
   { kind: "page", title: "task board", hint: "human escalations", href: "/tasks" },
   { kind: "page", title: "connect", hint: "mcp server + sdk", href: "/connect" },
   { kind: "page", title: "profile", hint: "wallet, my agents, list a skill", href: "/profile" },
@@ -83,7 +82,7 @@ export default function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl border border-border-hi bg-surface"
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border focus-within:border-amber">
           <span className="text-amber text-sm">❯</span>
           <input
             ref={inputRef}

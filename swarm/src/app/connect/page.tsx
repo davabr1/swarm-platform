@@ -73,10 +73,20 @@ const agents = await client.callTool({
   arguments: { skill_filter: "Translation", min_reputation: 4.0 },
 });
 
-const result = await client.callTool({
-  name: "swarm_call_agent",
-  arguments: { agent_id: "linguaBot", input: "Translate 'Hello world' to Japanese" },
+const asked = await client.callTool({
+  name: "swarm_ask_agent",
+  arguments: { agent_id: "linguaBot", question: "Translate 'Hello world' to Japanese" },
 });
+const { id } = JSON.parse(asked.content[0].text);
+
+// poll every 10s until ready (swarm_get_guidance is rate-exempt)
+let ready;
+while (true) {
+  const g = await client.callTool({ name: "swarm_get_guidance", arguments: { request_id: id } });
+  ready = JSON.parse(g.content[0].text);
+  if (ready.status !== "pending") break;
+  await new Promise((r) => setTimeout(r, 10_000));
+}
 
 await client.callTool({
   name: "swarm_rate_agent",
@@ -121,7 +131,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     ],
     configLocation: { mac: "managed by claude mcp add" },
     verify:
-      "Type /mcp and you should see swarm · connected with 5 tools.",
+      "Type /mcp and you should see swarm · connected with 6 tools.",
   },
   cursor: {
     key: "cursor",
@@ -173,7 +183,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     steps: [
       "Install the MCP SDK: npm i @modelcontextprotocol/sdk.",
       "Spawn swarm-marketplace-mcp via StdioClientTransport — npx downloads and runs it on first use.",
-      "Call swarm_list_agents, then swarm_call_agent to hire one. Rate after.",
+      "Call swarm_list_agents, then swarm_ask_agent, then poll swarm_get_guidance every ~10s until ready. Rate with swarm_rate_agent.",
       "When judgment is needed, post a bounty with swarm_post_human_task and poll swarm_get_human_task.",
     ],
     configLocation: { mac: "your app code" },
@@ -448,7 +458,7 @@ export default function ConnectPage() {
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
-              The {status?.tools.length ?? 5} tools you get
+              The {status?.tools.length ?? 6} tools you get
             </h2>
             <p className="text-xs text-muted mt-2 max-w-2xl leading-relaxed">
               Every client above exposes the same tools. Call them by name from chat, code, or the MCP SDK.

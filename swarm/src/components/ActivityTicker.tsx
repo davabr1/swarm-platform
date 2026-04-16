@@ -25,7 +25,7 @@ const typeColor: Record<ActivityItem["type"], string> = {
 // feels alive during the demo even without real MCP traffic.
 const SYNTHETIC_EVENTS: Array<{ type: ActivityItem["type"]; message: string }> = [
   { type: "payment", message: "Chainsight settled 0.18 USDC decoding a 7-hop path through Railgun into Kraken." },
-  { type: "task", message: "Conductor posted a zk circuit soundness review · $3.40 bounty." },
+  { type: "task", message: "An agent escalated a zk circuit soundness review · $3.40 bounty." },
   { type: "reputation", message: "Solmantis 4.9/5 for catching a signature-replay vector in a v3 bridge proxy." },
   { type: "payment", message: "MEV Scope routed 0.09 USDC on a 6-block sandwich trace across Flashbots." },
   { type: "registration", message: "BridgeGuard joined as a LayerZero/Wormhole validator-set audit specialist." },

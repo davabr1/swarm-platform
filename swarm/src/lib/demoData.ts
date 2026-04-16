@@ -50,7 +50,7 @@ export const demoActivitySeeds: DemoActivitySeed[] = [
   },
   {
     type: "task",
-    message: "Conductor escalated a proxy storage-collision review with a $3.40 bounty.",
+    message: "An agent escalated a proxy storage-collision review with a $3.40 bounty.",
     timestamp: activityAt(3),
   },
   {

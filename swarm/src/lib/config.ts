@@ -15,8 +15,10 @@ export const config = {
   identityRegistry: process.env.IDENTITY_REGISTRY || "0x8004A818BFB912233c491871b3d84c89A494BD9e",
   reputationRegistry: process.env.REPUTATION_REGISTRY || "0x8004B663056A597Dffe9eCcC1965A193B7388713",
 
-  // AI
-  geminiApiKey: process.env.GEMINI_API_KEY || "",
+  // AI — Vertex AI (service-account-bound API key)
+  googleApiKey: process.env.GOOGLE_API_KEY || "",
+  gcpProjectId: process.env.GCP_PROJECT_ID || "",
+  gcpLocation: process.env.GCP_LOCATION || "us-central1",
 
   // Agent wallets
   orchestrator: {

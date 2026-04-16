@@ -26,31 +26,26 @@ interface PlatformGuide {
   verify: string;
 }
 
-function buildConfig(tab: TabKey, repoPath: string) {
+function buildConfig(tab: TabKey) {
   if (tab === "claude-desktop") {
     return `{
   "mcpServers": {
     "swarm": {
-      "command": "npm",
-      "args": ["run", "mcp", "--prefix", "${repoPath}"],
-      "env": { "SWARM_API_URL": "http://localhost:3000" }
+      "command": "npx",
+      "args": ["-y", "swarm-marketplace-mcp"]
     }
   }
 }`;
   }
   if (tab === "claude-code") {
-    return `claude mcp add swarm -- npm run mcp --prefix ${repoPath} \\
-  -e SWARM_API_URL=http://localhost:3000`;
+    return `claude mcp add swarm -- npx -y swarm-marketplace-mcp`;
   }
   if (tab === "cursor") {
     return `{
-  "mcp": {
-    "servers": {
-      "swarm": {
-        "command": "npm",
-        "args": ["run", "mcp", "--prefix", "${repoPath}"],
-        "env": { "SWARM_API_URL": "http://localhost:3000" }
-      }
+  "mcpServers": {
+    "swarm": {
+      "command": "npx",
+      "args": ["-y", "swarm-marketplace-mcp"]
     }
   }
 }`;
@@ -58,9 +53,8 @@ function buildConfig(tab: TabKey, repoPath: string) {
   if (tab === "codex") {
     return `# ~/.codex/config.toml
 [mcp_servers.swarm]
-command = "npm"
-args = ["run", "mcp", "--prefix", "${repoPath}"]
-env = { SWARM_API_URL = "http://localhost:3000" }`;
+command = "npx"
+args = ["-y", "swarm-marketplace-mcp"]`;
   }
   return `import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -68,9 +62,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 const client = new Client({ name: "my-agent", version: "1.0" });
 
 const transport = new StdioClientTransport({
-  command: "npm",
-  args: ["run", "mcp", "--prefix", "${repoPath}"],
-  env: { SWARM_API_URL: "http://localhost:3000" },
+  command: "npx",
+  args: ["-y", "swarm-marketplace-mcp"],
 });
 
 await client.connect(transport);
@@ -99,12 +92,12 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     language: "json",
     filename: "claude_desktop_config.json",
     intro:
-      "Register Swarm as an MCP server in the Claude Desktop app. After a restart, every agent and tool on Swarm becomes directly callable from chat.",
+      "Register Swarm as an MCP server in the Claude Desktop app. After a restart, every agent on Swarm becomes callable from chat.",
     steps: [
-      "Open the Claude Desktop settings menu, then Developer, then Edit Config.",
-      "Paste the JSON below into claude_desktop_config.json (merge with any existing mcpServers block).",
-      "Fully quit and relaunch Claude Desktop. A hammer icon appears once Swarm is connected.",
-      "Ask Claude to list Swarm agents. The swarm_list_agents tool should fire.",
+      "Open Claude Desktop → Settings → Developer → Edit Config.",
+      "Paste the JSON below (merge with any existing mcpServers block).",
+      "Fully quit and relaunch Claude Desktop.",
+      "Ask: list all translation agents on swarm — the swarm_list_agents tool fires.",
     ],
     configLocation: {
       mac: "~/Library/Application Support/Claude/claude_desktop_config.json",
@@ -120,16 +113,15 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     language: "bash",
     filename: "terminal",
     intro:
-      "Claude Code ships with a built-in MCP registry. One claude mcp add command registers Swarm for every future session.",
+      "Claude Code ships with a built-in MCP registry. One command registers Swarm for every future session.",
     steps: [
-      "Install Claude Code if you have not already: curl -fsSL https://claude.ai/install.sh | sh.",
-      "Run the command below from any directory. It registers swarm in your global MCP config.",
-      "Open a new Claude Code session. Type /mcp to confirm swarm appears in the list.",
-      "Issue a tool call: /mcp swarm.swarm_list_agents.",
+      "Run the command below from any directory.",
+      "Start a new Claude Code session. Type /mcp to confirm swarm is listed.",
+      "Ask Claude to use swarm_list_agents.",
     ],
-    configLocation: { mac: "~/.claude/mcp.json (managed automatically)" },
+    configLocation: { mac: "managed by claude mcp add" },
     verify:
-      "Run /mcp swarm.swarm_list_agents and you should see every Swarm agent printed as structured JSON.",
+      "Type /mcp and you should see swarm · connected with 5 tools.",
   },
   cursor: {
     key: "cursor",
@@ -138,12 +130,12 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     language: "json",
     filename: "~/.cursor/mcp.json",
     intro:
-      "Cursor auto-discovers MCP servers from its settings file. Once Swarm is registered, any Cursor agent (including background rules) can call Swarm tools.",
+      "Cursor auto-discovers MCP servers from its settings file. Once Swarm is registered, any Cursor agent can call Swarm tools.",
     steps: [
-      "Open Cursor settings, then MCP. Click Add Server, or edit ~/.cursor/mcp.json directly.",
-      "Add the swarm block below. If mcp.servers already exists, merge rather than replace.",
-      "Reload Cursor. Swarm shows up under the MCP tab with a green dot once connected.",
-      "Use @swarm in chat to invoke tools from your agent workflow.",
+      "Open Cursor → Settings → MCP, or edit ~/.cursor/mcp.json directly.",
+      "Add the swarm block below (merge if mcpServers already exists).",
+      "Reload Cursor. Swarm shows up with a green dot once connected.",
+      "Use @swarm in chat to invoke tools.",
     ],
     configLocation: {
       mac: "~/.cursor/mcp.json",
@@ -160,16 +152,15 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     language: "toml",
     filename: "~/.codex/config.toml",
     intro:
-      "OpenAI Codex reads MCP servers from ~/.codex/config.toml. Add a mcp_servers.swarm block and Codex can hire Swarm specialists inside any autonomous run.",
+      "Codex reads MCP servers from ~/.codex/config.toml. Add this block and Codex can hire Swarm specialists inside any autonomous run.",
     steps: [
-      "Install OpenAI Codex: npm i -g @openai/codex.",
       "Edit ~/.codex/config.toml and append the TOML block below.",
       "Restart any open Codex sessions so they re-read the config.",
-      "Trigger a run that requires specialist knowledge. Codex will call swarm_list_agents to pick the right tool.",
+      "Trigger a run — Codex will call swarm_list_agents to pick the right tool.",
     ],
     configLocation: { mac: "~/.codex/config.toml", windows: "%USERPROFILE%\\.codex\\config.toml" },
     verify:
-      "Run codex --help-mcp to see swarm listed. During an interactive run, Codex surfaces swarm_* tool calls inline.",
+      "During an interactive run, Codex surfaces swarm_* tool calls inline.",
   },
   programmatic: {
     key: "programmatic",
@@ -178,16 +169,16 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     language: "typescript",
     filename: "src/call-swarm.ts",
     intro:
-      "Any program that speaks the Model Context Protocol can connect to Swarm directly. Useful when you are building a custom agent or a scheduled job.",
+      "Any program that speaks MCP can connect to Swarm directly. Useful for custom agents or scheduled jobs.",
     steps: [
       "Install the MCP SDK: npm i @modelcontextprotocol/sdk.",
-      "Point the StdioClientTransport at this repo. Swarm auto-starts via npm run mcp.",
-      "Call swarm_list_agents to discover specialists, then swarm_call_agent to invoke one.",
-      "When the task needs a human, post a bounty with swarm_post_human_task and poll until claimed.",
+      "Spawn swarm-marketplace-mcp via StdioClientTransport — npx downloads and runs it on first use.",
+      "Call swarm_list_agents, then swarm_call_agent to hire one. Rate after.",
+      "When judgment is needed, post a bounty with swarm_post_human_task and poll swarm_get_human_task.",
     ],
     configLocation: { mac: "your app code" },
     verify:
-      "Run ts-node src/call-swarm.ts. You should see the returned agent list and a translated response, both streamed over stdio.",
+      "You should see the returned agent list and a translated response, both streamed over stdio.",
   },
 };
 
@@ -214,17 +205,11 @@ const BENEFITS = [
   },
 ];
 
-function useRepoPath() {
-  const [repoPath, setRepoPath] = useState("/ABSOLUTE/PATH/TO/cryptathon/swarm");
-  return { repoPath, setRepoPath };
-}
-
 export default function ConnectPage() {
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [tab, setTab] = useState<TabKey>("claude-code");
-  const { repoPath, setRepoPath } = useRepoPath();
 
   useEffect(() => {
     const load = async () => {
@@ -260,7 +245,7 @@ export default function ConnectPage() {
   };
 
   const guide = GUIDES[tab];
-  const config = useMemo(() => buildConfig(tab, repoPath), [tab, repoPath]);
+  const config = useMemo(() => buildConfig(tab), [tab]);
 
   return (
     <div className="min-h-screen">
@@ -275,9 +260,9 @@ export default function ConnectPage() {
             Connect your agent to <span className="text-amber">Swarm</span>
           </h1>
           <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-            Swarm is an MCP server. Any MCP-speaking client (Claude Desktop, Claude Code, Cursor,
-            Codex, or your own script) can discover, hire, and rate every specialist on the network.
-            The steps below get you from zero to a live connection in about two minutes.
+            Swarm is an MCP server published on npm. Pick your client, paste one config block,
+            restart — <code className="text-amber font-mono">npx</code> does the rest. Zero to live
+            connection in about 30 seconds.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -352,146 +337,20 @@ export default function ConnectPage() {
           </div>
         </section>
 
-        {/* SETUP · clone + install + run. MCP stdio servers spawn locally
-            on the caller's machine, so every user needs a local checkout
-            before any client config will work. Make that obvious. */}
+        {/* PLATFORMS — pick a client, paste one config block, done. The
+            MCP is published as swarm-marketplace-mcp on npm, so there's
+            no clone/install/env-setup step anymore — npx handles it. */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">02 · set up swarm locally</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">02 · pick your client</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
-              Get Swarm running on your machine
+              Paste one config block
             </h2>
             <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">
-              MCP stdio servers run as a subprocess on your computer, not on ours. Clone the
-              repo, install deps, start the API, and your local Swarm is ready to hire agents.
-              (If you already have it, skip to step 03.)
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                01. clone
-              </div>
-              <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                Grab the source from GitHub. Node 20+ and npm 10+ are required.
-              </p>
-              <CodeBlock
-                code={`git clone https://github.com/your-org/swarm.git
-cd swarm`}
-                language="bash"
-                filename="terminal"
-              />
-            </div>
-
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                02. install dependencies
-              </div>
-              <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                Installs Next.js, Express, wagmi, RainbowKit, x402, ERC-8004 bindings, and the
-                MCP SDK in one go.
-              </p>
-              <CodeBlock code={`npm install`} language="bash" filename="terminal" />
-            </div>
-
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                03. configure environment
-              </div>
-              <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                Copy <code className="text-amber font-mono">.env.example</code> to <code className="text-amber font-mono">.env</code>{" "}
-                and fill in the keys below. The app reads Avalanche Fuji config, an LLM key, a WalletConnect project id,
-                and an orchestrator wallet used to sign x402 payments.
-              </p>
-              <CodeBlock
-                code={`# copy the template
-cp .env.example .env
-
-# required · LLM key (Gemini — the only provider wired in)
-GEMINI_API_KEY=
-
-# required · Avalanche Fuji testnet
-AVALANCHE_FUJI_RPC=https://api.avax-test.network/ext/bc/C/rpc
-CHAIN_ID=43113
-USDC_CONTRACT=0x5425890298aed601595a70AB815c96711a31Bc65
-
-# required · WalletConnect project id (free at https://cloud.reown.com)
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
-
-# required · orchestrator wallet (fund with AVAX + USDC from Fuji faucet)
-ORCHESTRATOR_PRIVATE_KEY=0x...
-ORCHESTRATOR_ADDRESS=0x...
-
-# optional · already deployed ERC-8004 registries on Fuji
-IDENTITY_REGISTRY=0x8004A818BFB912233c491871b3d84c89A494BD9e
-REPUTATION_REGISTRY=0x8004B663056A597Dffe9eCcC1965A193B7388713
-FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`}
-                language="bash"
-                filename=".env"
-              />
-              <div className="mt-2 text-[11px] text-dim">
-                Get faucet AVAX and USDC{" "}
-                <a
-                  className="text-amber hover:text-amber-hi"
-                  href="https://build.avax.network/console/primary-network/faucet"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  from the Fuji faucet ↗
-                </a>
-                . Your orchestrator wallet needs both to sign x402 payments.
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                04. start the app
-              </div>
-              <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                <code className="text-amber font-mono">npm run dev</code> boots Next.js on
-                port 3000 · API routes and the web UI share the same process. The MCP stdio
-                server you wire into Claude / Cursor / Codex talks to <code>/api/*</code> over
-                HTTP, so it works just as well against a hosted deployment.
-              </p>
-              <CodeBlock code={`npm run dev`} language="bash" filename="terminal" />
-            </div>
-
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                05. copy your absolute repo path
-              </div>
-              <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                Every client config below points at your local clone with an absolute path.
-                Paste yours here so the snippets render correctly.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="text"
-                  value={repoPath}
-                  onChange={(e) => setRepoPath(e.target.value)}
-                  placeholder="/absolute/path/to/swarm"
-                  className="flex-1 min-w-[320px] bg-surface-1 border border-border px-3 py-2 text-xs text-foreground placeholder:text-dim focus:outline-none focus:border-amber font-mono"
-                />
-                <CopyChip value={status?.apiBase || "http://localhost:3000"} display="api base" />
-              </div>
-              <div className="mt-2 text-[11px] text-dim">
-                Hint · run <code className="text-muted font-mono">pwd</code> inside the cloned
-                directory and paste the output above.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* PLATFORMS */}
-        <section className="mb-14">
-          <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">03 · set up your client</div>
-            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
-              Pick your platform
-            </h2>
-            <p className="text-xs text-muted mt-2 max-w-2xl leading-relaxed">
-              Same MCP server, different config files. Choose the client you already use.
+              Swarm is published on npm as <code className="text-amber font-mono">swarm-marketplace-mcp</code>.
+              No clone, no <code>npm install</code>, no env file — <code className="text-amber font-mono">npx</code> fetches
+              and runs it on first call. Pick your client, paste the block, restart.
+              Uses the hosted backend at <CopyChip value={status?.apiBase || "https://swarm-psi.vercel.app"} display={status?.apiBase || "swarm-psi.vercel.app"} />.
             </p>
           </div>
 
@@ -587,7 +446,7 @@ FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`}
         {/* TOOL REFERENCE */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">04 · tool reference</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
               The {status?.tools.length ?? 5} tools you get
             </h2>
@@ -631,7 +490,7 @@ FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`}
         {/* FURTHER READING */}
         <section className="mb-8">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">05 · further reading</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">04 · further reading</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
               Keep going
             </h2>

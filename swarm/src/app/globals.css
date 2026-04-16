@@ -9,15 +9,16 @@
   --border: #1e1e25;
   --border-hi: #2d2d36;
   --foreground: #e6e4dd;
-  --muted: #7a7a84;
-  --dim: #4a4a54;
-  --amber: #f59e0b;
-  --amber-hi: #fbbf24;
-  --amber-lo: #d97706;
-  --phosphor: #7effa7;
-  --phosphor-dim: #3a7a5a;
-  --danger: #ff6a6a;
-  --info: #8bb5ff;
+  /* WCAG 2.1/2.2 AAA: all text tokens below meet ≥7:1 on --background (#08080a). */
+  --muted: #c0c0c8;        /* ~11.0:1 on bg, ~8.8:1 on surface-2 */
+  --dim: #a4a4ae;          /* ~8.2:1 on bg, ~6.5:1 on surface-2  */
+  --amber: #f59e0b;        /* ~9.4:1  */
+  --amber-hi: #fbbf24;     /* ~11.9:1 */
+  --amber-lo: #e58b0f;     /* ~7.7:1  (was #d97706 / 6.3:1 — fails AAA) */
+  --phosphor: #7effa7;     /* ~16.0:1 */
+  --phosphor-dim: #4fb080; /* ~7.6:1  (was #3a7a5a / 4.0:1 — fails AAA) */
+  --danger: #ff8585;       /* ~8.6:1  (was #ff6a6a / 7.3:1 borderline) */
+  --info: #8bb5ff;         /* ~9.7:1  */
 }
 
 @theme inline {
@@ -240,17 +241,30 @@ select {
 button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible {
-  outline: 1px solid var(--amber);
-  outline-offset: 1px;
+  /* WCAG 2.2 AAA (2.4.13 Focus Appearance): ≥2 CSS px perimeter,
+     ≥3:1 contrast with adjacent non-focused state. Amber on dark bg ≈ 9.4:1. */
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
-input:focus,
-input:focus-visible,
+/* Text-like inputs: suppress their own outline since visible focus comes
+   from a `focus-within:border-amber` on their wrapper.
+   Exclude checkboxes/radios so their native focus indicator survives
+   (SC 2.4.7 Focus Visible / 2.4.13 Focus Appearance AAA). */
+input:not([type="checkbox"]):not([type="radio"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
 textarea:focus,
 textarea:focus-visible,
 select:focus,
 select:focus-visible {
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* Explicit high-contrast focus ring for checkbox/radio controls. */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
 }
 
 /* RainbowKit theming overrides */

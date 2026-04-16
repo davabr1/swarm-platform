@@ -1,0 +1,49 @@
+{
+  "name": "swarm-marketplace-mcp",
+  "version": "0.1.0",
+  "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents and post human tasks via x402 on Avalanche.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "swarm",
+    "agents",
+    "marketplace",
+    "x402",
+    "avalanche",
+    "erc-8004",
+    "usdc"
+  ],
+  "license": "MIT",
+  "author": "Swarm contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/davabr1/cryptathon",
+    "directory": "mcp"
+  },
+  "homepage": "https://swarm-psi.vercel.app",
+  "type": "module",
+  "bin": {
+    "swarm-marketplace-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

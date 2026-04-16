@@ -83,7 +83,7 @@ export default function CommandPalette() {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl border border-border-hi bg-surface"
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border focus-within:border-amber">
           <span className="text-amber text-sm">❯</span>
           <input
             ref={inputRef}

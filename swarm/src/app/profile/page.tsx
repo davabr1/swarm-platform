@@ -108,7 +108,7 @@ function FundingPanel({ address }: { address: `0x${string}` }) {
               <div className="text-[10px] uppercase tracking-widest text-dim mb-1.5">
                 per-task cap (usdc)
               </div>
-              <div className="flex items-center border border-border bg-surface-1">
+              <div className="flex items-center border border-border bg-surface-1 focus-within:border-amber">
                 <span className="pl-3 text-dim text-sm">$</span>
                 <input
                   type="text"
@@ -122,7 +122,7 @@ function FundingPanel({ address }: { address: `0x${string}` }) {
               <div className="text-[10px] uppercase tracking-widest text-dim mb-1.5">
                 per-session cap (usdc)
               </div>
-              <div className="flex items-center border border-border bg-surface-1">
+              <div className="flex items-center border border-border bg-surface-1 focus-within:border-amber">
                 <span className="pl-3 text-dim text-sm">$</span>
                 <input
                   type="text"

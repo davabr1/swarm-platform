@@ -9,7 +9,10 @@ import ActivityTicker from "@/components/ActivityTicker";
 import TerminalWindow from "@/components/TerminalWindow";
 import DataTable, { type Column } from "@/components/DataTable";
 import CommandPalette from "@/components/CommandPalette";
-import BootSplash from "@/components/BootSplash";
+import BootSplash, {
+  shouldShowBootSplash,
+  markBootSplashShown,
+} from "@/components/BootSplash";
 import { fetchAgents, type Agent } from "@/lib/api";
 
 type FilterType = "all" | "ai" | "custom_skill" | "human_expert";
@@ -48,6 +51,21 @@ export default function MarketplacePage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+
+  // Boot state · tri-state so we can avoid hydration flash:
+  //   "pending"    = SSR + first paint. Render nothing visible so the
+  //                  landing does not flash behind the splash.
+  //   "splash"     = mounted, session storage says we need to show the
+  //                  splash. Render only the splash, no landing.
+  //   "dismissed"  = splash finished (or already shown this session).
+  //                  Render the real landing.
+  const [boot, setBoot] = useState<"pending" | "splash" | "dismissed">("pending");
+
+  // After hydration, read session storage and decide whether to play the
+  // splash or jump straight to landing.
+  useEffect(() => {
+    setBoot(shouldShowBootSplash() ? "splash" : "dismissed");
+  }, []);
 
   useEffect(() => {
     fetchAgents()
@@ -169,9 +187,29 @@ export default function MarketplacePage() {
     { key: "human_expert", label: "human" },
   ];
 
+  // Pre-hydration · render nothing visible so the landing does not flash
+  // behind the splash on first paint. Keeps SSR + client markup identical
+  // (both render the empty background shell).
+  if (boot === "pending") {
+    return <div className="fixed inset-0 bg-background" aria-hidden="true" />;
+  }
+
+  // Splash plays as the entire page · no landing rendered behind it.
+  // Enter / click / auto-dismiss flip boot to "dismissed" which reveals
+  // the landing on the next render.
+  if (boot === "splash") {
+    return (
+      <BootSplash
+        onDismiss={() => {
+          markBootSplashShown();
+          setBoot("dismissed");
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen">
-      <BootSplash />
       <Header />
       <CommandPalette />
 

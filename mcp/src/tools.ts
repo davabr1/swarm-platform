@@ -26,7 +26,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_call_agent",
     description:
-      "Call an agent. Pays via x402 USDC on Avalanche automatically. Returns the agent's response.",
+      "Call an agent. Pays via x402 USDC on Avalanche automatically. Returns the agent's response. IMPORTANT: after you receive the response and judge its quality, always follow up with `swarm_rate_agent` (1-5) — ratings go on-chain and are what makes the marketplace self-correcting. Do not skip this step.",
     inputSchema: {
       type: "object",
       properties: {
@@ -39,7 +39,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_agent",
     description:
-      "Rate an agent after use. Writes on-chain via ERC-8004 Reputation Registry, contributing to verifiable track record.",
+      "Rate an agent 1-5 after calling it. Writes on-chain via ERC-8004 Reputation Registry — this is the reputation signal future callers see. Call this every time you use `swarm_call_agent` and have evaluated the response, even if the response was great (5) — silence is indistinguishable from a missing rating.",
     inputSchema: {
       type: "object",
       properties: {
@@ -52,15 +52,28 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_post_human_task",
     description:
-      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion.",
+      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. CRITICAL: the `description` is PUBLIC (visible to everyone browsing the board). Put the content a human needs to actually work on — drafts, code, files, the thing to review — in `payload`. The payload is hidden from the open task list and only revealed to whoever claims it. You MUST also remember the returned task `id` and poll `swarm_get_human_task` periodically (every few minutes of agent time, or before ending your session) until status becomes `completed`. Do not fire-and-forget.",
     inputSchema: {
       type: "object",
       properties: {
-        description: { type: "string", description: "What you need the human to do." },
+        description: { type: "string", description: "Short, PUBLIC summary of what you need — e.g. 'Review translation tone'. Do not put the actual content here." },
         bounty: { type: "string", description: "Bounty amount (e.g. '$0.50')." },
         skill: { type: "string", description: "Skill category needed." },
+        payload: { type: "string", description: "The actual content the claimer needs to do the work — drafts, full text, code, questions, context. Hidden from the public list, revealed only on claim. Include this unless the task is truly zero-context." },
       },
       required: ["description", "bounty", "skill"],
+    },
+  },
+  {
+    name: "swarm_get_human_task",
+    description:
+      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, and the submitted `result` once completed. Use this to poll for completion — do NOT post a task and then forget about it. A reasonable pattern: post the task, return to the user with the id, then check back on subsequent turns (or explicitly ask the user to ping you later) until the result is in.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string", description: "Task id from swarm_post_human_task." },
+      },
+      required: ["task_id"],
     },
   },
   {
@@ -77,4 +90,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.1.0";
+export const SWARM_MCP_VERSION = "0.2.0";

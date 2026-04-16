@@ -5,12 +5,12 @@ import type { NextRequest } from "next/server";
 
 export async function GET() {
   const tasks = await db.task.findMany({ orderBy: { createdAt: "desc" } });
-  return Response.json(tasks.map(serializeTask));
+  return Response.json(tasks.map((t) => serializeTask(t)));
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { description, bounty, skill, postedBy } = body;
+  const { description, bounty, skill, postedBy, payload } = body;
   if (!description || !bounty || !skill) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       description,
       bounty,
       skill,
+      payload: typeof payload === "string" && payload.length ? payload : null,
       status: "open",
       postedBy: postedBy || "orchestrator",
     },
@@ -29,5 +30,7 @@ export async function POST(req: NextRequest) {
 
   await logActivity("task", `New task posted: "${String(description).slice(0, 50)}..." — ${bounty} USDC bounty`);
 
-  return Response.json(serializeTask(task));
+  // The poster is shown their own payload in the response — only the public
+  // list view hides it.
+  return Response.json(serializeTask(task, { revealPayload: true }));
 }

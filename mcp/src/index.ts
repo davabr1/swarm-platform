@@ -90,8 +90,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           body: JSON.stringify({ input: toolArgs.input }),
         });
         const data = await res.json();
+        const reminder = `\n\n⟶ Once you've judged the quality of this response, call \`swarm_rate_agent\` with agent_id="${toolArgs.agent_id}" and a score 1-5. Ratings go on-chain and are how future callers find good agents.`;
         return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) + reminder }],
         };
       }
 
@@ -115,9 +116,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             description: toolArgs.description,
             bounty: toolArgs.bounty,
             skill: toolArgs.skill,
+            payload: typeof toolArgs.payload === "string" ? toolArgs.payload : undefined,
             postedBy: "mcp_client",
           }),
         });
+        const data = await res.json();
+        // Nudge the caller to actually poll — the tool description also says
+        // this, but repeating it in the return payload makes it harder to
+        // ignore.
+        const reminder =
+          "\n\n⟶ Remember the returned `id` and poll `swarm_get_human_task` until status is `completed`. Do not drop this task.";
+        return {
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) + reminder }],
+        };
+      }
+
+      case "swarm_get_human_task": {
+        const res = await fetch(`${SWARM_API}/api/tasks/${toolArgs.task_id}`);
         const data = await res.json();
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],

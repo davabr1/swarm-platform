@@ -18,5 +18,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
   });
 
   await logActivity("task", `Task claimed by expert ${String(claimedBy).slice(0, 8)}...`);
-  return Response.json(serializeTask(updated));
+  // Claimer now gets the payload in the response — it's the whole reason to
+  // claim before acting.
+  return Response.json(serializeTask(updated, { revealPayload: true }));
 }

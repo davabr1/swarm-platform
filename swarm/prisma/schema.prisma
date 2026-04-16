@@ -41,6 +41,7 @@ model Task {
   description  String
   bounty       String
   skill        String
+  payload      String?
   status       String    @default("open")
   postedBy     String?
   claimedBy    String?

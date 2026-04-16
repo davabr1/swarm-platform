@@ -44,22 +44,32 @@ export function serializeAgent(a: Agent) {
   };
 }
 
-export function serializeTask(t: {
-  id: string;
-  description: string;
-  bounty: string;
-  skill: string;
-  status: string;
-  postedBy: string | null;
-  claimedBy: string | null;
-  result: string | null;
-  createdAt: Date;
-}) {
+export function serializeTask(
+  t: {
+    id: string;
+    description: string;
+    bounty: string;
+    skill: string;
+    payload: string | null;
+    status: string;
+    postedBy: string | null;
+    claimedBy: string | null;
+    result: string | null;
+    createdAt: Date;
+  },
+  opts: { revealPayload?: boolean } = {}
+) {
+  // Payload is hidden until the task is claimed — that's the whole point of
+  // having a separate field from `description`. Callers that should see it
+  // (claim endpoint, the claimer themselves) pass revealPayload=true.
+  const revealPayload = opts.revealPayload ?? t.status !== "open";
   return {
     id: t.id,
     description: t.description,
     bounty: t.bounty,
     skill: t.skill,
+    payload: revealPayload ? t.payload ?? undefined : undefined,
+    hasPayload: !!t.payload,
     status: t.status,
     postedBy: t.postedBy ?? "orchestrator",
     claimedBy: t.claimedBy ?? undefined,

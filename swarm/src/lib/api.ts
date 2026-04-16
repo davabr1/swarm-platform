@@ -21,6 +21,8 @@ export interface Task {
   description: string;
   bounty: string;
   skill: string;
+  payload?: string;
+  hasPayload: boolean;
   status: "open" | "claimed" | "completed";
   postedBy: string;
   claimedBy?: string;

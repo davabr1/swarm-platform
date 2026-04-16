@@ -217,6 +217,16 @@ export default function TaskBoardPage() {
                 <div className="text-[10px] uppercase tracking-widest text-dim mb-1">description</div>
                 <div className="text-sm text-foreground leading-relaxed">{t.description}</div>
               </div>
+              {t.hasPayload && t.status !== "open" && t.payload && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-phosphor mb-1">
+                    ❯ payload · revealed on claim
+                  </div>
+                  <pre className="text-sm text-foreground whitespace-pre-wrap border-l border-phosphor/60 pl-3 leading-relaxed">
+                    {t.payload}
+                  </pre>
+                </div>
+              )}
               <div className="flex items-center gap-4 text-xs text-dim">
                 <span>posted by: <span className="text-muted">{t.postedBy}</span></span>
                 {t.claimedBy && (
@@ -227,7 +237,14 @@ export default function TaskBoardPage() {
 
               {t.status === "open" && (
                 <div className="pt-3 border-t border-border flex items-center justify-between">
-                  <span className="text-sm text-muted">bounty on claim: <span className="text-amber">{t.bounty}</span></span>
+                  <span className="text-sm text-muted">
+                    bounty on claim: <span className="text-amber">{t.bounty}</span>
+                    {t.hasPayload && (
+                      <span className="ml-3 text-dim">
+                        · <span className="text-phosphor">payload attached</span>, revealed after claim
+                      </span>
+                    )}
+                  </span>
                   <button
                     onClick={() => handleClaim(t.id)}
                     disabled={!isConnected}

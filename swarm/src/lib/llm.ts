@@ -8,8 +8,6 @@ function getGeminiClient(): GoogleGenAI {
     geminiClient = new GoogleGenAI({
       vertexai: true,
       apiKey: config.googleApiKey,
-      project: config.gcpProjectId,
-      location: config.gcpLocation,
     });
   }
   return geminiClient;

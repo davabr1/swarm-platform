@@ -9,7 +9,7 @@ interface PromptTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement
 export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProps>(
   function PromptTextarea({ glyph = "❯", className = "", ...props }, ref) {
     return (
-      <div className={`border border-border bg-surface-1 focus-within:border-border-hi flex ${className}`}>
+      <div className={`border border-border bg-surface-1 focus-within:border-amber flex ${className}`}>
         <span className="pl-3 pt-3 text-amber text-sm select-none">{glyph}</span>
         <textarea
           ref={ref}
@@ -29,7 +29,7 @@ interface PromptInputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const PromptInput = forwardRef<HTMLInputElement, PromptInputProps>(
   function PromptInput({ glyph = "❯", prefix, className = "", ...props }, ref) {
     return (
-      <div className={`border border-border bg-surface-1 focus-within:border-border-hi flex items-center ${className}`}>
+      <div className={`border border-border bg-surface-1 focus-within:border-amber flex items-center ${className}`}>
         <span className="pl-3 text-amber text-sm select-none">{glyph}</span>
         {prefix && <span className="pl-2 text-dim text-sm">{prefix}</span>}
         <input

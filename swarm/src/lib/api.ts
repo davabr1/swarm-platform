@@ -141,6 +141,7 @@ export async function createCustomAgent(data: {
   price: string;
   systemPrompt: string;
   creatorAddress: string;
+  useSwarmWrapper?: boolean;
 }): Promise<Agent> {
   const res = await fetch(`/api/agents/create`, {
     method: "POST",

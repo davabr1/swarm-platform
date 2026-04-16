@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
 If a subtask needs real human judgment (edge-case legal wording, tokenomics intuition, final architectural sign-off), mark it as "HUMAN_NEEDED".
 
 Respond as JSON array only: [{"agent": "linguaBot"|"codeReviewer"|"summarizer"|"solidityAuditor"|"HUMAN_NEEDED", "subtask": "short description", "input": "the actual input to send"}]`,
-    task
+    task,
+    { structured: true }
   );
 
   let subtasks: Array<{ agent: string; subtask: string; input: string }>;
@@ -34,53 +35,63 @@ Respond as JSON array only: [{"agent": "linguaBot"|"codeReviewer"|"summarizer"|"
     subtasks = [{ agent: "summarizer", subtask: "Process the request", input: task }];
   }
 
-  const results: Array<{
+  // Cap fan-out so we don't blow the 60s serverless budget with many parallel
+  // Gemini 3.1 Pro thinking calls. Four is plenty for a demo conductor run.
+  subtasks = subtasks.slice(0, 4);
+
+  type SubResult = {
     agent: string;
     subtask: string;
     result: string;
     price: string;
     type: "agent" | "human";
-  }> = [];
+  };
 
-  for (const sub of subtasks) {
-    if (sub.agent === "HUMAN_NEEDED") {
-      const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      await db.task.create({
-        data: {
-          id: taskId,
-          description: sub.subtask,
-          bounty: "$0.50",
-          skill: "Expert Judgment",
-          status: "open",
-          postedBy: "orchestrator",
-        },
-      });
-      await logActivity("task", `Conductor escalated to human: "${sub.subtask.slice(0, 50)}..."`);
-      results.push({
-        agent: "Human Expert",
-        subtask: sub.subtask,
-        result: `Task posted for human expert (${taskId}). Awaiting claim.`,
-        price: "$0.50",
-        type: "human",
-      });
-    } else {
+  const results: SubResult[] = await Promise.all(
+    subtasks.map(async (sub): Promise<SubResult | null> => {
+      if (sub.agent === "HUMAN_NEEDED") {
+        const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await db.task.create({
+          data: {
+            id: taskId,
+            description: sub.subtask,
+            bounty: "$0.50",
+            skill: "Expert Judgment",
+            status: "open",
+            postedBy: "orchestrator",
+          },
+        });
+        await logActivity("task", `Conductor escalated to human: "${sub.subtask.slice(0, 50)}..."`);
+        return {
+          agent: "Human Expert",
+          subtask: sub.subtask,
+          result: `Task posted for human expert (${taskId}). Awaiting claim.`,
+          price: "$0.50",
+          type: "human",
+        };
+      }
+
       const agent = await db.agent.findUnique({ where: { id: sub.agent } });
-      if (!agent) continue;
+      if (!agent) return null;
 
       await logActivity("payment", `Conductor hiring ${agent.name} — ${agent.price} USDC`);
 
-      const result = await callAgent(agent.systemPrompt ?? "", sub.input);
+      let result: string;
+      try {
+        result = await callAgent(agent.systemPrompt ?? "", sub.input);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        result = `(${agent.name} call failed: ${msg})`;
+      }
 
-      const newCount = agent.ratingsCount + 1;
       const score = 4 + Math.random();
-      const newAvg = (agent.reputation * agent.ratingsCount + score) / newCount;
-      const rounded = Math.round(newAvg * 10) / 10;
       const updated = await db.agent.update({
         where: { id: agent.id },
         data: {
           totalCalls: { increment: 1 },
-          ratingsCount: newCount,
-          reputation: rounded,
+          ratingsCount: { increment: 1 },
+          reputation:
+            Math.round(((agent.reputation * agent.ratingsCount + score) / (agent.ratingsCount + 1)) * 10) / 10,
         },
       });
 
@@ -89,15 +100,15 @@ Respond as JSON array only: [{"agent": "linguaBot"|"codeReviewer"|"summarizer"|"
         `${agent.name} reputation updated: ${updated.reputation}/5 (${updated.ratingsCount} reviews)`
       );
 
-      results.push({
+      return {
         agent: agent.name,
         subtask: sub.subtask,
         result,
         price: agent.price,
         type: "agent",
-      });
-    }
-  }
+      };
+    })
+  ).then((arr) => arr.filter((x): x is SubResult => x !== null));
 
   return Response.json({
     originalTask: task,

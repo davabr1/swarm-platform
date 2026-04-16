@@ -49,7 +49,7 @@ Respond with ONLY a JSON object (no other text):
 Be honest and conservative. Most short requests fit in the base tier. Only charge overage if the scope truly exceeds what base covers.`;
 
   try {
-    const raw = await callAgent(quoteSystem, input);
+    const raw = await callAgent(quoteSystem, input, { structured: true });
     const match = raw.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : null;
     if (!parsed || typeof parsed !== "object") throw new Error("agent returned no parseable quote");

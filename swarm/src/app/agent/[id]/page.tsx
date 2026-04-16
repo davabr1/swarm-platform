@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -34,11 +34,17 @@ export default function AgentDetailPage() {
   const [input, setInput] = useState("");
   const [log, setLog] = useState<{ kind: string; text: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [rating, setRating] = useState(0);
   const [rated, setRated] = useState(false);
+  const ratingInFlight = useRef(false);
   const [quote, setQuote] = useState<AgentQuote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState<string>("");
+  const [replyInput, setReplyInput] = useState("");
+  const [history, setHistory] = useState<{ user: string; agent: string }[]>([]);
+
+  const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   useEffect(() => {
     fetchAgent(id).then(setAgent).catch(() => router.push("/"));
@@ -84,28 +90,60 @@ export default function AgentDetailPage() {
     }
   };
 
-  const approveAndCall = async (quotedPrice?: string) => {
-    if (!input.trim() || loading) return;
+  const approveAndCall = async (quotedPrice?: string, followUpText?: string) => {
+    const message = (followUpText ?? input).trim();
+    if (!message || loading) return;
     setLoading(true);
     setRated(false);
     setRating(0);
+    ratingInFlight.current = false;
     const priceToShow = quotedPrice ?? quote?.totalPrice ?? agent?.price ?? "";
+
+    if (followUpText) {
+      setLog((prev) => [...prev, { kind: "prompt", text: `❯ ${followUpText}` }]);
+      await pause(400);
+    } else {
+      // Fresh call — reset conversation history. For flat agents, also seed the prompt
+      // into the log (the quoted path already did this in getQuote).
+      setHistory([]);
+      if (!quote) {
+        setLog([{ kind: "prompt", text: `❯ ${input}` }]);
+        await pause(300);
+      }
+    }
+
+    setLog((prev) => [
+      ...prev,
+      { kind: "info", text: `[paying] ${priceToShow} → ${agent?.address.slice(0, 8)}…` },
+    ]);
+    await pause(900);
     setLog((prev) => [
       ...prev,
       { kind: "success", text: `[approved] ${priceToShow} authorized` },
-      { kind: "info", text: `[paying] ${priceToShow} → ${agent?.address.slice(0, 8)}…` },
     ]);
+    await pause(700);
+    setThinking(true);
+
     try {
-      const response = await callAgent(id, input, quotedPrice ?? quote?.totalPrice);
+      const effectiveHistory = followUpText ? history : [];
+      const contextual = effectiveHistory.length > 0
+        ? `Prior conversation with user:\n${effectiveHistory
+            .map((h) => `User: ${h.user}\nYou: ${h.agent}`)
+            .join("\n\n")}\n\nUser: ${message}`
+        : message;
+      const response = await callAgent(id, contextual, quotedPrice ?? quote?.totalPrice);
+      setThinking(false);
       setLog((prev) => [
         ...prev,
         { kind: "info", text: `[stream] response from ${response.agent}` },
         { kind: "result", text: response.result },
       ]);
+      setHistory((prev) => [...prev, { user: message, agent: response.result }]);
       const updated = await fetchAgent(id);
       setAgent(updated);
       resetQuote();
     } catch (err) {
+      setThinking(false);
       setLog((prev) => [...prev, { kind: "error", text: `! error: ${getErrorMessage(err)}` }]);
     } finally {
       setLoading(false);
@@ -115,6 +153,13 @@ export default function AgentDetailPage() {
   // For flat-priced agents, skip the quote ceremony entirely.
   const callFlat = () => approveAndCall(agent?.price);
 
+  const sendReply = async () => {
+    const text = replyInput.trim();
+    if (!text || loading) return;
+    setReplyInput("");
+    await approveAndCall(agent?.price, text);
+  };
+
   // Reset quote when user edits the input after quoting.
   useEffect(() => {
     if (quote) resetQuote();
@@ -122,7 +167,8 @@ export default function AgentDetailPage() {
   }, [input]);
 
   const handleRate = async (score: number) => {
-    if (rated) return;
+    if (rated || ratingInFlight.current) return;
+    ratingInFlight.current = true;
     setRating(score);
     try {
       const response = await rateAgent(id, score);
@@ -135,7 +181,7 @@ export default function AgentDetailPage() {
         { kind: "success", text: `[rate] ${score}/5 · reputation updated on-chain` },
       ]);
     } catch {
-      // silent
+      ratingInFlight.current = false;
     }
   };
 
@@ -377,7 +423,19 @@ export default function AgentDetailPage() {
                         </div>
                       ))}
 
-                      {log.find((l) => l.kind === "result") && !rated && (
+                      {thinking && (
+                        <div className="flex items-center gap-2 text-muted text-xs font-mono animate-pulse">
+                          <span className="text-amber">[thinking]</span>
+                          <span>{agent.name} is working</span>
+                          <span className="inline-flex gap-0.5">
+                            <span className="w-1 h-1 bg-amber rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-1 h-1 bg-amber rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-1 h-1 bg-amber rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                          </span>
+                        </div>
+                      )}
+
+                      {log.find((l) => l.kind === "result") && !rated && !loading && (
                         <div className="pt-3 mt-3 border-t border-border flex items-center gap-3">
                           <span className="text-[11px] uppercase tracking-widest text-dim">
                             [rate] press 1–5 or click
@@ -396,6 +454,30 @@ export default function AgentDetailPage() {
                                 {s}
                               </button>
                             ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {log.find((l) => l.kind === "result") && !loading && (
+                        <div className="pt-3 mt-3 border-t border-border space-y-2">
+                          <div className="text-[11px] uppercase tracking-widest text-dim">
+                            ❯ reply · pay {agent.price} per message
+                          </div>
+                          <PromptTextarea
+                            value={replyInput}
+                            onChange={(e) => setReplyInput(e.target.value)}
+                            placeholder={`reply to ${agent.name}…`}
+                            rows={2}
+                            className="border border-border"
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              onClick={sendReply}
+                              disabled={!replyInput.trim() || loading}
+                              className="border border-phosphor px-3 py-1.5 text-xs font-bold text-phosphor hover:bg-phosphor hover:text-background transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              [ send reply · {agent.price} ]
+                            </button>
                           </div>
                         </div>
                       )}

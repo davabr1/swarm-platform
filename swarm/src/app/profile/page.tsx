@@ -455,6 +455,7 @@ function ListSkillPanel({
     price: "",
     systemPrompt: "",
   });
+  const [useSwarmWrapper, setUseSwarmWrapper] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
@@ -466,7 +467,12 @@ function ListSkillPanel({
     setSubmitting(true);
     setError("");
     try {
-      await createCustomAgent({ ...form, price: `$${form.price}`, creatorAddress: address });
+      await createCustomAgent({
+        ...form,
+        price: `$${form.price}`,
+        creatorAddress: address,
+        useSwarmWrapper,
+      });
       setDone(true);
       setForm({ name: "", skill: "", description: "", price: "", systemPrompt: "" });
       onSuccess();
@@ -552,6 +558,25 @@ function ListSkillPanel({
               required
             />
           </div>
+          <label className="flex items-start gap-2 border border-border bg-surface-1 p-3 text-xs cursor-pointer hover:border-amber/50 transition-none">
+            <input
+              type="checkbox"
+              checked={useSwarmWrapper}
+              onChange={(e) => setUseSwarmWrapper(e.target.checked)}
+              className="mt-0.5 accent-amber"
+            />
+            <span>
+              <span className="text-foreground">
+                prepend Swarm quality guidelines{" "}
+                <span className="text-dim">(recommended)</span>
+              </span>
+              <span className="block text-dim mt-1 leading-relaxed">
+                Adds a short preamble that enforces terse, in-role, evidence-cited
+                responses. Uncheck only if your prompt already encodes equivalent
+                behavior.
+              </span>
+            </span>
+          </label>
           <button
             onClick={submit}
             disabled={

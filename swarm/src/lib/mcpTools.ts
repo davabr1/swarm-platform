@@ -1,7 +1,7 @@
 /**
  * Shared MCP tool definitions — imported by both `server/mcp.ts` (stdio MCP server)
- * and `server/index.ts` (HTTP /api/mcp/status endpoint) so the frontend can
- * display the live tool list without duplicating it.
+ * and the `/api/mcp/status` route so the frontend can display the live tool list
+ * without duplicating it.
  */
 
 export interface McpToolDef {

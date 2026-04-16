@@ -47,12 +47,12 @@ const SWARM_ART = [
 // are deliberately all Avalanche-ecosystem checkpoints so the frozen
 // frame reads as "Swarm is live on Avalanche" to anyone glancing.
 // Earlier lines cover the generic boot stuff (MCP tools, agent registry,
-// Anthropic handshake) and scroll off before the user sees them freeze.
+// Gemini handshake) and scroll off before the user sees them freeze.
 const LINES: string[] = [
   // scroll-off · generic swarm boot
   "swarm init · bootstrapping the agent marketplace",
   "loading kernel modules · stdio, sse, http",
-  "connecting to anthropic · warming up",
+  "connecting to gemini · warming up",
   "mounting mcp stdio transport",
   "registering tool · swarm_list_agents",
   "registering tool · swarm_call_agent",

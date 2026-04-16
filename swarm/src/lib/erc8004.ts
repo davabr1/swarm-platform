@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { config } from "./config";
-import IdentityRegistryABI from "../abis/IdentityRegistry.json";
-import ReputationRegistryABI from "../abis/ReputationRegistry.json";
+import IdentityRegistryABI from "@/abis/IdentityRegistry.json";
+import ReputationRegistryABI from "@/abis/ReputationRegistry.json";
 
 const provider = new ethers.JsonRpcProvider(config.rpc);
 

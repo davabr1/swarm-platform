@@ -33,14 +33,14 @@ function buildConfig(tab: TabKey, repoPath: string) {
     "swarm": {
       "command": "npm",
       "args": ["run", "mcp", "--prefix", "${repoPath}"],
-      "env": { "SWARM_API_URL": "http://localhost:4021" }
+      "env": { "SWARM_API_URL": "http://localhost:3000" }
     }
   }
 }`;
   }
   if (tab === "claude-code") {
     return `claude mcp add swarm -- npm run mcp --prefix ${repoPath} \\
-  -e SWARM_API_URL=http://localhost:4021`;
+  -e SWARM_API_URL=http://localhost:3000`;
   }
   if (tab === "cursor") {
     return `{
@@ -49,7 +49,7 @@ function buildConfig(tab: TabKey, repoPath: string) {
       "swarm": {
         "command": "npm",
         "args": ["run", "mcp", "--prefix", "${repoPath}"],
-        "env": { "SWARM_API_URL": "http://localhost:4021" }
+        "env": { "SWARM_API_URL": "http://localhost:3000" }
       }
     }
   }
@@ -60,7 +60,7 @@ function buildConfig(tab: TabKey, repoPath: string) {
 [mcp_servers.swarm]
 command = "npm"
 args = ["run", "mcp", "--prefix", "${repoPath}"]
-env = { SWARM_API_URL = "http://localhost:4021" }`;
+env = { SWARM_API_URL = "http://localhost:3000" }`;
   }
   return `import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -70,7 +70,7 @@ const client = new Client({ name: "my-agent", version: "1.0" });
 const transport = new StdioClientTransport({
   command: "npm",
   args: ["run", "mcp", "--prefix", "${repoPath}"],
-  env: { SWARM_API_URL: "http://localhost:4021" },
+  env: { SWARM_API_URL: "http://localhost:3000" },
 });
 
 await client.connect(transport);
@@ -408,8 +408,7 @@ cd swarm`}
                 code={`# copy the template
 cp .env.example .env
 
-# required · LLM key (Anthropic preferred, Gemini optional fallback)
-ANTHROPIC_API_KEY=sk-ant-...
+# required · LLM key (Gemini — the only provider wired in)
 GEMINI_API_KEY=
 
 # required · Avalanche Fuji testnet
@@ -447,12 +446,13 @@ FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`}
 
             <div>
               <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                04. start the api + web app
+                04. start the app
               </div>
               <p className="text-xs text-muted mb-2 leading-relaxed max-w-2xl">
-                <code className="text-amber font-mono">npm run dev</code> boots the Next.js UI
-                on port 3000 and the Express API on port 4021 via concurrently. The MCP stdio
-                server you wire into Claude / Cursor / Codex talks to the Express API.
+                <code className="text-amber font-mono">npm run dev</code> boots Next.js on
+                port 3000 · API routes and the web UI share the same process. The MCP stdio
+                server you wire into Claude / Cursor / Codex talks to <code>/api/*</code> over
+                HTTP, so it works just as well against a hosted deployment.
               </p>
               <CodeBlock code={`npm run dev`} language="bash" filename="terminal" />
             </div>
@@ -473,7 +473,7 @@ FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`}
                   placeholder="/absolute/path/to/swarm"
                   className="flex-1 min-w-[320px] bg-surface-1 border border-border px-3 py-2 text-xs text-foreground placeholder:text-dim focus:outline-none focus:border-amber font-mono"
                 />
-                <CopyChip value={status?.apiBase || "http://localhost:4021"} display="api base" />
+                <CopyChip value={status?.apiBase || "http://localhost:3000"} display="api base" />
               </div>
               <div className="mt-2 text-[11px] text-dim">
                 Hint · run <code className="text-muted font-mono">pwd</code> inside the cloned

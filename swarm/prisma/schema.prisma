@@ -1,0 +1,63 @@
+// Swarm schema — Supabase Postgres
+// Mirrors the in-memory shape today (AgentListing, TaskPosting, activityLog)
+// so route handlers stay thin and serializeAgent keeps working unchanged.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Agent {
+  id              String   @id
+  name            String
+  skill           String
+  description     String
+  price           String
+  walletAddress   String
+  creatorAddress  String?
+  systemPrompt    String?
+  type            String
+  userCreated     Boolean  @default(false)
+  agentId         String?
+  reputation      Float    @default(0)
+  ratingsCount    Int      @default(0)
+  totalCalls      Int      @default(0)
+  pricingModel    String?
+  pricingNote     String?
+  createdAt       DateTime @default(now())
+
+  @@index([type])
+  @@index([userCreated])
+  @@index([reputation(sort: Desc)])
+}
+
+model Task {
+  id           String    @id
+  description  String
+  bounty       String
+  skill        String
+  status       String    @default("open")
+  postedBy     String?
+  claimedBy    String?
+  result       String?
+  createdAt    DateTime  @default(now())
+  claimedAt    DateTime?
+  completedAt  DateTime?
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  type      String
+  message   String
+  timestamp BigInt
+
+  @@index([timestamp(sort: Desc)])
+}

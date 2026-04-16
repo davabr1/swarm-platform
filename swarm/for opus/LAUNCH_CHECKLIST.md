@@ -82,7 +82,7 @@ For the cryptathon demo, (1) is enough. For a real launch, build (2).
 | 4 | **Domain** | So CSP, OpenGraph metadata, and the app name shown inside wallet pairing dialogs actually match what users see. |
 | 5 | **Confirm the WalletConnect project id in `.env` (`df6dc034…c9a4623`) is yours** and that its allowed origins in the Reown dashboard include your production domain | Otherwise the mobile-wallet QR flow will reject every pairing attempt. |
 | 6 | **Rotate the orchestrator private key in `.env`** before going public | It is a real funded Fuji wallet committed to `.env`. `.env` is gitignored so the key is not public, but once the site goes live it signs every demo conductor run. Rotate before any traffic hits. |
-| 7 | **Anthropic plan** (optional) | The conductor calls Anthropic on every orchestrate. A personal key is fine for demo traffic; public traffic needs a higher rate limit tier. |
+| 7 | **Gemini quota** (optional) | The conductor calls Gemini on every orchestrate. The free tier handles demo traffic; public traffic needs a paid Google AI Studio plan. |
 
 Tell me (1)–(3) and I will wire the rest.
 

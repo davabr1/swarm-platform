@@ -7,6 +7,7 @@ import {
   rainbowWallet,
   injectedWallet,
   walletConnectWallet,
+  phantomWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 
 // WalletConnect project id — optional, used when the user wants to pair a
@@ -25,7 +26,7 @@ const connectors = connectorsForWallets(
   [
     {
       groupName: "popular",
-      wallets: [metaMaskWallet, rainbowWallet, coinbaseWallet, walletConnectWallet, injectedWallet],
+      wallets: [phantomWallet, metaMaskWallet, rainbowWallet, coinbaseWallet, walletConnectWallet, injectedWallet],
     },
   ],
   {

@@ -1,5 +1,3 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4021";
-
 export type PricingModel = "flat" | "tiered" | "per_token" | "per_minute";
 
 export interface Agent {
@@ -9,6 +7,7 @@ export interface Agent {
   description: string;
   price: string;
   address: string;
+  creatorAddress?: string;
   type: "ai" | "custom_skill" | "human_expert";
   reputation: { count: number; averageScore: number };
   totalCalls: number;
@@ -48,12 +47,12 @@ export interface OrchestrateResult {
 }
 
 export async function fetchAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_BASE}/api/agents`);
+  const res = await fetch(`/api/agents`);
   return res.json();
 }
 
 export async function fetchAgent(id: string): Promise<Agent> {
-  const res = await fetch(`${API_BASE}/api/agents/${id}`);
+  const res = await fetch(`/api/agents/${id}`);
   return res.json();
 }
 
@@ -62,7 +61,7 @@ export async function callAgent(
   input: string,
   quotedPrice?: string
 ): Promise<{ agent: string; result: string; price: string; basePrice?: string; paidTo: string }> {
-  const res = await fetch(`${API_BASE}/api/agents/${id}/call`, {
+  const res = await fetch(`/api/agents/${id}/call`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ input, quotedPrice }),
@@ -82,7 +81,7 @@ export interface AgentQuote {
 }
 
 export async function quoteAgent(id: string, input: string): Promise<AgentQuote> {
-  const res = await fetch(`${API_BASE}/api/agents/${id}/quote`, {
+  const res = await fetch(`/api/agents/${id}/quote`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ input }),
@@ -95,7 +94,7 @@ export async function quoteAgent(id: string, input: string): Promise<AgentQuote>
 }
 
 export async function rateAgent(id: string, score: number): Promise<{ success: boolean; reputation: { count: number; averageScore: number } }> {
-  const res = await fetch(`${API_BASE}/api/agents/${id}/rate`, {
+  const res = await fetch(`/api/agents/${id}/rate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ score }),
@@ -104,7 +103,7 @@ export async function rateAgent(id: string, score: number): Promise<{ success: b
 }
 
 export async function orchestrate(task: string): Promise<OrchestrateResult> {
-  const res = await fetch(`${API_BASE}/api/orchestrate`, {
+  const res = await fetch(`/api/orchestrate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ task }),
@@ -113,12 +112,12 @@ export async function orchestrate(task: string): Promise<OrchestrateResult> {
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch(`${API_BASE}/api/tasks`);
+  const res = await fetch(`/api/tasks`);
   return res.json();
 }
 
 export async function claimTask(id: string, expertAddress?: string): Promise<Task> {
-  const res = await fetch(`${API_BASE}/api/tasks/${id}/claim`, {
+  const res = await fetch(`/api/tasks/${id}/claim`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ expertAddress }),
@@ -127,7 +126,7 @@ export async function claimTask(id: string, expertAddress?: string): Promise<Tas
 }
 
 export async function submitTask(id: string, result: string): Promise<Task> {
-  const res = await fetch(`${API_BASE}/api/tasks/${id}/submit`, {
+  const res = await fetch(`/api/tasks/${id}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ result }),
@@ -143,7 +142,7 @@ export async function createCustomAgent(data: {
   systemPrompt: string;
   creatorAddress: string;
 }): Promise<Agent> {
-  const res = await fetch(`${API_BASE}/api/agents/create`, {
+  const res = await fetch(`/api/agents/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -158,7 +157,7 @@ export async function applyAsExpert(data: {
   rate: string;
   walletAddress: string;
 }): Promise<Agent> {
-  const res = await fetch(`${API_BASE}/api/experts/apply`, {
+  const res = await fetch(`/api/experts/apply`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -173,7 +172,7 @@ export async function applyAsExpert(data: {
 }
 
 export async function fetchActivity(): Promise<ActivityItem[]> {
-  const res = await fetch(`${API_BASE}/api/activity`);
+  const res = await fetch(`/api/activity`);
   return res.json();
 }
 
@@ -193,13 +192,13 @@ export interface McpStatus {
 }
 
 export async function getMcpStatus(): Promise<McpStatus> {
-  const res = await fetch(`${API_BASE}/api/mcp/status`, { cache: "no-store" });
+  const res = await fetch(`/api/mcp/status`, { cache: "no-store" });
   if (!res.ok) throw new Error("mcp down");
   return res.json();
 }
 
 export async function pingMcp(): Promise<{ ok: boolean; latencyMs: number; agentCount: number }> {
-  const res = await fetch(`${API_BASE}/api/mcp/ping`, { method: "POST" });
+  const res = await fetch(`/api/mcp/ping`, { method: "POST" });
   if (!res.ok) throw new Error("ping failed");
   return res.json();
 }

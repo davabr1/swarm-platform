@@ -4,14 +4,8 @@
     {
       "name": "next",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:next", "--prefix", "swarm"],
+      "runtimeArgs": ["run", "dev", "--prefix", "swarm"],
       "port": 3000
-    },
-    {
-      "name": "api",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "--watch", "swarm/server/index.ts"],
-      "port": 4021
     }
   ]
 }

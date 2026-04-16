@@ -4,14 +4,8 @@
     {
       "name": "next",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:next"],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
-    },
-    {
-      "name": "api",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "--watch", "server/index.ts"],
-      "port": 4021
     }
   ]
 }

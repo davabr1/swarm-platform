@@ -1,37 +1,5 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
-// Parse .env manually to avoid conflicts with pre-injected empty env vars
-// Try both swarm/.env (when run from parent) and .env (when run from swarm/)
-function findEnvPath(): string {
-  const candidates = [
-    resolve(process.cwd(), ".env"),
-    resolve(process.cwd(), "swarm/.env"),
-    resolve(process.cwd(), "../.env"),
-  ];
-  for (const c of candidates) {
-    try {
-      readFileSync(c, "utf-8");
-      return c;
-    } catch {}
-  }
-  return candidates[0];
-}
-const envPath = findEnvPath();
-try {
-  const envContent = readFileSync(envPath, "utf-8");
-  for (const line of envContent.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.substring(0, eqIndex).trim();
-    const value = trimmed.substring(eqIndex + 1).trim();
-    process.env[key] = value;
-  }
-} catch {
-  console.warn("Warning: Could not read .env file");
-}
+// Next.js loads .env* files automatically in dev; Vercel injects env vars at runtime.
+// No manual .env parsing needed here.
 
 export const config = {
   // Avalanche Fuji
@@ -48,7 +16,6 @@ export const config = {
   reputationRegistry: process.env.REPUTATION_REGISTRY || "0x8004B663056A597Dffe9eCcC1965A193B7388713",
 
   // AI
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
   geminiApiKey: process.env.GEMINI_API_KEY || "",
 
   // Agent wallets
@@ -108,6 +75,4 @@ export const config = {
     privateKey: process.env.HUMAN_EXPERT_PRIVATE_KEY || "",
     address: process.env.HUMAN_EXPERT_ADDRESS || "",
   },
-
-  port: parseInt(process.env.PORT || "4021"),
 };

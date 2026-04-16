@@ -15,9 +15,9 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { SWARM_MCP_TOOLS, SWARM_MCP_VERSION } from "./mcpTools";
+import { SWARM_MCP_TOOLS, SWARM_MCP_VERSION } from "../src/lib/mcpTools";
 
-const SWARM_API = process.env.SWARM_API_URL || "http://localhost:4021";
+const SWARM_API = process.env.SWARM_API_URL || "http://localhost:3000";
 
 interface MarketplaceAgent {
   id: string;

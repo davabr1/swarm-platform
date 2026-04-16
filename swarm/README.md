@@ -4,16 +4,19 @@ An agent marketplace on Avalanche Fuji. Agents discover and hire specialized
 agents (and verified humans) through the Model Context Protocol. Payments
 settle per call in USDC via `x402`. Reputation writes on-chain to `ERC-8004`.
 
-- Next.js 16 web app (marketplace, conductor UI, profile, task board)
-- Express API for x402 settlement + ERC-8004 writes
+- Next.js 16 web app · marketplace, conductor UI, profile, task board
+- Route handlers under `src/app/api/*` for x402 settlement + ERC-8004 writes
+- Supabase Postgres for agents, tasks, and activity (Prisma ORM)
 - Stdio MCP server exposing `swarm_list_agents`, `swarm_call_agent`,
   `swarm_rate_agent`, `swarm_post_human_task`, `swarm_orchestrate`
 
 ## Prerequisites
 
 - Node 20+ and npm 10+
-- An Anthropic API key (or Gemini as fallback)
+- A Gemini API key (free at https://aistudio.google.com/apikey)
 - A WalletConnect project id (free at https://cloud.reown.com)
+- A Supabase Postgres project (free at https://supabase.com) — you'll need
+  both the pooled (port 6543) and session (port 5432) connection strings
 - A funded Avalanche Fuji wallet · AVAX for gas + testnet USDC for payments.
   Grab both from the
   [Fuji faucet](https://build.avax.network/console/primary-network/faucet).
@@ -32,29 +35,36 @@ npm install
 cp .env.example .env
 # open .env and fill in the values (see .env.example for annotations)
 
-# 4. run the web app + API together
+# 4. push the schema to your database + seed demo data
+npm run db:migrate:deploy
+npm run db:seed
+
+# 5. run the app
 npm run dev
 ```
 
-Web app at http://localhost:3000 and API at http://localhost:4021. The MCP
-stdio server boots on demand when an MCP client spawns it · wire it into
-Claude, Cursor, or Codex from `/connect` in the web app.
+Web app at http://localhost:3000. API routes live under `/api/*` on the same
+port. The MCP stdio server boots on demand when an MCP client spawns it · wire
+it into Claude, Cursor, or Codex from `/connect` in the web app.
 
 ## Scripts
 
-| Command                        | What it does                                         |
-| ------------------------------ | ---------------------------------------------------- |
-| `npm run dev`                  | Runs Next.js (port 3000) + Express API (port 4021)   |
-| `npm run dev:next`             | Web app only                                         |
-| `npm run dev:server`           | Express API only                                     |
-| `npm run mcp`                  | Stdio MCP server (usually invoked by the MCP client) |
-| `npm run build && npm start`   | Production build                                     |
+| Command                     | What it does                                          |
+| --------------------------- | ----------------------------------------------------- |
+| `npm run dev`               | Runs Next.js on port 3000                             |
+| `npm run mcp`               | Stdio MCP server (usually invoked by the MCP client)  |
+| `npm run build && npm start`| Production build                                      |
+| `npm run db:migrate`        | Create + apply a new Prisma migration (dev)           |
+| `npm run db:migrate:deploy` | Apply pending migrations to the configured database   |
+| `npm run db:seed`           | Seed demo agents, human experts, and activity feed    |
+| `npm run db:generate`       | Regenerate Prisma Client after a schema change        |
 
 ## Environment
 
 See `.env.example` for the full annotated list. The required keys are:
 
-- `ANTHROPIC_API_KEY` (or `GEMINI_API_KEY`)
+- `GEMINI_API_KEY`
+- `DATABASE_URL`, `DIRECT_URL` (Supabase pooled + session connection strings)
 - `AVALANCHE_FUJI_RPC`, `CHAIN_ID`, `USDC_CONTRACT`
 - `FACILITATOR_URL`
 - `IDENTITY_REGISTRY`, `REPUTATION_REGISTRY`
@@ -87,38 +97,34 @@ chat once the client is restarted.
 Claude / Cursor / Codex ─► stdio MCP (server/mcp.ts)
                                 │
                                 ▼
-                       Express API (server/index.ts)
+                   Next.js route handlers (/api/*)
                                 │
-              ┌─────────────────┼──────────────────┐
-              ▼                 ▼                  ▼
-         Anthropic         x402 facilitator   ERC-8004 registries
-           (LLM)            (USDC settle)     (on-chain identity
-                                               + reputation)
+         ┌──────────┬───────────┼──────────────────┐
+         ▼          ▼           ▼                  ▼
+      Gemini   Supabase    x402 facilitator  ERC-8004 registries
+      (LLM)    (Postgres)  (USDC settle)    (on-chain identity
+                                             + reputation)
 ```
 
-The web app is a thin client over the same Express API · there is no hidden
-state, every interesting operation is an HTTP call or a stdio tool call you
-can run yourself.
+The web app, the MCP server, and every hosted `/api/*` route all hit the same
+Next.js backend. The MCP stdio transport connects to whatever URL you set in
+`SWARM_API_URL` · point it at your deployed app (e.g. `https://swarm.vercel.app`)
+so clients anywhere in the world can use it.
 
 ## Deploying
 
-Stdio MCP servers spawn on the caller's machine by design, so a hosted-only
-version would not let remote MCP clients connect. If you publish the web UI,
-pick one of:
+The project is built to deploy as a single Next.js app on Vercel.
 
-1. **Local MCP, hosted UI** · users visit your hosted web app to browse the
-   marketplace, but still clone the repo locally and point their MCP client
-   at their own clone. Set `NEXT_PUBLIC_SWARM_API_URL` so the hosted UI reads
-   from your hosted API, keep the stdio MCP server in the repo.
-2. **Thin npm package** · publish `@your-org/swarm-mcp` that ships just the
-   stdio transport and hits your hosted Express API over the network. Users
-   add a one-line MCP config (`npx @your-org/swarm-mcp`) with no clone.
-3. **Remote HTTP/SSE transport** · serve MCP over SSE at e.g.
-   `mcp.swarm.example.com`. Newer MCP clients support this transport and
-   can connect with a URL instead of a spawned subprocess.
-
-Approach 1 is the quickest path from demo to public beta · 2 and 3 are the
-product-grade paths.
+1. Push this repo to GitHub and import it into Vercel.
+2. Set every variable from `.env.example` in the Vercel project's env settings.
+   `DATABASE_URL` should be Supabase's transaction pooler; `DIRECT_URL` the
+   session pooler.
+3. First-time setup · run `npm run db:migrate:deploy` and `npm run db:seed`
+   from your machine (with the Supabase URLs in `.env`) so the schema + demo
+   rows exist before the first Vercel request.
+4. After deploy, share the MCP config from `/connect` with users. They set
+   `SWARM_API_URL=https://your-project.vercel.app` in their MCP client config
+   and the stdio server talks to your hosted `/api/*` routes.
 
 ## Avalanche resources
 

@@ -56,7 +56,7 @@ This section matters because it answers "does any of this actually do anything, 
 
 ### Good-to-have
 - **No ERC-8004 registration UI.** You have to hit `POST /api/register-agents` by hand. Add a "register on-chain" button to each user-created agent in Profile.
-- **Orchestrator AI-provider fallback.** `callAgent` uses Anthropic first, falls back to Gemini if API key missing. If both fail (log: `ApiError: 403 ...`) the orchestrator silently degrades to a one-subtask guess. Add proper error surfacing.
+- **Orchestrator error surfacing.** `callAgent` calls Gemini and throws if `GEMINI_API_KEY` is missing. If the provider call itself fails (log: `ApiError: 403 ...`) the orchestrator silently degrades to a one-subtask guess. Add proper error surfacing.
 - **No task deadline enforcement.** `description`/`bounty`/`skill` are captured but `deadline` isn't a field. Add it; auto-expire unclaimed tasks back to OPEN or refund the poster.
 - **No agent pagination.** The marketplace loads all 29 agents at once. Fine now, breaks at ~1000.
 - **Activity ticker synthetic events inflate the demo.** In production, turn off the `SYNTHETIC_EVENTS` injector in `ActivityTicker.tsx` and rely purely on real server activity.
@@ -89,7 +89,7 @@ This section matters because it answers "does any of this actually do anything, 
 
 7. **Implement tiered pricing**: the x402 middleware currently takes a static `price` per route. Replace with a function that inspects the request body and returns a price. E.g. Chainsight: `priceFor({ hops }) => 0.14 + Math.max(0, hops - 10) * 0.028`. The 402 response includes the quoted price; the client signs that exact amount.
 8. **Implement budget enforcement**: the MCP server already knows which session called which tool. Add an envelope check before forwarding the call: `if (sessionSpent + quotedPrice > perSessionCap) return { error: "budget exceeded" }`. Session-scoped.
-9. **Per-token pricing for research/summarization agents**: wrap the agent call with a token counter (Anthropic returns usage); quote in the 402 response based on input length.
+9. **Per-token pricing for research/summarization agents**: wrap the agent call with a token counter (Gemini returns usage metadata); quote in the 402 response based on input length.
 
 ### Tier 4 — scale
 
@@ -130,8 +130,7 @@ ngrok http 4021                    # public URL to your local API
 
 Env vars (in `swarm/.env`):
 ```
-ANTHROPIC_API_KEY=...             # required for callAgent() to work
-GEMINI_API_KEY=...                # fallback, optional
+GEMINI_API_KEY=...                # required for callAgent() to work
 ORCHESTRATOR_PRIVATE_KEY=...       # required for ERC-8004 writes
 ORCHESTRATOR_ADDRESS=...
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...  # for mobile wallet support

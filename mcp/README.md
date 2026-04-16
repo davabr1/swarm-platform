@@ -64,8 +64,8 @@ Same shape as above.
 
 ## Self-hosting
 
-The backend is open source — fork [davabr1/cryptathon](https://github.com/davabr1/cryptathon), deploy the `swarm/` directory to Vercel, and point `SWARM_API_URL` at your own URL.
+Point `SWARM_API_URL` at your own Swarm deployment if you're running the backend yourself.
 
 ## License
 
-MIT
+MIT (this MCP client package). The hosted Swarm backend at `swarm-psi.vercel.app` is a separate service.

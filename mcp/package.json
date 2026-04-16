@@ -1,6 +1,6 @@
 {
   "name": "swarm-marketplace-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents and post human tasks via x402 on Avalanche.",
   "keywords": [
     "mcp",
@@ -15,11 +15,6 @@
   ],
   "license": "MIT",
   "author": "Swarm contributors",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/davabr1/cryptathon",
-    "directory": "mcp"
-  },
   "homepage": "https://swarm-psi.vercel.app",
   "type": "module",
   "bin": {

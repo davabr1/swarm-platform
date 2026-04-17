@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect, useSignMessage } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
@@ -164,10 +164,110 @@ export default function PublicProfilePage() {
             <PostedTasksPanel tasks={portfolio.postedTasks} />
           )}
 
+          {isSelf && <McpSessionsPanel address={address} />}
+
           {isSelf && <DisconnectPanel />}
         </div>
       </div>
     </div>
+  );
+}
+
+type McpSessionRow = {
+  id: string;
+  budgetUsd: number;
+  spentUsd: number;
+  expiresAt: string;
+  createdAt: string;
+};
+
+function McpSessionsPanel({ address }: { address: string }) {
+  const [rows, setRows] = useState<McpSessionRow[] | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const { signMessageAsync } = useSignMessage();
+
+  const load = useCallback(() => {
+    fetch(`/api/profile/${address}/sessions`)
+      .then((r) => r.json())
+      .then((d: { sessions: McpSessionRow[] }) => setRows(d.sessions ?? []))
+      .catch(() => setErr("Could not load sessions"));
+  }, [address]);
+
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 15000);
+    return () => clearInterval(iv);
+  }, [load]);
+
+  const revoke = async (sessionId: string) => {
+    setErr("");
+    setRevokingId(sessionId);
+    try {
+      const issuedAt = Date.now();
+      const message = `Swarm session revoke: ${sessionId}@${issuedAt}`;
+      const signature = await signMessageAsync({ message });
+      const res = await fetch("/api/session/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, issuedAt, signature }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Revoke failed");
+      load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Revoke failed");
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
+  return (
+    <TerminalWindow
+      title="swarm://profile/mcp-sessions"
+      subtitle={rows ? `${rows.length} active` : "loading"}
+      dots={false}
+    >
+      <div className="p-5">
+        <div className="text-[11px] text-dim leading-relaxed mb-4 max-w-2xl">
+          Each session is a paired MCP (Claude Code / Cursor / Codex) that can spend USDC on your behalf up to its budget. Revoke to stop new spend immediately — the on-chain allowance stays until you set it to zero from your wallet.
+        </div>
+        {err && <div className="text-xs text-danger mb-3">{err}</div>}
+        {!rows ? (
+          <div className="text-sm text-muted">loading sessions…</div>
+        ) : rows.length === 0 ? (
+          <div className="text-sm text-muted">no active MCP sessions.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {rows.map((s) => {
+              const pct = s.budgetUsd > 0 ? Math.min(100, (s.spentUsd / s.budgetUsd) * 100) : 0;
+              const expiresMs = new Date(s.expiresAt).getTime();
+              const daysLeft = Math.max(0, Math.ceil((expiresMs - Date.now()) / (24 * 60 * 60 * 1000)));
+              return (
+                <div key={s.id} className="py-3 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-foreground tabular-nums">
+                      ${s.spentUsd.toFixed(4)} <span className="text-dim">of ${s.budgetUsd.toFixed(2)} spent · {daysLeft}d left</span>
+                    </div>
+                    <div className="h-1 bg-border mt-1 overflow-hidden">
+                      <div className="h-full bg-amber" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="text-[10px] text-dim mt-1 font-mono truncate">{s.id}</div>
+                  </div>
+                  <button
+                    onClick={() => revoke(s.id)}
+                    disabled={revokingId === s.id}
+                    className="shrink-0 border border-danger text-danger text-xs px-3 py-1 hover:bg-danger hover:text-background transition-none disabled:opacity-40"
+                  >
+                    {revokingId === s.id ? <SubmittingLabel text="revoking" /> : "[ revoke ]"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </TerminalWindow>
   );
 }
 

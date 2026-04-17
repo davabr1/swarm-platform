@@ -30,8 +30,13 @@ import {
   startBackgroundCheck,
   updateBanner,
 } from "./updateCheck.js";
+import { ensureSession, pairUrlHint, swarmApiUrl, swarmFetch } from "./session.js";
 
-const SWARM_API = process.env.SWARM_API_URL || "https://swarm-psi.vercel.app";
+const SWARM_API = swarmApiUrl();
+
+// These tools don't touch paid paths or produce wallet-attributed records,
+// so they work without pairing. Everything else requires ensureSession().
+const UNAUTHENTICATED_TOOLS = new Set(["swarm_check_version"]);
 
 interface MarketplaceAgent {
   id: string;
@@ -111,10 +116,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const toolArgs = (args ?? {}) as Record<string, unknown>;
 
+  // Gate every paid / wallet-attributed tool behind a valid paired session.
+  // If pairing isn't complete, return the pair URL so the host AI can surface
+  // the link to the user — the server stays up so the reminder keeps flowing.
+  if (!UNAUTHENTICATED_TOOLS.has(name)) {
+    const session = await ensureSession();
+    if (!session) {
+      const url = pairUrlHint();
+      return textResponse(
+        `Swarm MCP is not paired to a wallet yet. ` +
+          (url
+            ? `Open ${url} in a browser, connect your wallet, pick a USDC budget, and retry this tool call.`
+            : `Restart the MCP so it can print a pair URL, or check the server logs.`),
+      );
+    }
+  }
+
   try {
     switch (name) {
       case "swarm_list_agents": {
-        const res = await fetch(`${SWARM_API}/api/agents`);
+        const res = await swarmFetch(`/api/agents`);
         let agents = (await res.json()) as MarketplaceAgent[];
         if (typeof toolArgs.skill_filter === "string") {
           const filter = toolArgs.skill_filter.toLowerCase();
@@ -135,10 +156,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           agentId,
           question: toolArgs.question,
         };
-        if (typeof toolArgs.asker_address === "string" && toolArgs.asker_address) {
-          body.askerAddress = toolArgs.asker_address;
-        }
-        const res = await fetch(`${SWARM_API}/api/guidance`, {
+        const res = await swarmFetch(`/api/guidance`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -154,7 +172,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // The GET endpoint returns a flat `agentId` but the POST endpoint
         // returns a nested `agent.id` — tolerate both so shape drift doesn't
         // break follow-ups.
-        const root = await fetch(`${SWARM_API}/api/guidance/${conversationId}`);
+        const root = await swarmFetch(`/api/guidance/${conversationId}`);
         const rootData = (await root.json()) as {
           agent?: { id?: string };
           agentId?: string;
@@ -172,10 +190,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           question: reply,
           conversationId,
         };
-        if (typeof toolArgs.asker_address === "string" && toolArgs.asker_address) {
-          body.askerAddress = toolArgs.asker_address;
-        }
-        const res = await fetch(`${SWARM_API}/api/guidance`, {
+        const res = await swarmFetch(`/api/guidance`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -186,7 +201,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "swarm_get_guidance": {
         const requestId = String(toolArgs.request_id);
-        const res = await fetch(`${SWARM_API}/api/guidance/${requestId}`);
+        const res = await swarmFetch(`/api/guidance/${requestId}`);
         const data = await res.json();
         const hint =
           data?.status === "ready"
@@ -199,7 +214,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "swarm_rate_agent": {
         const agentId = String(toolArgs.agent_id);
-        const res = await fetch(`${SWARM_API}/api/agents/${agentId}/rate`, {
+        const res = await swarmFetch(`/api/agents/${agentId}/rate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ score: toolArgs.score }),
@@ -222,7 +237,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           description: toolArgs.description,
           bounty: toolArgs.bounty,
           skill: toolArgs.skill,
-          postedBy: "mcp_client",
+          // postedBy is derived server-side from the paired session
         };
         if (typeof toolArgs.payload === "string") body.payload = toolArgs.payload;
         if (typeof toolArgs.assigned_to === "string") body.assignedTo = toolArgs.assigned_to;
@@ -231,7 +246,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (toolArgs.visibility === "public" || toolArgs.visibility === "private") {
           body.visibility = toolArgs.visibility;
         }
-        const res = await fetch(`${SWARM_API}/api/tasks`, {
+        const res = await swarmFetch(`/api/tasks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -244,7 +259,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "swarm_get_human_task": {
         const taskId = String(toolArgs.task_id);
-        const res = await fetch(`${SWARM_API}/api/tasks/${taskId}`);
+        const res = await swarmFetch(`/api/tasks/${taskId}`);
         const data = await res.json();
         let hint = "";
         if (data && typeof data === "object") {
@@ -265,10 +280,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "swarm_rate_human_task": {
         const taskId = String(toolArgs.task_id);
-        const res = await fetch(`${SWARM_API}/api/tasks/${taskId}/rate`, {
+        const res = await swarmFetch(`/api/tasks/${taskId}/rate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score: toolArgs.score, viewer: "mcp_client" }),
+          body: JSON.stringify({ score: toolArgs.score }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -284,10 +299,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           agentId,
           prompt: toolArgs.prompt,
         };
-        if (typeof toolArgs.asker_address === "string" && toolArgs.asker_address) {
-          body.askerAddress = toolArgs.asker_address;
-        }
-        const res = await fetch(`${SWARM_API}/api/image`, {
+        const res = await swarmFetch(`/api/image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

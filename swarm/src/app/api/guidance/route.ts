@@ -2,20 +2,34 @@ import { db } from "@/lib/db";
 import { callAgentStructured } from "@/lib/llm";
 import { computeGeminiCost, formatUsd, parsePrice } from "@/lib/geminiPricing";
 import { logActivity } from "@/lib/activity";
+import { getSessionFromRequest, incrementSpent } from "@/lib/session";
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 const TURN_CAP = 5;
+// Pre-flight budget estimate: agent commission + Gemini ceiling + 5% cushion.
+// Actual cost is known only after the LLM call; this gate blocks runaway loops
+// when the on-chain allowance is still ahead of spendUsd. Mild over-spend is
+// possible under concurrent calls — the on-chain allowance is the real cap.
+const PREFLIGHT_GEMINI_CEILING_USD = 0.05;
+const PREFLIGHT_OVERHEAD_RATIO = 1.05;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const agentId: string | undefined = body.agentId;
   const question: string | undefined = body.question;
-  const askerAddress: string = typeof body.askerAddress === "string" && body.askerAddress
-    ? body.askerAddress
-    : "mcp_client";
   const conversationId: string | undefined =
     typeof body.conversationId === "string" && body.conversationId ? body.conversationId : undefined;
+
+  // MCP callers carry an Authorization: Bearer <token>. When present, the
+  // paired wallet is the real identity — ignore whatever is in the body.
+  // Browser UI callers have no header and fall back to the legacy shape.
+  const session = await getSessionFromRequest(req);
+  const askerAddress: string = session
+    ? session.address
+    : typeof body.askerAddress === "string" && body.askerAddress
+      ? body.askerAddress
+      : "mcp_client";
 
   if (!agentId || !question) {
     return Response.json({ error: "Missing 'agentId' or 'question'" }, { status: 400 });
@@ -68,6 +82,24 @@ export async function POST(req: NextRequest) {
     parentId = priorTurns[priorTurns.length - 1].id;
   } else {
     rootId = "";
+  }
+
+  if (session) {
+    const commissionEstimate = agent.userCreated ? parsePrice(agent.price) : 0;
+    const preflight =
+      (commissionEstimate + PREFLIGHT_GEMINI_CEILING_USD) * PREFLIGHT_OVERHEAD_RATIO;
+    if (session.spentUsd + preflight > session.budgetUsd) {
+      return Response.json(
+        {
+          error: "budget_exhausted",
+          spentUsd: session.spentUsd,
+          budgetUsd: session.budgetUsd,
+          message:
+            "Your MCP session budget is exhausted. Re-pair to authorize a fresh USDC budget.",
+        },
+        { status: 402 },
+      );
+    }
   }
 
   const id = randomUUID();
@@ -150,6 +182,13 @@ export async function POST(req: NextRequest) {
       where: { id: agentId },
       data: { totalCalls: { increment: 1 } },
     });
+
+    if (session) {
+      // Post-flight increment with the actual totalUsd. The on-chain allowance
+      // is the hard cap x402 (Phase 2) will enforce; this DB counter is what
+      // lets us 402 before even calling the LLM on subsequent requests.
+      await incrementSpent(session.id, total);
+    }
 
     const creator = agent.creatorAddress ?? agent.walletAddress;
     const kindLabel = replyType === "question" ? "clarify" : "guidance";

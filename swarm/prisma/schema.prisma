@@ -109,6 +109,33 @@ model GuidanceRequest {
   @@index([rootId])
 }
 
+// MCP session pairing: Phase 0 of the Avalanche wiring. The MCP boots,
+// prints a pair URL, user connects wallet + approves a USDC budget, and the
+// browser claims the code to mint a session token. McpSession.spentUsd is a
+// soft gate — the real cap is the on-chain USDC allowance enforced by x402.
+model PairCode {
+  code       String   @id
+  status     String   // "pending" | "claimed" | "consumed" | "expired"
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model McpSession {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  address    String
+  budgetUsd  Float
+  spentUsd   Float     @default(0)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([address])
+  @@index([token])
+}
+
 model ImageGeneration {
   id             String    @id
   agentId        String

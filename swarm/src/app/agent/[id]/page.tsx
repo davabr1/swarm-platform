@@ -456,7 +456,7 @@ export default function AgentDetailPage() {
                               </div>
                               <pre className="whitespace-pre-wrap leading-relaxed text-foreground">{line.text}</pre>
                               <div className="mt-2 text-[10px] uppercase tracking-widest text-dim">
-                                ↓ reply below to continue · rating unlocks after a final answer
+                                ↑ reply above to continue · rating unlocks after a final answer
                               </div>
                             </div>
                           ) : line.kind === "image" ? (

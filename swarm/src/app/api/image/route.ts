@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       }),
       logActivity(
         "payment",
-        `image · ${agent.name} · $${totalUsd} — creator ${creator.slice(0, 8)}... gets $${commissionUsd}, gemini $${geminiCostUsd}`,
+        `image · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, gemini ${geminiCostUsd} USDC`,
       ),
     ]);
 

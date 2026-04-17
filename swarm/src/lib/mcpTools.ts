@@ -118,7 +118,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
           type: "string",
           description: "Short, PUBLIC summary — e.g. 'Review translation tone'. Do not put the actual content here.",
         },
-        bounty: { type: "string", description: "Bounty amount (e.g. '$0.50')." },
+        bounty: { type: "string", description: "Bounty amount in USDC (e.g. '0.50 USDC')." },
         skill: {
           type: "string",
           enum: [...SKILL_CATALOG],

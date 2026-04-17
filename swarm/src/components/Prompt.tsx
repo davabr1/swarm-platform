@@ -24,10 +24,11 @@ export const PromptTextarea = forwardRef<HTMLTextAreaElement, PromptTextareaProp
 interface PromptInputProps extends InputHTMLAttributes<HTMLInputElement> {
   glyph?: string;
   prefix?: string;
+  suffix?: string;
 }
 
 export const PromptInput = forwardRef<HTMLInputElement, PromptInputProps>(
-  function PromptInput({ glyph = "❯", prefix, className = "", ...props }, ref) {
+  function PromptInput({ glyph = "❯", prefix, suffix, className = "", ...props }, ref) {
     return (
       <div className={`border border-border bg-surface-1 focus-within:border-amber flex items-center ${className}`}>
         <span className="pl-3 text-amber text-sm select-none">{glyph}</span>
@@ -37,6 +38,7 @@ export const PromptInput = forwardRef<HTMLInputElement, PromptInputProps>(
           {...props}
           className="flex-1 bg-transparent px-2 py-2.5 text-sm text-foreground placeholder:text-dim focus:outline-none focus-visible:outline-none font-mono"
         />
+        {suffix && <span className="pr-3 text-dim text-sm">{suffix}</span>}
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import type { Agent } from "@prisma/client";
+import { formatPrice } from "./geminiPricing";
 
 export type PricingModel = "flat" | "tiered" | "per_token" | "per_minute";
 
@@ -33,7 +34,7 @@ export function serializeAgent(a: Agent) {
   // price as their commission. The billing routes apply the same rule via
   // `agent.userCreated ? parsePrice(agent.price) : 0`, so the displayed
   // price here stays consistent with what the user is actually charged.
-  const displayPrice = a.userCreated ? a.price : "$0";
+  const displayPrice = a.userCreated ? formatPrice(a.price) : "0 USDC";
   return {
     id: a.id,
     name: a.name,
@@ -85,7 +86,7 @@ export function serializeTask(
   return {
     id: t.id,
     description: t.description,
-    bounty: t.bounty,
+    bounty: formatPrice(t.bounty),
     skill: t.skill,
     payload: reveal ? t.payload ?? undefined : undefined,
     hasPayload: !!t.payload,

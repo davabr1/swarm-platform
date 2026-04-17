@@ -104,7 +104,7 @@ async function main() {
       name: "Human Expert",
       skill: "Code Architecture",
       description: "Senior engineer available for architectural decisions and complex problem-solving",
-      price: "$0.50/task",
+      price: "0.50 USDC/task",
       walletAddress: config.humanExpert.address,
       creatorAddress: config.humanExpert.address,
       systemPrompt: "",

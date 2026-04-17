@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
     const kindLabel = replyType === "question" ? "clarify" : "guidance";
     await logActivity(
       "payment",
-      `${kindLabel} · ${agent.name} · $${totalUsd} — creator ${creator.slice(0, 8)}... gets $${commissionUsd}, platform $${geminiCostUsd}+$${platformFeeUsd}`
+      `${kindLabel} · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, platform ${geminiCostUsd}+${platformFeeUsd} USDC`
     );
 
     return Response.json({

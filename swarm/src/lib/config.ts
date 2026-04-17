@@ -43,7 +43,7 @@ export const config = {
       skill: "On-Chain Forensics",
       description:
         "Traces fund flows, clusters wallets, and produces evidence-grade on-chain forensics reports with mixer-aware heuristics.",
-      price: "$0.14",
+      price: "0.14 USDC",
       systemPrompt:
         "You are an on-chain forensics analyst specializing in Ethereum, Avalanche, Solana, and zk-rollups. Given a wallet, transaction, or exploit, produce a structured forensics report: (1) timeline of movements with block numbers and amounts, (2) address clusters and labels using heuristics (mixer interactions, CEX deposits, bridge activity), (3) likely motive, (4) recoverable vs obfuscated funds estimate, (5) recommended next steps for law enforcement or the protocol team. Cite tx hashes and be evidence-grade.",
     },
@@ -54,7 +54,7 @@ export const config = {
       skill: "Solidity Exploit Detection",
       description:
         "Deep Solidity exploit detection — reentrancy windows, delegatecall traps, storage collisions, upgrade-path risks.",
-      price: "$0.18",
+      price: "0.18 USDC",
       systemPrompt:
         "You are a Solidity exploit researcher with a deep background in reentrancy patterns, delegatecall and proxy storage collisions, selfdestruct traps, signature replay, and cross-chain bridge failure modes. Review the given Solidity for realistic exploit paths only — no style or preference nits. For each finding: (1) exploit classification, (2) severity (critical/high/medium), (3) PoC sketch or attack sequence, (4) concrete patch. Skip findings you cannot justify with a reproducible path.",
     },
@@ -65,7 +65,7 @@ export const config = {
       skill: "MEV & Orderflow Analysis",
       description:
         "Decodes MEV attacks, sandwiches, JIT liquidity, and private-mempool flow — builder-aware, cross-chain.",
-      price: "$0.09",
+      price: "0.09 USDC",
       systemPrompt:
         "You are an MEV analyst specializing in Ethereum, Base, Arbitrum, and BNB chain orderflow. Given a block range, tx hash, or pool, identify: (1) sandwich attacks (front/victim/back txs, profit in ETH/USD), (2) JIT liquidity events, (3) back-runs and atomic arbitrage, (4) builder-level routing behavior and private-mempool usage. Be precise about gas costs vs extraction. If insufficient data, state what you need.",
     },
@@ -76,7 +76,7 @@ export const config = {
       skill: "Regulatory & MiCA Compliance",
       description:
         "Jurisdiction-aware regulatory analysis for token launches, stablecoins, and DeFi frontends — MiCA, SEC, and FATF framing.",
-      price: "$0.22",
+      price: "0.22 USDC",
       systemPrompt:
         "You are a crypto regulatory analyst with depth in MiCA (EU), SEC enforcement precedent (Howey, Reves), FATF travel-rule, MSB registration, and state-by-state money transmission posture. Given a product description or token design, produce: (1) classification risk by major jurisdiction, (2) disclosure and registration obligations, (3) recent enforcement actions that match the pattern, (4) concrete mitigations a small legal team can ship in 30 days. Be conservative and cite specific rules.",
     },
@@ -94,7 +94,7 @@ export const config = {
       name: "Lumen",
       skill: "Image · Photorealistic",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.18",
+      price: "0.18 USDC",
       description:
         "Photoreal image generation — cinematic lighting, accurate materials, and legible in-image text. Built on Nano Banana Pro for hero shots, product renders, and editorial visuals.",
       systemPrompt:
@@ -107,7 +107,7 @@ export const config = {
       name: "Plushie",
       skill: "Image · Cute",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.08",
+      price: "0.08 USDC",
       description:
         "Kawaii and chibi-style image generation — rounded shapes, pastel palettes, oversized sparkling eyes, and a soft huggable aesthetic.",
       systemPrompt:
@@ -120,7 +120,7 @@ export const config = {
       name: "Inkwell",
       skill: "Image · Cartoon",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.08",
+      price: "0.08 USDC",
       description:
         "Bold-line cartoon and comic-book illustration — confident outlines, saturated flats, halftone shadows, and expressive poses.",
       systemPrompt:
@@ -133,7 +133,7 @@ export const config = {
       name: "Pastel",
       skill: "Image · Anime",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.08",
+      price: "0.08 USDC",
       description:
         "Anime and soft-painterly illustration — clean linework, cel shading, lush studio-style color, and expressive character work.",
       systemPrompt:
@@ -147,7 +147,7 @@ export const config = {
       name: "Bitforge",
       skill: "Image · Pixel Art",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.08",
+      price: "0.08 USDC",
       description:
         "Retro pixel-art image generation — tight dithering, limited palettes, and 8/16-bit game aesthetics ranging from NES sprites to late-SNES scenes.",
       systemPrompt:
@@ -162,7 +162,7 @@ export const config = {
       name: "Claywork",
       skill: "Image · 3D Render",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.18",
+      price: "0.18 USDC",
       description:
         "Stylized 3D / CGI rendering — Pixar-adjacent character and prop art with volumetric lighting, subsurface scattering, and polished materials. Backed by Nano Banana Pro.",
       systemPrompt:
@@ -177,7 +177,7 @@ export const config = {
       name: "Atelier",
       skill: "Image · Watercolor",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.14",
+      price: "0.14 USDC",
       description:
         "Watercolor and traditional-media illustration — visible paper grain, wet-edge blooms, soft color bleeds, and light pencil underdrawing. Backed by Nano Banana Pro for texture fidelity.",
       systemPrompt:
@@ -192,7 +192,7 @@ export const config = {
       name: "Neonoir",
       skill: "Image · Cyberpunk",
       model: "gemini-3.1-flash-image-preview",
-      price: "$0.14",
+      price: "0.14 USDC",
       description:
         "Cyberpunk and synthwave imagery — neon signage, rain-slick streets, holographic glitch, and saturated magenta/cyan lighting. Backed by Nano Banana Pro.",
       systemPrompt:

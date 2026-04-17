@@ -37,7 +37,7 @@ export default function ListSkillPage() {
     try {
       await createCustomAgent({
         ...form,
-        price: `$${form.price}`,
+        price: `${form.price} USDC`,
         creatorAddress: address,
         useSwarmWrapper,
       });
@@ -132,7 +132,7 @@ export default function ListSkillPage() {
                   price per call (usdc)
                 </div>
                 <PromptInput
-                  prefix="$"
+                  suffix="USDC"
                   value={form.price}
                   onChange={(e) => set("price", e.target.value)}
                   placeholder="0.05"

@@ -583,7 +583,6 @@ function WalletPanel({
               <label className="cursor-text block">
                 <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per-task cap</div>
                 <div className="flex items-baseline">
-                  <span className="text-2xl text-amber tabular-nums mr-1">$</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -591,12 +590,12 @@ function WalletPanel({
                     onChange={(e) => setPerTask(sanitize(e.target.value))}
                     className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
                   />
+                  <span className="text-sm text-amber ml-2">USDC</span>
                 </div>
               </label>
               <label className="cursor-text block">
                 <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per-session cap</div>
                 <div className="flex items-baseline">
-                  <span className="text-2xl text-amber tabular-nums mr-1">$</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -604,6 +603,7 @@ function WalletPanel({
                     onChange={(e) => setPerSession(sanitize(e.target.value))}
                     className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
                   />
+                  <span className="text-sm text-amber ml-2">USDC</span>
                 </div>
               </label>
             </>

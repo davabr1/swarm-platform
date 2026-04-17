@@ -69,11 +69,11 @@ const SCENARIOS: Scenario[] = [
         lines: [
           `[`,
           `  { id: "auditorAgent", rep: 4.9★,`,
-          `    calls: 1,427, quote: $0.42 USDC },`,
+          `    calls: 1,427, quote: 0.42 USDC },`,
           `  { id: "slitherPro",   rep: 4.8★,`,
-          `    calls:   903, quote: $0.35 USDC },`,
+          `    calls:   903, quote: 0.35 USDC },`,
           `  { id: "auditCat",     rep: 4.7★,`,
-          `    calls:   612, quote: $0.28 USDC }`,
+          `    calls:   612, quote: 0.28 USDC }`,
           `]`,
         ],
         delay: 900,
@@ -93,7 +93,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $0.42 USDC payment token`,
+          `signed 0.42 USDC payment token`,
           `avalanche c-chain · nonce 0x3e04 · ttl 60s`,
         ],
         delay: 600,
@@ -138,7 +138,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "settle",
         lines: [
-          `$0.42 USDC to auditorAgent`,
+          `0.42 USDC to auditorAgent`,
           `tx 0x9b72…0401 · block 48,218,332`,
           `rep +1 → 4.91★ (1,428 calls)`,
         ],
@@ -166,7 +166,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "legal:gdpr-eu",`,
-          `  bounty: $0.40 USDC,`,
+          `  bounty: 0.40 USDC,`,
           `  min_rep: 4.7,`,
           `  urgency: "normal", ttl: 1h }`,
         ],
@@ -176,7 +176,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $0.40 USDC bounty commitment`,
+          `signed 0.40 USDC bounty commitment`,
           `avalanche c-chain · settles on accepted answer`,
         ],
         delay: 700,
@@ -229,7 +229,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "settle",
         lines: [
-          `$0.40 USDC to @juriscoder`,
+          `0.40 USDC to @juriscoder`,
           `tx 0x3e21…b2aa · avalanche · rep +1 → 4.92★`,
         ],
         delay: 700,
@@ -256,7 +256,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "security:exploit-response",`,
-          `  bounty: $2.50 USDC,`,
+          `  bounty: 2.50 USDC,`,
           `  urgency: "critical",`,
           `  min_rep: 4.9, ttl: 5m }`,
         ],
@@ -266,7 +266,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $2.50 USDC bounty commitment`,
+          `signed 2.50 USDC bounty commitment`,
           `avalanche c-chain · expedited queue · on-call paged`,
         ],
         delay: 600,
@@ -313,7 +313,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "settle",
         lines: [
-          `$2.50 USDC to @vulnHunter`,
+          `2.50 USDC to @vulnHunter`,
           `tx 0xb7cd…0e19 · block 48,218,441`,
           `rep +1 → 5.00★ · urgency bonus applied`,
         ],
@@ -350,7 +350,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $0.05 USDC payment token`,
+          `signed 0.05 USDC payment token`,
           `avalanche c-chain · ttl 60s`,
         ],
         delay: 600,
@@ -389,7 +389,7 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         action: "settle",
-        lines: [`$0.05 USDC to linguaBot · tx 0xf412…9e01`],
+        lines: [`0.05 USDC to linguaBot · tx 0xf412…9e01`],
         delay: 600,
       },
       { kind: "done", note: "notification pushed", delay: 600 },
@@ -414,7 +414,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "defi:bonding-curves",`,
-          `  bounty: $0.65 USDC,`,
+          `  bounty: 0.65 USDC,`,
           `  attach: sim_results.json, min_rep: 4.7 }`,
         ],
         delay: 2500,
@@ -423,7 +423,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $0.65 USDC bounty commitment`,
+          `signed 0.65 USDC bounty commitment`,
           `avalanche c-chain · settles on accepted answer`,
         ],
         delay: 600,
@@ -470,7 +470,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "settle",
         lines: [
-          `$0.65 USDC to @defiWonk`,
+          `0.65 USDC to @defiWonk`,
           `tx 0x22aa…7abc · avalanche · rep +1 → 4.93★`,
         ],
         delay: 700,
@@ -506,7 +506,7 @@ const SCENARIOS: Scenario[] = [
         kind: "pay",
         action: "authorize",
         lines: [
-          `signed $0.07 USDC payment token`,
+          `signed 0.07 USDC payment token`,
           `avalanche c-chain · ttl 60s`,
         ],
         delay: 600,
@@ -550,7 +550,7 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         action: "settle",
-        lines: [`$0.07 USDC to queryFox`, `tx 0xde61…18ac · avalanche`],
+        lines: [`0.07 USDC to queryFox`, `tx 0xde61…18ac · avalanche`],
         delay: 600,
       },
       { kind: "done", note: "p95 -97% · migration unblocked", delay: 700 },

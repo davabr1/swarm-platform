@@ -182,9 +182,10 @@ export default function TaskBoardPage() {
     try {
       await postTask({
         description: postForm.description.trim(),
-        bounty: postForm.bounty.trim().startsWith("$")
-          ? postForm.bounty.trim()
-          : `$${postForm.bounty.trim()}`,
+        bounty: (() => {
+          const raw = postForm.bounty.trim().replace(/^\$/, "").trim();
+          return /\busdc\b/i.test(raw) ? raw : `${raw} USDC`;
+        })(),
         skill: postForm.skill.trim(),
         postedBy: address,
         payload: postForm.payload.trim() || undefined,
@@ -381,7 +382,7 @@ export default function TaskBoardPage() {
                         bounty (usdc)
                       </div>
                       <PromptInput
-                        prefix="$"
+                        suffix="USDC"
                         value={postForm.bounty}
                         onChange={(e) => setPostForm((p) => ({ ...p, bounty: e.target.value }))}
                         placeholder="0.50"

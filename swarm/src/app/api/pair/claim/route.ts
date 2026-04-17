@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
 
   await logActivity(
     "registration",
-    `MCP paired with ${address.slice(0, 8)}... — $${budgetUsd.toFixed(2)} budget`,
+    `MCP paired with ${address.slice(0, 8)}... — ${budgetUsd.toFixed(2)} USDC budget`,
   );
 
   return Response.json({

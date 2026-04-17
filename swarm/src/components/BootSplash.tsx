@@ -19,7 +19,7 @@ const SESSION_KEY = "swarm:boot-shown";
 
 // Chunky pixel-art ❯ chevron mascot · 6 rows to match the SWARM figlet
 // height exactly.
-const CHEVRON_MASCOT = [
+export const CHEVRON_MASCOT = [
   "████          ",
   "  ████        ",
   "    ████      ",
@@ -33,7 +33,7 @@ const CHEVRON_MASCOT = [
 // Courier New (forced via inline style on the pre) so the █ blocks and
 // ╗╚╝║═ corners sit flush · this is the state the user confirmed looks
 // good.
-const SWARM_ART = [
+export const SWARM_ART = [
   "███████╗██╗    ██╗ █████╗ ██████╗ ███╗   ███╗",
   "██╔════╝██║    ██║██╔══██╗██╔══██╗████╗ ████║",
   "███████╗██║ █╗ ██║███████║██████╔╝██╔████╔██║",
@@ -51,18 +51,14 @@ const SWARM_ART = [
 const LINES: string[] = [
   // scroll-off · generic swarm boot
   "swarm init · bootstrapping the agent marketplace",
-  "loading kernel modules · stdio, sse, http",
   "connecting to gemini · warming up",
-  "mounting mcp stdio transport",
   "registering tool · swarm_list_agents",
   "registering tool · swarm_ask_agent",
   "registering tool · swarm_get_guidance",
-  "registering tool · swarm_rate_agent",
   "registering tool · swarm_post_human_task",
   "streaming agent registry · 29 agents loaded",
   "streaming expert pool · 8 humans loaded",
   "priming reputation cache · 1,248 signals",
-  "verifying ecosystem attestations · ok",
   "preflight complete · powering on avalanche stack",
   // final six · avalanche sponsor checkpoints, visible at rest
   "handshake · avalanche c-chain validator set",
@@ -73,8 +69,8 @@ const LINES: string[] = [
   "ready · press enter to continue",
 ];
 
-const LINE_STEP_MS = 95;
-const AUTO_DISMISS_MS = 8500;
+const LINE_STEP_MS = 110;
+const AUTO_DISMISS_MS = 10000;
 // Only this many boot lines are on screen at once · older ones scroll
 // off as newer ones flush in, so the splash never walls the viewport.
 // Six rows matches what the user sees during the scrolling phase
@@ -89,17 +85,18 @@ export interface BootSplashProps {
 export default function BootSplash({ onDismiss }: BootSplashProps) {
   const [revealed, setRevealed] = useState(0);
 
-  // Sequential line pop-in · every line appears like a terminal flushing
-  // stdout. No CSS fade.
+  // Chained reveal · one timer at a time based on current `revealed`.
+  // Avoids the StrictMode double-mount scheduling 42 concurrent timers,
+  // which was causing the first few lines to visibly stutter/re-render.
   useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    LINES.forEach((_, i) => {
-      const t = setTimeout(() => setRevealed(i + 1), i * LINE_STEP_MS);
-      timers.push(t);
-    });
+    if (revealed >= LINES.length) return;
+    const t = setTimeout(() => setRevealed((r) => r + 1), LINE_STEP_MS);
+    return () => clearTimeout(t);
+  }, [revealed]);
+
+  useEffect(() => {
     const auto = setTimeout(onDismiss, AUTO_DISMISS_MS);
-    timers.push(auto);
-    return () => timers.forEach(clearTimeout);
+    return () => clearTimeout(auto);
   }, [onDismiss]);
 
   // Enter / Esc / Space / click anywhere all dismiss.
@@ -166,9 +163,12 @@ export default function BootSplash({ onDismiss }: BootSplashProps) {
               {shown.map((text, i) => {
                 const absIdx = start + i;
                 const isFinal = absIdx === LINES.length - 1;
-                const cls = isFinal ? "text-phosphor" : "text-muted";
+                const cls = isFinal ? "text-phosphor splash-blink" : "text-muted";
+                // key by local slot, not absolute index, so React updates
+                // text in stable DOM nodes instead of mounting/unmounting
+                // rows as the window scrolls.
                 return (
-                  <div key={absIdx} className={`whitespace-pre-wrap ${cls}`}>
+                  <div key={i} className={`whitespace-pre-wrap ${cls}`}>
                     {text}
                   </div>
                 );

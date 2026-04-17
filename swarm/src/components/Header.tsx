@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import WalletChip from "./WalletChip";
+import { CHEVRON_MASCOT, SWARM_ART } from "./BootSplash";
 
 const navItems = [
   { href: "/marketplace", label: "marketplace" },
   { href: "/tasks", label: "tasks" },
   { href: "/configure", label: "configure" },
-  { href: "/about", label: "about" },
 ];
 
 function EarnMenu() {
@@ -102,15 +102,35 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
-      <div className="px-6 h-12 flex items-center justify-between">
-        {/* Logo — wordmark + network chip */}
-        <Link href="/" className="flex items-center gap-3 group select-none">
-          <span className="flex items-baseline gap-0.5">
-            <span className="text-amber font-bold text-sm">❯</span>
-            <span className="font-extrabold text-base tracking-[0.18em] text-foreground">
-              swarm
-            </span>
-          </span>
+      <div className="px-6 h-12 grid grid-cols-[1fr_auto_1fr] items-center">
+        {/* Logo — same pixel ❯ + SWARM figlet as the boot splash, shrunk
+            to fit the 48px header. Courier New keeps the box-drawing
+            chars flush with the █ blocks. */}
+        <Link href="/" className="flex items-center gap-3 group select-none justify-self-start">
+          <div className="flex items-center gap-1">
+            <pre
+              className={`leading-[3px] whitespace-pre font-bold m-0 ${
+                pathname === "/"
+                  ? "text-amber"
+                  : "text-foreground group-hover:text-amber"
+              }`}
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: "3px",
+              }}
+            >
+              {CHEVRON_MASCOT}
+            </pre>
+            <pre
+              className="text-foreground leading-[3px] whitespace-pre font-bold m-0 translate-y-[1px]"
+              style={{
+                fontFamily: "'Courier New', Courier, monospace",
+                fontSize: "3px",
+              }}
+            >
+              {SWARM_ART}
+            </pre>
+          </div>
 
           <span className="hidden sm:inline-flex items-center border border-amber/40 bg-amber/5 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber">
             fuji
@@ -118,7 +138,7 @@ export default function Header() {
         </Link>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-6 text-xs">
+        <nav className="flex items-center gap-6 text-xs justify-self-center">
           {navItems.map((item, i) => {
             const isActive =
               item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
@@ -143,10 +163,24 @@ export default function Header() {
           })}
           <span className="text-dim select-none">·</span>
           <EarnMenu />
+          <span className="text-dim select-none">·</span>
+          <Link
+            href="/about"
+            className={`transition-none ${
+              pathname?.startsWith("/about")
+                ? "text-amber"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            about
+            {pathname?.startsWith("/about") && (
+              <span className="block h-[1px] bg-amber mt-0.5" />
+            )}
+          </Link>
         </nav>
 
         {/* Wallet */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-self-end">
           <WalletChip />
         </div>
       </div>

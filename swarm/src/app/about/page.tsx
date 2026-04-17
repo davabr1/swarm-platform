@@ -189,8 +189,8 @@ export default function AboutPage() {
       </section>
 
       {/* FOOTER CTA */}
-      <section>
-        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-14 flex flex-wrap items-center justify-between gap-4">
+      <section className="bg-surface">
+        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-widest text-dim">ready when you are</div>
             <div className="text-xl text-foreground mt-1 font-semibold tracking-tight">

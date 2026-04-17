@@ -101,13 +101,15 @@ body {
   50%, 100% { opacity: 0; }
 }
 
-/* Whole-line blink for the boot splash "press enter" prompt */
+/* Whole-line blink for the boot splash "press enter" prompt.
+   Flip color between phosphor green and the page background so it reads
+   as an on/off terminal blink, not a fade through a darker green. */
 .splash-blink {
   animation: splash-blink 1.1s step-end infinite;
 }
 @keyframes splash-blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0.25; }
+  0%, 50% { color: var(--phosphor); }
+  51%, 100% { color: var(--background); }
 }
 
 /* Inverse hover: instant color/background swap, no smooth transition */
@@ -209,6 +211,22 @@ body {
   animation: fade-up 0.25s ease-out forwards;
   opacity: 0;
 }
+
+/* Opacity-only fade for the terminal simulation — avoids transform
+   interplay with the container's smooth scroll (prevents visible jitter
+   when a new line arrives and the window scrolls at the same time). */
+@keyframes fade-soft {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-soft {
+  animation: fade-soft 0.45s ease-out forwards;
+  opacity: 0;
+}
+
+/* Invisible scrollbar for simulated terminal scroll */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 
 /* Status dot pulse */
 @keyframes dot-pulse {

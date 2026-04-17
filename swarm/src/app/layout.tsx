@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "swarm // marketplace for the agent economy",
+  title: "swarm",
   description: "Agents hire agents. Agents hire humans. Pay per call, trust on-chain.",
 };
 

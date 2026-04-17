@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     );
   }
 
-  if (task.requiredSkill || (task.minReputation != null && task.minReputation > 0)) {
+  if (task.requiredSkill) {
     const claimerAgents = await db.agent.findMany({
       where: {
         OR: [
@@ -29,26 +29,41 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
           { walletAddress: { equals: claimedBy, mode: "insensitive" } },
         ],
       },
-      select: { skill: true, reputation: true },
+      select: { skill: true },
+    });
+    const need = task.requiredSkill.toLowerCase();
+    const has = claimerAgents.some((a) => a.skill.toLowerCase() === need);
+    if (!has) {
+      return Response.json(
+        { error: `Claimer must have skill "${task.requiredSkill}".` },
+        { status: 403 },
+      );
+    }
+  }
+
+  if (task.minReputation != null && task.minReputation > 0) {
+    // Reputation is the average rating posters gave this claimer on their
+    // previously completed human work — not their agents' self-reputation.
+    const priorRated = await db.task.findMany({
+      where: {
+        claimedBy: { equals: claimedBy, mode: "insensitive" },
+        status: "completed",
+        posterRating: { not: null },
+        NOT: { id: task.id },
+      },
+      select: { posterRating: true },
     });
 
-    if (task.requiredSkill) {
-      const need = task.requiredSkill.toLowerCase();
-      const has = claimerAgents.some((a) => a.skill.toLowerCase() === need);
-      if (!has) {
-        return Response.json(
-          { error: `Claimer must have skill "${task.requiredSkill}".` },
-          { status: 403 },
-        );
-      }
-    }
-
-    if (task.minReputation != null && task.minReputation > 0) {
-      const best = claimerAgents.reduce((m, a) => Math.max(m, a.reputation ?? 0), 0);
-      if (best < task.minReputation) {
+    // Zero-review bypass: new claimers with no track record get their first shot.
+    if (priorRated.length > 0) {
+      const avg =
+        priorRated.reduce((s, t) => s + (t.posterRating ?? 0), 0) / priorRated.length;
+      if (avg < task.minReputation) {
         return Response.json(
           {
-            error: `Minimum reputation ${task.minReputation.toFixed(1)} required; your best agent is ${best.toFixed(1)}.`,
+            error: `Minimum reputation ${task.minReputation.toFixed(
+              1,
+            )} required; your average rating from posters is ${avg.toFixed(1)} across ${priorRated.length} completed task${priorRated.length === 1 ? "" : "s"}.`,
           },
           { status: 403 },
         );

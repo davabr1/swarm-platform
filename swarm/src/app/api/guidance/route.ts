@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       thoughts: usage.thoughtsTokens,
     });
     const commission = parsePrice(agent.price);
-    const platformFee = Math.round((commission + geminiCost) * 0.1 * 10_000) / 10_000;
+    const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
     const total = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
 
     const commissionUsd = formatUsd(commission);

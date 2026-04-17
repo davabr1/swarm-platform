@@ -6,9 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import WalletChip from "./WalletChip";
 
 const navItems = [
-  { href: "/", label: "marketplace" },
+  { href: "/marketplace", label: "marketplace" },
   { href: "/tasks", label: "tasks" },
-  { href: "/connect", label: "connect" },
+  { href: "/configure", label: "configure" },
 ];
 
 function EarnMenu() {
@@ -17,7 +17,8 @@ function EarnMenu() {
   const ref = useRef<HTMLDivElement | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isActive = pathname?.startsWith("/profile");
+  const isActive =
+    pathname?.startsWith("/list-skill") || pathname?.startsWith("/apply-expert");
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

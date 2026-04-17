@@ -5,7 +5,6 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import CodeBlock from "@/components/CodeBlock";
-import CopyChip from "@/components/CopyChip";
 import { getMcpStatus, pingMcp, type McpStatus } from "@/lib/api";
 
 type TabKey = "claude-desktop" | "claude-code" | "cursor" | "codex" | "programmatic";
@@ -192,30 +191,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
   },
 };
 
-const BENEFITS = [
-  {
-    k: "wire-once",
-    t: "Wire once, hire anyone",
-    d: "One MCP config gives your agent access to every specialist on Swarm. No SDK updates when a new skill is listed.",
-  },
-  {
-    k: "per-call",
-    t: "Per-call pricing via x402",
-    d: "Agents sign x402 payments locally. You set the spend cap. USDC settles on Avalanche Fuji. No subscriptions.",
-  },
-  {
-    k: "verified",
-    t: "On-chain reputation",
-    d: "Every call can write an ERC-8004 signal. Reputation travels with the wallet, so your agent always picks a vetted specialist.",
-  },
-  {
-    k: "human-loop",
-    t: "Human escalation built-in",
-    d: "When judgment matters, Swarm opens a bounty. A verified human claims, submits, and your agent resumes.",
-  },
-];
-
-export default function ConnectPage() {
+export default function ConfigurePage() {
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
@@ -264,15 +240,13 @@ export default function ConnectPage() {
 
       <div className="mx-auto w-full max-w-[1180px] px-6 lg:px-10 py-10">
         {/* Hero */}
-        <div className="mb-10">
-          <div className="text-[11px] uppercase tracking-widest text-dim">swarm://mcp</div>
+        <div className="mb-8">
+          <div className="text-[11px] uppercase tracking-widest text-dim">swarm://configure</div>
           <h1 className="text-3xl md:text-4xl text-foreground mt-2 font-semibold tracking-tight">
-            Connect your agent to <span className="text-amber">Swarm</span>
+            Configure <span className="text-amber">Swarm</span> MCP
           </h1>
           <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-            Swarm is an MCP server published on npm. Pick your client, paste one config block,
-            restart — <code className="text-amber font-mono">npx</code> does the rest. Zero to live
-            connection in about 30 seconds.
+            Pick your client. Paste the block. Restart.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -321,47 +295,10 @@ export default function ConnectPage() {
           </div>
         </div>
 
-        {/* BENEFITS · why connect */}
-        <section className="mb-14">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-widest text-dim">01 · why connect</div>
-              <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
-                What you get
-              </h2>
-            </div>
-          </div>
-          <div className="grid gap-0 md:grid-cols-2 lg:grid-cols-4 border border-border bg-surface">
-            {BENEFITS.map((b, i) => (
-              <div
-                key={b.k}
-                className={`p-5 ${i > 0 ? "border-t md:border-t-0 md:border-l border-border" : ""}`}
-              >
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                  ❯ {b.k}
-                </div>
-                <div className="text-foreground font-semibold text-sm mb-2">{b.t}</div>
-                <p className="text-xs text-muted leading-relaxed">{b.d}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* PLATFORMS — pick a client, paste one config block, done. The
-            MCP is published as swarm-marketplace-mcp on npm, so there's
-            no clone/install/env-setup step anymore — npx handles it. */}
+        {/* PLATFORMS — pick a client, paste, done. */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">02 · pick your client</div>
-            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
-              Paste one config block
-            </h2>
-            <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">
-              Swarm is published on npm as <code className="text-amber font-mono">swarm-marketplace-mcp</code>.
-              No clone, no <code>npm install</code>, no env file — <code className="text-amber font-mono">npx</code> fetches
-              and runs it on first call. Pick your client, paste the block, restart.
-              Uses the hosted backend at <CopyChip value={status?.apiBase || "https://swarm-psi.vercel.app"} display={status?.apiBase || "swarm-psi.vercel.app"} />.
-            </p>
+            <div className="text-[11px] uppercase tracking-widest text-dim">01 · pick your client</div>
           </div>
 
           <div className="flex flex-wrap">
@@ -456,7 +393,7 @@ export default function ConnectPage() {
         {/* TOOL REFERENCE */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">02 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
               The {status?.tools.length ?? 6} tools you get
             </h2>
@@ -500,7 +437,7 @@ export default function ConnectPage() {
         {/* FURTHER READING */}
         <section className="mb-8">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">04 · further reading</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">03 · further reading</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold">
               Keep going
             </h2>

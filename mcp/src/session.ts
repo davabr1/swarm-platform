@@ -1,34 +1,39 @@
 /**
  * MCP session pairing.
  *
- * On boot the MCP looks for ~/.swarm-mcp/session.json. If it's missing or
- * expired, it generates a fresh pair code, prints a URL to stderr, and
- * polls the backend until the user claims it from the browser. The session
- * token returned by the claim is persisted (mode 0600) and injected as
- * `Authorization: Bearer <token>` on every swarm fetch.
+ * On boot we load any cached session and, if none, kick off pairing in the
+ * background: print the pair URL to stderr, try to open it in the user's
+ * default browser, and poll /api/pair/claim until the browser claims the
+ * code. Tool calls fast-return a "please pair" message whenever the
+ * session isn't ready yet — they never block the stdio response.
  *
- * The server-side hard cap is the on-chain USDC allowance the user signed
- * during pairing. `spentUsd` tracking here is advisory — the backend
- * decrements it for its own 402 gate, we don't mirror it client-side.
+ * The on-chain USDC allowance the user signed during pairing is the hard
+ * cap. `spentUsd` tracking on the backend is advisory; the MCP doesn't
+ * mirror it.
  */
 
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import { join } from "node:path";
 
 const SWARM_API = process.env.SWARM_API_URL || "https://swarm-psi.vercel.app";
 const CONFIG_DIR = join(homedir(), ".swarm-mcp");
 const SESSION_FILE = join(CONFIG_DIR, "session.json");
 const POLL_INTERVAL_MS = 2_000;
-const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes — user has time to open the link
+const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 export interface Session {
   token: string;
   address: string;
   budgetUsd: number;
-  expiresAt: string; // ISO-8601
+  expiresAt: string;
 }
+
+let currentSession: Session | null = null;
+let pairingActive = false;
+let lastPairUrl: string | null = null;
 
 function pairUrl(code: string): string {
   return `${SWARM_API}/pair?code=${code}`;
@@ -53,7 +58,6 @@ async function loadSession(): Promise<Session | null> {
 async function saveSession(session: Session): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
   await writeFile(SESSION_FILE, JSON.stringify(session, null, 2), { mode: 0o600 });
-  // chmod separately for systems where writeFile's mode is ignored on overwrite.
   try {
     await chmod(SESSION_FILE, 0o600);
   } catch {
@@ -61,7 +65,7 @@ async function saveSession(session: Session): Promise<void> {
   }
 }
 
-export async function clearSession(): Promise<void> {
+async function clearSession(): Promise<void> {
   try {
     await rm(SESSION_FILE, { force: true });
   } catch {
@@ -69,12 +73,30 @@ export async function clearSession(): Promise<void> {
   }
 }
 
-let currentSession: Session | null = null;
-let pairingPromise: Promise<Session | null> | null = null;
-let lastPairUrl: string | null = null;
-
-export function pairUrlHint(): string | null {
-  return lastPairUrl;
+// Fire-and-forget browser opener. Opt out via SWARM_MCP_NO_OPEN=1 for
+// headless envs (CI, remote SSH) where spawning `open` would error.
+function tryOpenBrowser(url: string): void {
+  if (process.env.SWARM_MCP_NO_OPEN === "1") return;
+  try {
+    const p = platform();
+    const [cmd, args] =
+      p === "darwin"
+        ? ["open", [url]]
+        : p === "win32"
+          ? ["cmd", ["/c", "start", "", url]]
+          : ["xdg-open", [url]];
+    const proc = spawn(cmd as string, args as string[], {
+      stdio: "ignore",
+      detached: true,
+    });
+    proc.on("error", () => {
+      // Most common cause: xdg-open not installed on a minimal Linux.
+      // Harmless — the URL still printed to stderr.
+    });
+    proc.unref();
+  } catch {
+    // best-effort
+  }
 }
 
 async function pollForClaim(code: string): Promise<Session | null> {
@@ -96,69 +118,108 @@ async function pollForClaim(code: string): Promise<Session | null> {
           };
         }
       } else if (res.status === 410) {
-        // code consumed or expired — give up, caller will regenerate
         return null;
       }
     } catch {
-      // transient network blip — keep polling
+      // transient — keep polling
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
   return null;
 }
 
-async function startPairing(): Promise<Session | null> {
+function startPairingInBackground(): void {
+  if (pairingActive || currentSession) return;
+  pairingActive = true;
   const code = generatePairCode();
-  lastPairUrl = pairUrl(code);
-  console.error(`\nSwarm MCP is not paired yet.\n  Open ${lastPairUrl}\n  in a browser to authorize a USDC budget, then retry your tool call.\n`);
-  const session = await pollForClaim(code);
-  if (!session) return null;
-  await saveSession(session);
-  console.error(`Swarm MCP paired as ${session.address.slice(0, 8)}... · $${session.budgetUsd.toFixed(2)} budget · expires ${new Date(session.expiresAt).toISOString()}`);
-  return session;
+  const url = pairUrl(code);
+  lastPairUrl = url;
+
+  // Print prominently to stderr — Claude Code's MCP log pane shows this.
+  console.error("");
+  console.error("━".repeat(60));
+  console.error(" Swarm MCP needs wallet authorization (one-time).");
+  console.error("");
+  console.error(`   ${url}`);
+  console.error("");
+  console.error(" Opening this URL in your browser now. If it doesn't open,");
+  console.error(" copy the link above. Connect your wallet, pick a USDC");
+  console.error(" budget, and sign — the MCP picks up the session within 2s.");
+  console.error("━".repeat(60));
+  console.error("");
+
+  tryOpenBrowser(url);
+
+  void (async () => {
+    try {
+      const session = await pollForClaim(code);
+      if (session) {
+        currentSession = session;
+        await saveSession(session);
+        console.error(
+          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · $${session.budgetUsd.toFixed(2)} budget · expires ${new Date(session.expiresAt).toISOString()}\n`,
+        );
+      } else {
+        // Timed out — drop the URL so the next tool call can generate a
+        // fresh code instead of trying to claim a stale one.
+        lastPairUrl = null;
+      }
+    } finally {
+      pairingActive = false;
+    }
+  })();
 }
 
 /**
- * Returns a live session or null if we're still unpaired. Starts (or joins)
- * a single in-flight pairing flow so repeated tool calls during the
- * pairing window don't fan out into multiple pair codes.
+ * Called once at server boot. Loads a cached session if one exists; else
+ * kicks off the pairing flow in the background. Returns immediately so the
+ * stdio transport can come up without delay.
  */
-export async function ensureSession(): Promise<Session | null> {
-  if (currentSession && new Date(currentSession.expiresAt).getTime() > Date.now()) {
-    return currentSession;
-  }
+export async function initSession(): Promise<void> {
   const cached = await loadSession();
   if (cached) {
     currentSession = cached;
-    return cached;
+    console.error(
+      `Swarm MCP paired as ${cached.address.slice(0, 8)}... · $${cached.budgetUsd.toFixed(2)} budget`,
+    );
+    return;
   }
-  if (!pairingPromise) {
-    pairingPromise = startPairing().finally(() => {
-      pairingPromise = null;
-    });
-  }
-  const session = await pairingPromise;
-  currentSession = session;
-  return session;
+  startPairingInBackground();
 }
 
 /**
- * Prepends SWARM_API, injects the bearer token if paired. On 401 the local
- * session file is wiped so the next tool call re-pairs cleanly.
+ * Non-blocking session check for tool handlers. If there is no active
+ * session and no pairing flow in-flight, re-kick pairing so a fresh URL
+ * appears in logs. Always returns fast.
  */
-export async function swarmFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const session = currentSession ?? (await loadSession());
-  if (session) currentSession = session;
-  const headers = new Headers(init.headers ?? {});
-  if (session) headers.set("authorization", `Bearer ${session.token}`);
-  const res = await fetch(`${SWARM_API}${path}`, { ...init, headers });
-  if (res.status === 401) {
-    await clearSession();
-    currentSession = null;
+export function requireSession(): { session: Session | null; pairUrl: string | null } {
+  if (!currentSession && !pairingActive) {
+    startPairingInBackground();
   }
-  return res;
+  return { session: currentSession, pairUrl: lastPairUrl };
+}
+
+export function getCurrentSession(): Session | null {
+  return currentSession;
 }
 
 export function swarmApiUrl(): string {
   return SWARM_API;
+}
+
+/**
+ * Prepends SWARM_API, injects the bearer token if paired. A 401 from the
+ * server means the token was revoked or expired server-side — drop the
+ * local copy and kick off re-pairing so the next tool call can recover.
+ */
+export async function swarmFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers ?? {});
+  if (currentSession) headers.set("authorization", `Bearer ${currentSession.token}`);
+  const res = await fetch(`${SWARM_API}${path}`, { ...init, headers });
+  if (res.status === 401) {
+    currentSession = null;
+    await clearSession();
+    startPairingInBackground();
+  }
+  return res;
 }

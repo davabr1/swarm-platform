@@ -30,7 +30,7 @@ import {
   startBackgroundCheck,
   updateBanner,
 } from "./updateCheck.js";
-import { ensureSession, pairUrlHint, swarmApiUrl, swarmFetch } from "./session.js";
+import { initSession, requireSession, swarmApiUrl, swarmFetch } from "./session.js";
 
 const SWARM_API = swarmApiUrl();
 
@@ -117,17 +117,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const toolArgs = (args ?? {}) as Record<string, unknown>;
 
   // Gate every paid / wallet-attributed tool behind a valid paired session.
-  // If pairing isn't complete, return the pair URL so the host AI can surface
-  // the link to the user — the server stays up so the reminder keeps flowing.
+  // requireSession() is non-blocking — if no session exists it kicks off
+  // pairing in the background and we fast-return the URL so the host AI
+  // can surface it to the user without the stdio transport timing out.
   if (!UNAUTHENTICATED_TOOLS.has(name)) {
-    const session = await ensureSession();
+    const { session, pairUrl } = requireSession();
     if (!session) {
-      const url = pairUrlHint();
       return textResponse(
-        `Swarm MCP is not paired to a wallet yet. ` +
-          (url
-            ? `Open ${url} in a browser, connect your wallet, pick a USDC budget, and retry this tool call.`
-            : `Restart the MCP so it can print a pair URL, or check the server logs.`),
+        pairUrl
+          ? `Swarm MCP is waiting for wallet authorization.\n\nOpen this URL in your browser (it should have opened automatically):\n\n  ${pairUrl}\n\nConnect your wallet, pick a USDC budget, sign — the MCP picks up the session within 2 seconds. Retry the tool call once you see "✓ Paired" in the page.`
+          : `Swarm MCP pairing is in progress but no URL is available. Restart Claude Code to generate a fresh pair URL.`,
       );
     }
   }
@@ -433,6 +432,11 @@ function formatAskOrFollowUp(
 
 async function main() {
   startBackgroundCheck();
+  // Kick off pairing (or load the cached session) BEFORE connecting stdio
+  // so the first thing in the host's MCP log pane is the pair URL. We
+  // await it but it returns fast — the actual polling runs in the
+  // background so the stdio transport is never blocked.
+  await initSession();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(`Swarm MCP server ready · v${SWARM_MCP_VERSION} · API: ${SWARM_API}`);

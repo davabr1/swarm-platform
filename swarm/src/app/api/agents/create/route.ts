@@ -1,7 +1,11 @@
 import { db } from "@/lib/db";
 import { serializeAgent } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
+import { config } from "@/lib/config";
+import { registerAgent } from "@/lib/erc8004";
 import type { NextRequest } from "next/server";
+
+export const maxDuration = 60;
 
 // Prepended to user-authored system prompts so marketplace agents behave
 // consistently. Creators can opt out (useSwarmWrapper: false) if their prompt
@@ -51,5 +55,27 @@ export async function POST(req: NextRequest) {
 
   await logActivity("registration", `New custom agent "${name}" listed by ${String(creatorAddress).slice(0, 8)}...`);
 
-  return Response.json(serializeAgent(agent));
+  try {
+    const agentURI = JSON.stringify({
+      name: agent.name,
+      skill: agent.skill,
+      description: agent.description,
+      price: agent.price,
+      type: agent.type,
+    });
+    const idStr = (await registerAgent(config.orchestrator.privateKey, agentURI)).toString();
+    const updated = await db.agent.update({
+      where: { id: agent.id },
+      data: { agentId: idStr },
+    });
+    await logActivity("registration", `${agent.name} registered on ERC-8004 — agentId: ${idStr}`);
+    return Response.json(serializeAgent(updated));
+  } catch (err) {
+    console.error("registerAgent failed", err);
+    await logActivity("registration", `Registration pending for "${agent.name}" — on-chain write failed`);
+    return Response.json({
+      ...serializeAgent(agent),
+      registrationError: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
 }

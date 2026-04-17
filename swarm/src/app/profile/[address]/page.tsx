@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
@@ -156,8 +156,24 @@ export default function PublicProfilePage() {
           {isSelf && (
             <PostedTasksPanel tasks={portfolio.postedTasks} />
           )}
+
+          {isSelf && <DisconnectPanel />}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DisconnectPanel() {
+  const { disconnect } = useDisconnect();
+  return (
+    <div className="flex justify-end pt-4 border-t border-border">
+      <button
+        onClick={() => disconnect()}
+        className="border border-border text-dim text-xs px-4 py-2 hover:border-danger hover:text-danger transition-none"
+      >
+        [ disconnect wallet ]
+      </button>
     </div>
   );
 }
@@ -405,7 +421,6 @@ function FundingPanel({
 }) {
   const [perTask, setPerTask] = useState(portfolio.profile.spendCapPerTask ?? "5.00");
   const [perSession, setPerSession] = useState(portfolio.profile.spendCapPerSession ?? "50.00");
-  const [autoTopup, setAutoTopup] = useState(Boolean(portfolio.profile.autoTopup));
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -415,7 +430,6 @@ function FundingPanel({
       await updateProfile(address, address, {
         spendCapPerTask: perTask,
         spendCapPerSession: perSession,
-        autoTopup,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
@@ -429,11 +443,18 @@ function FundingPanel({
 
   return (
     <TerminalWindow title="swarm://profile/funding" subtitle="per-wallet spend caps">
-      <div className="p-5 space-y-5">
-        <p className="text-sm text-muted leading-relaxed max-w-2xl">
-          These caps are wallet-scoped and sync across every browser. An agent cannot exceed them
-          without an explicit top-up. Click the numbers to edit.
-        </p>
+      <div className="p-5 space-y-5 relative">
+        <div
+          className="absolute top-3 right-3 group"
+          aria-label="About spend caps"
+        >
+          <span className="inline-flex items-center justify-center w-5 h-5 border border-border text-dim text-[10px] cursor-help hover:border-amber hover:text-amber transition-none">
+            i
+          </span>
+          <div className="pointer-events-none absolute right-0 top-7 w-64 border border-border bg-surface p-3 text-xs text-muted leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            Caps are wallet-scoped and sync across every browser. An agent cannot exceed them without an explicit top-up.
+          </div>
+        </div>
 
         <div className="grid gap-0 sm:grid-cols-2 border border-border">
           <label className="block p-5 cursor-text">
@@ -464,29 +485,13 @@ function FundingPanel({
           </label>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={autoTopup}
-            onChange={(e) => setAutoTopup(e.target.checked)}
-            className="accent-amber"
-          />
-          auto top-up session when 20% remains
-          <span className="text-dim text-xs">(requires signature each time)</span>
-        </label>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
-          >
-            {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save limits ]"}
-          </button>
-          <span className="text-xs text-dim">
-            stored in Postgres · same across browsers & devices
-          </span>
-        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
+        >
+          {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save limits ]"}
+        </button>
       </div>
     </TerminalWindow>
   );

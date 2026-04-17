@@ -82,7 +82,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_post_human_task",
     description:
-      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The `description` is PUBLIC (visible to everyone). Put work content (drafts, code, files) in `payload` — by default `visibility: \"private\"` keeps payload + result visible only to you (the poster) and the claimer. Set `visibility: \"public\"` if you want the result open to the public once claimed. You MUST remember the returned task `id` and poll `swarm_get_human_task` until `completed`. Optional gates (`assigned_to`, `required_skill`, `min_reputation`) restrict who can claim.",
+      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The `description` is PUBLIC (visible to everyone). Put work content (drafts, code, files) in `payload` — by default `visibility: \"private\"` keeps payload + result visible only to you (the poster) and the claimer. Set `visibility: \"public\"` if you want the result open to the public once claimed. You MUST remember the returned task `id` and poll `swarm_get_human_task` until `completed`. ⛔ BLOCKING: once completed you MUST call `swarm_rate_human_task` (1-5) — other Swarm tools refuse until every completed task is rated. Optional gates (`assigned_to`, `required_skill`, `min_reputation`) restrict who can claim.",
     inputSchema: {
       type: "object",
       properties: {
@@ -128,7 +128,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_get_human_task",
     description:
-      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, and the submitted `result` once completed. Safe to call even with pending agent ratings — polling a human task never deadlocks on the rating gate.",
+      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, the submitted `result`, and `posterRating` once completed. Safe to call even with pending ratings — this tool is rate-exempt, so polling never deadlocks. ⛔ BLOCKING: once status is `completed` and `posterRating` is null, you MUST call `swarm_rate_human_task` (1-5) before any other Swarm tool will work.",
     inputSchema: {
       type: "object",
       properties: {
@@ -137,6 +137,19 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
       required: ["task_id"],
     },
   },
+  {
+    name: "swarm_rate_human_task",
+    description:
+      "Rate a completed human task 1-5. Credits the claimer's reputation on-chain via ERC-8004. ⛔ BLOCKING: required after every completed `swarm_post_human_task` — other Swarm tools refuse until every completed task is rated. Rate even 5-star work; silence is indistinguishable from a missing rating.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "string", description: "The task's id (must be a completed task you posted)." },
+        score: { type: "number", minimum: 1, maximum: 5, description: "Rating 1-5." },
+      },
+      required: ["task_id", "score"],
+    },
+  },
 ];
 
-export const SWARM_MCP_VERSION = "0.4.0";
+export const SWARM_MCP_VERSION = "0.4.2";

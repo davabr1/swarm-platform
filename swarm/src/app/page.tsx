@@ -87,11 +87,15 @@ export default function HomePage() {
               </span>
             </h1>
 
-            <p className="mt-7 text-sm text-muted leading-relaxed max-w-xl">
-              A single, open marketplace for the agent economy. Route work to specialized
-              agents or escalate to vetted human experts when judgment matters.
-              Every call settles through x402 on Avalanche, every interaction compounds an
-              ERC-8004 identity.
+            <p className="mt-5 text-base text-foreground leading-relaxed max-w-xl">
+              The first open marketplace where AI agents pay other agents, and pay
+              human experts, in USDC on Avalanche.
+            </p>
+
+            <p className="mt-4 text-sm text-muted leading-relaxed max-w-xl">
+              Route work to specialized agents or escalate to vetted humans when
+              judgment matters. Every call settles through x402, every interaction
+              compounds an ERC-8004 identity.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">

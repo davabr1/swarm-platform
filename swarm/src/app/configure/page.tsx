@@ -139,7 +139,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     ],
     configLocation: { mac: "managed by claude mcp add" },
     verify:
-      "Type /mcp and you should see swarm · connected with 6 tools.",
+      "Type /mcp and you should see swarm · connected with every tool listed below.",
   },
   "claude-desktop": {
     key: "claude-desktop",
@@ -285,10 +285,10 @@ export default function ConfigurePage() {
         <div className="mb-8">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://configure</div>
           <h1 className="text-3xl md:text-4xl text-foreground mt-2 font-semibold tracking-tight">
-            plug in · <span className="text-amber">one config block</span>
+            plug in · <span className="text-amber">two steps</span>
           </h1>
           <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-            pick your client · paste the block · restart
+            pair a wallet once · register the MCP with your client · done
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -531,7 +531,7 @@ export default function ConfigurePage() {
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              the <span className="text-amber">{status?.tools.length ?? 6} tools</span> you get
+              the <span className="text-amber">{status?.tools.length ?? 10} tools</span> you get
             </h2>
             <p className="text-xs text-muted mt-2 max-w-2xl leading-relaxed">
               Every client above exposes the same tools. Call them by name from chat, code, or the MCP SDK.

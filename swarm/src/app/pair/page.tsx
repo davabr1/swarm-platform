@@ -37,6 +37,82 @@ const USDC_ABI = [
   },
 ] as const;
 
+type ErrorKind =
+  | "rejected"
+  | "insufficient_gas"
+  | "network"
+  | "code_used"
+  | "disconnected"
+  | "allowance_not_landed"
+  | "validation"
+  | "other";
+
+interface ClassifiedError {
+  kind: ErrorKind;
+  title: string;
+  body: string;
+  showRetry: boolean;
+  showFaucet?: boolean;
+}
+
+// Map whatever shape wagmi / viem / fetch threw at us into a message the
+// user can actually act on. Wallet libraries vary wildly — string-match on
+// the lowercased message is crude but survives most of them.
+function classifyError(err: unknown): ClassifiedError {
+  const anyErr = err as { code?: number | string; shortMessage?: string; message?: string } | undefined;
+  const raw = anyErr?.shortMessage || anyErr?.message || (err instanceof Error ? err.message : String(err ?? ""));
+  const lower = raw.toLowerCase();
+  const code = anyErr?.code;
+
+  if (code === 4001 || code === "ACTION_REJECTED" || lower.includes("user rejected") || lower.includes("user denied") || lower.includes("rejected the request")) {
+    return {
+      kind: "rejected",
+      title: "You rejected the prompt in your wallet.",
+      body: "Click authorize again to retry. You'll see two prompts — an EIP-712 signature (free) and one USDC approve (~0.001 AVAX).",
+      showRetry: true,
+    };
+  }
+  if (lower.includes("insufficient funds") || lower.includes("insufficient balance for gas") || lower.includes("gas required exceeds")) {
+    return {
+      kind: "insufficient_gas",
+      title: "Not enough AVAX to pay for gas.",
+      body: "The USDC approve costs about 0.001 AVAX on Fuji. Grab testnet AVAX from the faucet and retry.",
+      showRetry: true,
+      showFaucet: true,
+    };
+  }
+  if (raw === "allowance_not_found") {
+    return {
+      kind: "allowance_not_landed",
+      title: "USDC approval didn't show up on-chain in 30s.",
+      body: "Fuji may be congested. Check your wallet's activity — if the approve tx is still pending, wait for it to confirm and retry. If it never broadcast, retry the whole flow.",
+      showRetry: true,
+    };
+  }
+  if (raw === "Pair code already used" || lower.includes("already used") || lower.includes("already consumed") || lower.includes("pair code already")) {
+    return {
+      kind: "code_used",
+      title: "This pair code has already been used.",
+      body: "Restart your MCP (or re-run `npx -y swarm-marketplace-mcp pair`) to get a fresh pair URL.",
+      showRetry: false,
+    };
+  }
+  if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed") || lower.includes("fetch")) {
+    return {
+      kind: "network",
+      title: "Couldn't reach the Swarm backend.",
+      body: "Check your internet connection and retry. Your pair code is still valid — no need to restart the MCP.",
+      showRetry: true,
+    };
+  }
+  return {
+    kind: "other",
+    title: "Something went wrong.",
+    body: raw || "Unknown error. Retry, or restart the MCP for a fresh pair code.",
+    showRetry: true,
+  };
+}
+
 export default function PairPage() {
   return (
     <Suspense fallback={<Shell><div className="text-sm text-muted">loading…</div></Shell>}>
@@ -55,7 +131,7 @@ function PairInner() {
   const [budget, setBudget] = useState("5");
   const [expiryDays, setExpiryDays] = useState("30");
   const [stage, setStage] = useState<Stage>("idle");
-  const [error, setError] = useState("");
+  const [errorInfo, setErrorInfo] = useState<ClassifiedError | null>(null);
   const [pairConfig, setPairConfig] = useState<PairConfig | null>(null);
   const [signature, setSignature] = useState<`0x${string}` | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
@@ -65,8 +141,34 @@ function PairInner() {
     fetch("/api/pair/config")
       .then((r) => r.json())
       .then((c: PairConfig) => setPairConfig(c))
-      .catch(() => setError("Could not load pair config"));
+      .catch((e) => {
+        setErrorInfo(classifyError(e));
+        setStage("error");
+      });
   }, []);
+
+  // Wallet disconnect detection — if the user disconnects mid-flow, reset
+  // to an actionable error state instead of letting the stage label linger
+  // on "signing" or "approving" forever.
+  useEffect(() => {
+    if (isConnected) return;
+    if (stage === "idle" || stage === "paired" || stage === "error") return;
+    setErrorInfo({
+      kind: "disconnected",
+      title: "Wallet disconnected mid-flow.",
+      body: "Reconnect your wallet and click authorize again. Your pair code is still valid.",
+      showRetry: true,
+    });
+    setStage("error");
+  }, [isConnected, stage]);
+
+  const resetToIdle = () => {
+    setErrorInfo(null);
+    setSignature(null);
+    setExpiresAt(null);
+    setApproveHash(null);
+    setStage("idle");
+  };
 
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
@@ -83,7 +185,12 @@ function PairInner() {
   useEffect(() => {
     if (stage !== "awaiting-receipt") return;
     if (receiptErr) {
-      setError("USDC approve transaction failed on-chain");
+      setErrorInfo({
+        kind: "other",
+        title: "USDC approve transaction failed on-chain.",
+        body: "The transaction reverted. Check your wallet for details, then click retry.",
+        showRetry: true,
+      });
       setStage("error");
       return;
     }
@@ -103,11 +210,11 @@ function PairInner() {
             signature,
           }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error ?? `Claim failed (${res.status})`);
         setStage("paired");
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Unknown error claiming session");
+        setErrorInfo(classifyError(e));
         setStage("error");
       }
     })();
@@ -116,16 +223,26 @@ function PairInner() {
   const authorize = async () => {
     if (!pairConfig || !address) return;
     if (!budgetValid || !expiryValid) {
-      setError("Budget must be $0–$50 and expiry 1–90 days.");
+      setErrorInfo({
+        kind: "validation",
+        title: "Invalid budget or expiry.",
+        body: "Budget must be between 0 and 50 USDC. Expiry must be 1–90 days.",
+        showRetry: true,
+      });
       setStage("error");
       return;
     }
     if (chainId !== pairConfig.chainId) {
-      setError(`Wrong network. Switch to Avalanche Fuji (chainId ${pairConfig.chainId}).`);
+      setErrorInfo({
+        kind: "validation",
+        title: "Wrong network.",
+        body: `Switch your wallet to Avalanche Fuji (chainId ${pairConfig.chainId}) and retry.`,
+        showRetry: true,
+      });
       setStage("error");
       return;
     }
-    setError("");
+    setErrorInfo(null);
     const exp = Math.floor(Date.now() / 1000) + expiryDaysNum * 24 * 60 * 60;
     const budgetMicroUsd = BigInt(Math.round(budgetUsd * 1_000_000));
     try {
@@ -155,7 +272,7 @@ function PairInner() {
       setApproveHash(hash);
       setStage("awaiting-receipt");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "User rejected or unknown error");
+      setErrorInfo(classifyError(e));
       setStage("error");
     }
   };
@@ -264,7 +381,32 @@ function PairInner() {
                     ✓ Paired. Close this tab — the MCP will pick up the session within a couple of seconds.
                   </div>
                 )}
-                {error && <div className="text-xs text-danger break-words">{error}</div>}
+                {errorInfo && (
+                  <div className="border border-danger p-3 text-xs text-danger space-y-2">
+                    <div className="font-bold">✗ {errorInfo.title}</div>
+                    <div className="text-dim leading-relaxed">{errorInfo.body}</div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {errorInfo.showRetry && (
+                        <button
+                          onClick={resetToIdle}
+                          className="border border-amber text-amber text-[11px] px-3 py-1 hover:bg-amber hover:text-background transition-none"
+                        >
+                          [ retry ]
+                        </button>
+                      )}
+                      {errorInfo.showFaucet && (
+                        <a
+                          href="https://faucet.avax.network"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="border border-phosphor text-phosphor text-[11px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none"
+                        >
+                          [ fuji faucet ↗ ]
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

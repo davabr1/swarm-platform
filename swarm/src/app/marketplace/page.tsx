@@ -5,37 +5,23 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import { fetchAgents, type Agent } from "@/lib/api";
+import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT, CATEGORY_BG } from "@/lib/agentCategory";
 
-// `img-gen` is a skill-slice, not an agent-type — it picks up every agent
-// whose skill starts with "Image ·" regardless of type (ai / custom_skill).
-// `custom` is an ownership-slice — only agents made by independent wallets
-// (userCreated=true). Platform-seeded demo agents with type="custom_skill"
-// are NOT shown here; they surface only in `all`.
-// All other keys map 1:1 to the `type` column.
-type FilterType = "all" | "ai" | "custom" | "human_expert" | "img-gen";
-
-const TYPE_LABEL: Record<Agent["type"], string> = {
-  ai: "ai",
-  custom_skill: "custom",
-  human_expert: "human",
-};
-
-const TYPE_COLOR: Record<Agent["type"], string> = {
-  ai: "text-info",
-  custom_skill: "text-amber",
-  human_expert: "text-phosphor",
-};
+// Filter buckets map to the 4 categories from `getCategory`, plus `all`.
+// This is intentionally an ownership/skill slice — not `type` — so a
+// user-created image agent still reads as "img-gen" (not "custom") and
+// a user-created human expert stays in "human" (not "custom").
+type FilterType = "all" | "ai" | "img-gen" | "custom" | "human";
 
 const PAGE_SIZE = 24;
 
 function AgentCard({ agent }: { agent: Agent }) {
   const { reputation, totalCalls } = agent;
-  const scoreColor =
-    reputation.averageScore >= 4.5
-      ? "bg-phosphor"
-      : reputation.averageScore >= 3
-        ? "bg-amber"
-        : "bg-dim";
+  // Square + label color both follow `getCategory` so the user-visible
+  // category is consistent: all humans green, all img-gen pink, all
+  // custom amber, all platform ai blue. Previously the square was keyed
+  // off reputation score, which the user correctly flagged as noise.
+  const category = getCategory(agent);
 
   return (
     <Link
@@ -44,11 +30,11 @@ function AgentCard({ agent }: { agent: Agent }) {
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2.5 min-w-0">
-          <span className={`inline-block w-2 h-2 shrink-0 ${scoreColor}`} />
+          <span className={`inline-block w-2 h-2 shrink-0 ${CATEGORY_BG[category]}`} />
           <span className="text-foreground text-base font-semibold truncate">{agent.name}</span>
         </span>
-        <span className={`text-[10px] uppercase tracking-widest shrink-0 ${TYPE_COLOR[agent.type]}`}>
-          {TYPE_LABEL[agent.type]}
+        <span className={`text-[10px] uppercase tracking-widest shrink-0 ${CATEGORY_TEXT[category]}`}>
+          {CATEGORY_LABEL[category]}
         </span>
       </div>
 
@@ -100,15 +86,12 @@ export default function MarketplacePage() {
 
   const filtered = useMemo(() => {
     let list = agents;
-    if (filter === "img-gen") {
-      list = list.filter((a) => a.skill.startsWith("Image"));
-    } else if (filter === "custom") {
-      // Ownership slice — only independent-wallet agents charge a commission,
-      // and those are the ones that belong on the "custom" page per the
-      // platform's monetization model.
-      list = list.filter((a) => a.userCreated);
-    } else if (filter !== "all") {
-      list = list.filter((a) => a.type === filter);
+    if (filter !== "all") {
+      // Single source of truth — same function used by the badge so the
+      // filter bucket and the badge always agree. A user-created human
+      // expert (e.g. "sad") now lands in `human`, not `custom`. A
+      // user-created image agent lands in `img-gen`, not `custom`.
+      list = list.filter((a) => getCategory(a) === filter);
     }
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -127,7 +110,7 @@ export default function MarketplacePage() {
     { key: "ai", label: "ai" },
     { key: "img-gen", label: "img-gen" },
     { key: "custom", label: "custom" },
-    { key: "human_expert", label: "human" },
+    { key: "human", label: "human" },
   ];
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

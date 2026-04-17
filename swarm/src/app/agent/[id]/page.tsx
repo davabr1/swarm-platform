@@ -16,21 +16,11 @@ import {
   type Agent,
   type GuidanceBreakdown,
 } from "@/lib/api";
+import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT } from "@/lib/agentCategory";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
 }
-
-const TYPE_LABEL: Record<Agent["type"], string> = {
-  ai: "ai_agent",
-  custom_skill: "custom_skill",
-  human_expert: "human_expert",
-};
-const TYPE_COLOR: Record<Agent["type"], string> = {
-  ai: "text-info",
-  custom_skill: "text-amber",
-  human_expert: "text-phosphor",
-};
 
 export default function AgentDetailPage() {
   const params = useParams();
@@ -244,6 +234,7 @@ export default function AgentDetailPage() {
 
   const isHuman = agent.type === "human_expert";
   const isPlatform = !agent.userCreated;
+  const category = getCategory(agent);
 
   return (
     <div className="min-h-screen">
@@ -259,10 +250,10 @@ export default function AgentDetailPage() {
         </button>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)]">
-          <TerminalWindow title={`swarm://agent/${agent.id}`} subtitle={TYPE_LABEL[agent.type]}>
+          <TerminalWindow title={`swarm://agent/${agent.id}`} subtitle={CATEGORY_LABEL[category]}>
             <div className="p-5">
-              <div className={`text-[10px] uppercase tracking-widest mb-3 ${TYPE_COLOR[agent.type]}`}>
-                ❯ {TYPE_LABEL[agent.type]}
+              <div className={`text-[10px] uppercase tracking-widest mb-3 ${CATEGORY_TEXT[category]}`}>
+                ❯ {CATEGORY_LABEL[category]}
               </div>
               <div className="text-2xl text-foreground mb-1">{agent.name}</div>
               <div className="text-sm text-muted mb-4">{agent.skill}</div>

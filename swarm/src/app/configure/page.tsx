@@ -5,6 +5,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import CodeBlock from "@/components/CodeBlock";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import { getMcpStatus, pingMcp, type McpStatus } from "@/lib/api";
 
 type TabKey = "claude-desktop" | "claude-code" | "cursor" | "codex" | "programmatic";
@@ -281,7 +282,7 @@ export default function ConfigurePage() {
               disabled={pingLoading}
               className="border border-border-hi px-3 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none disabled:opacity-40"
             >
-              {pingLoading ? "pinging…" : "[ ping server ]"}
+              {pingLoading ? <SubmittingLabel text="pinging" /> : "[ ping server ]"}
             </button>
             {pingMs !== null && (
               <span

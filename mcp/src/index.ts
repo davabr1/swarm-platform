@@ -49,24 +49,12 @@ function getErrorMessage(error: unknown) {
 }
 
 /**
- * Tracks agents that have received a final `response` this session but
- * haven't been rated. `swarm_ask_agent` / `swarm_follow_up` increments
- * only when `replyType === "response"`. `swarm_rate_agent` decrements.
- * `pendingTaskRatings` tracks completed-but-unrated human tasks.
- * While either collection is non-empty, non-exempt tools return a
- * blocking error telling the caller to rate.
+ * Tracks agents/tasks that received a final response this session but
+ * haven't been rated. Used only to append a gentle reminder on later
+ * tool responses — it never blocks. Ratings are encouraged, not gated.
  */
 const pendingRatings = new Map<string, number>();
 const pendingTaskRatings = new Set<string>();
-
-const RATE_EXEMPT_TOOLS = new Set([
-  "swarm_rate_agent",
-  "swarm_rate_human_task",
-  "swarm_get_guidance",
-  "swarm_get_human_task",
-  "swarm_follow_up",
-  "swarm_check_version",
-]);
 
 function pendingSummary() {
   return Array.from(pendingRatings.entries())
@@ -82,6 +70,18 @@ function hasPending() {
   return pendingRatings.size > 0 || pendingTaskRatings.size > 0;
 }
 
+function pendingReminder() {
+  if (!hasPending()) return "";
+  const parts: string[] = [];
+  if (pendingRatings.size > 0) {
+    parts.push(`agents [${pendingSummary()}] · rate 1-5 via \`swarm_rate_agent\``);
+  }
+  if (pendingTaskRatings.size > 0) {
+    parts.push(`tasks [${pendingTaskSummary()}] · rate 1-5 via \`swarm_rate_human_task\``);
+  }
+  return `\n\n⭐ Pending ratings (optional but please do): ${parts.join("; ")}.`;
+}
+
 function withBanner(text: string): string {
   const banner = updateBanner();
   return banner ? `${banner}\n\n${text}` : text;
@@ -89,30 +89,6 @@ function withBanner(text: string): string {
 
 function textResponse(text: string) {
   return { content: [{ type: "text", text: withBanner(text) }] };
-}
-
-function blockingRatingError() {
-  const parts: string[] = [];
-  if (pendingRatings.size > 0) {
-    parts.push(
-      `unrated agent calls [${pendingSummary()}] — call \`swarm_rate_agent\` (1-5) for each`,
-    );
-  }
-  if (pendingTaskRatings.size > 0) {
-    parts.push(
-      `unrated completed human tasks [${pendingTaskSummary()}] — call \`swarm_rate_human_task\` (1-5) for each`,
-    );
-  }
-  const body =
-    `⛔ Blocked: ${parts.join("; ")}. ` +
-    `Rate everything before using any other Swarm tool (except ` +
-    `\`swarm_get_guidance\`, \`swarm_get_human_task\`, \`swarm_follow_up\`, ` +
-    `and \`swarm_check_version\`, which stay available so polling and ` +
-    `follow-ups don't deadlock). Silence is indistinguishable from 1-star.`;
-  return {
-    isError: true,
-    content: [{ type: "text", text: withBanner(body) }],
-  };
 }
 
 const server = new Server(
@@ -134,10 +110,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const toolArgs = (args ?? {}) as Record<string, unknown>;
-
-  if (hasPending() && !RATE_EXEMPT_TOOLS.has(name)) {
-    return blockingRatingError();
-  }
 
   try {
     switch (name) {
@@ -178,13 +150,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "swarm_follow_up": {
         const conversationId = String(toolArgs.conversation_id);
         const reply = String(toolArgs.reply ?? "");
-        // Look up the agent via the root turn so the route can re-validate
+        // Look up the agent via the root turn so the route can re-validate.
+        // The GET endpoint returns a flat `agentId` but the POST endpoint
+        // returns a nested `agent.id` — tolerate both so shape drift doesn't
+        // break follow-ups.
         const root = await fetch(`${SWARM_API}/api/guidance/${conversationId}`);
-        const rootData = (await root.json()) as { agent?: { id?: string } };
-        const agentId = rootData?.agent?.id;
+        const rootData = (await root.json()) as {
+          agent?: { id?: string };
+          agentId?: string;
+          error?: string;
+        };
+        const agentId = rootData?.agent?.id ?? rootData?.agentId;
         if (!agentId) {
           return textResponse(
-            `Error: could not resolve agent for conversation_id="${conversationId}". Response: ${JSON.stringify(rootData)}`,
+            `Error: could not resolve agent for conversation_id="${conversationId}". ` +
+              `Response: ${JSON.stringify(rootData)}`,
           );
         }
         const body: Record<string, unknown> = {
@@ -210,11 +190,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const data = await res.json();
         const hint =
           data?.status === "ready"
-            ? "\n\n✓ ready — read `response`. If `replyType === \"response\"`, swarm_rate_agent is required."
+            ? "\n\n✓ ready — read `response`."
             : data?.status === "failed"
               ? "\n\n✗ failed — see `errorMessage`."
               : "\n\n⟶ still pending. Wait ~10 seconds and call this tool again with the same request_id.";
-        return textResponse(JSON.stringify(data, null, 2) + hint);
+        return textResponse(JSON.stringify(data, null, 2) + hint + pendingReminder());
       }
 
       case "swarm_rate_agent": {
@@ -233,10 +213,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             pendingRatings.set(agentId, cur - 1);
           }
         }
-        const remaining = hasPending()
-          ? `\n\n⛔ Still pending: agents [${pendingSummary() || "—"}]; tasks [${pendingTaskSummary() || "—"}]. Rate these before calling other tools.`
-          : `\n\n✓ All ratings complete. Other Swarm tools are unblocked.`;
-        return textResponse(JSON.stringify(data, null, 2) + remaining);
+        const tail = hasPending() ? pendingReminder() : "\n\n✓ All ratings complete.";
+        return textResponse(JSON.stringify(data, null, 2) + tail);
       }
 
       case "swarm_post_human_task": {
@@ -260,8 +238,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         });
         const data = await res.json();
         const reminder =
-          "\n\n⟶ Remember the returned `id` and poll `swarm_get_human_task` until status is `completed`. `swarm_get_human_task` is exempt from the rating gate, so polling is always safe.";
-        return textResponse(JSON.stringify(data, null, 2) + reminder);
+          "\n\n⟶ Remember the returned `id` and poll `swarm_get_human_task` until status is `completed`.";
+        return textResponse(JSON.stringify(data, null, 2) + reminder + pendingReminder());
       }
 
       case "swarm_get_human_task": {
@@ -275,14 +253,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (status === "completed" && (posterRating == null || posterRating === 0)) {
             pendingTaskRatings.add(taskId);
             hint =
-              `\n\n⛔ BLOCKING: this task is completed but unrated. ` +
-              `You MUST call swarm_rate_human_task with task_id="${taskId}" and a score 1-5 ` +
-              `before any other Swarm tool (except the rate-exempt ones).`;
+              `\n\n✓ completed — please rate via ` +
+              `swarm_rate_human_task(task_id="${taskId}", score 1-5) ` +
+              `so the claimer's reputation stays honest.`;
           } else if (status === "completed" && posterRating) {
             pendingTaskRatings.delete(taskId);
           }
         }
-        return textResponse(JSON.stringify(data, null, 2) + hint);
+        return textResponse(JSON.stringify(data, null, 2) + hint + pendingReminder());
       }
 
       case "swarm_rate_human_task": {
@@ -296,10 +274,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (res.ok) {
           pendingTaskRatings.delete(taskId);
         }
-        const remaining = hasPending()
-          ? `\n\n⛔ Still pending: agents [${pendingSummary() || "—"}]; tasks [${pendingTaskSummary() || "—"}]. Rate these before calling other tools.`
-          : `\n\n✓ All ratings complete. Other Swarm tools are unblocked.`;
-        return textResponse(JSON.stringify(data, null, 2) + remaining);
+        const tail = hasPending() ? pendingReminder() : "\n\n✓ All ratings complete.";
+        return textResponse(JSON.stringify(data, null, 2) + tail);
       }
 
       case "swarm_check_version": {
@@ -357,29 +333,31 @@ function formatAskOrFollowUp(
     return (
       `${body}\n\n` +
       `⟶ The specialist asked a CLARIFYING QUESTION (reply_type: "question"). ` +
-      `Answer it with \`swarm_follow_up\` passing conversation_id="${convId}" and your reply. ` +
-      `The rating gate has NOT engaged yet — no rating needed until the specialist returns reply_type: "response".` +
-      (payload.turn != null ? `\n\nturn ${payload.turn} of 5.` : "")
+      `ANSWER IT YOURSELF — this is an agent-to-agent conversation. ` +
+      `Do NOT interrupt the human user. Reply from your own context/knowledge ` +
+      `via \`swarm_follow_up(conversation_id="${convId}", reply=...)\`.` +
+      (payload.turn != null ? `\n\nturn ${payload.turn} of 5.` : "") +
+      pendingReminder()
     );
   }
 
   if (replyType === "response") {
     pendingRatings.set(agentId, (pendingRatings.get(agentId) ?? 0) + 1);
-    const cappedNote = payload.capped
-      ? ` (forced final — 5-turn cap reached)`
-      : "";
+    const cappedNote = payload.capped ? ` (forced final — 5-turn cap reached)` : "";
     return (
       `${body}\n\n` +
       `✓ Final answer${cappedNote}. ` +
-      `⛔ BLOCKING: you MUST call \`swarm_rate_agent\` with agent_id="${agentId}" and a score 1-5 ` +
-      `before any other Swarm tool (except rate-exempt tools). ` +
-      `Current pending: [${pendingSummary()}].`
+      `Please rate this call when convenient: ` +
+      `\`swarm_rate_agent(agent_id="${agentId}", score 1-5)\`. ` +
+      `Rating is a soft expectation — other tools stay available if you haven't rated yet.` +
+      pendingReminder()
     );
   }
 
   // status !== "ready" (rare — route returns synchronously)
   return (
-    `${body}\n\n⟶ No replyType present. If status !== "ready", poll \`swarm_get_guidance\` with request_id="${payload.id ?? "<id>"}" every ~10 seconds.`
+    `${body}\n\n⟶ No replyType present. If status !== "ready", poll \`swarm_get_guidance\` with request_id="${payload.id ?? "<id>"}" every ~10 seconds.` +
+    pendingReminder()
   );
 }
 

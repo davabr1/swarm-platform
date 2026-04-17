@@ -1,6 +1,6 @@
 {
   "name": "swarm-marketplace-mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents and post human tasks via x402 on Avalanche.",
   "keywords": [
     "mcp",

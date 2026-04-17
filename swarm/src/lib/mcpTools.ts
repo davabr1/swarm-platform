@@ -42,7 +42,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      "Ask a Swarm specialist agent for guidance (a second opinion). Response envelope: `{ conversation_id, reply_type, text }`. If `reply_type === \"question\"`, answer via `swarm_follow_up(conversation_id, reply)` — rating gate does NOT engage yet. If `reply_type === \"response\"`, that's the final answer and you MUST call `swarm_rate_agent` (1-5) before any other Swarm tool works (except rate-exempt ones). Each turn is a three-way billable split: commission (creator) + gemini passthrough + 5% platform margin.",
+      "Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: `{ conversation_id, reply_type, text }`. If `reply_type === \"question\"`, answer it autonomously via `swarm_follow_up`. If `reply_type === \"response\"`, that's the final answer — please rate it 1-5 with `swarm_rate_agent` (soft expectation, not a blocker). Each turn is a three-way billable split: commission (creator) + gemini passthrough + 5% platform margin.",
     inputSchema: {
       type: "object",
       properties: {
@@ -59,7 +59,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_follow_up",
     description:
-      "Answer a specialist's clarifying question. Returns the next turn in the same envelope shape. Capped at 5 turns per conversation — turn 5 is forced to `response` (`capped: true`). Rating gate engages only when `reply_type === \"response\"`. Billed identically to swarm_ask_agent.",
+      "Answer a specialist's clarifying question AUTONOMOUSLY. The calling AI is the one having this conversation — answer from your own context and knowledge; don't interrupt the human user. Returns the next turn in the same envelope. Capped at 5 turns — turn 5 forced to `response` (`capped: true`). Billed identically to swarm_ask_agent.",
     inputSchema: {
       type: "object",
       properties: {
@@ -97,7 +97,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_agent",
     description:
-      "Rate an agent 1-5 after a `swarm_ask_agent` conversation returned `reply_type: \"response\"` (the final answer). Writes on-chain via ERC-8004 Reputation Registry. ⛔ BLOCKING: required after every completed ask conversation — other Swarm tools refuse until every pending call is rated. A `reply_type: \"question\"` turn does NOT trigger the gate — only the final `response`.",
+      "Rate an agent 1-5 after a `swarm_ask_agent` conversation returned `reply_type: \"response\"`. Writes on-chain via ERC-8004 Reputation Registry. Please rate every completed ask conversation so the marketplace reputation stays honest — even 5-star calls deserve an explicit rating. Soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -156,7 +156,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_get_human_task",
     description:
-      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, the submitted `result`, and `posterRating` once completed. Rate-exempt — polling is always safe. ⛔ BLOCKING: once status is `completed` and `posterRating` is null, you MUST call `swarm_rate_human_task` (1-5) before any other Swarm tool will work.",
+      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, the submitted `result`, and `posterRating` once completed. Once completed with `posterRating` null, please rate via `swarm_rate_human_task` — soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -168,7 +168,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_human_task",
     description:
-      "Rate a completed human task 1-5. Credits the claimer's reputation on-chain via ERC-8004. ⛔ BLOCKING: required after every completed `swarm_post_human_task` — other Swarm tools refuse until every completed task is rated. Rate even 5-star work; silence is indistinguishable from a missing rating.",
+      "Rate a completed human task 1-5. Credits the claimer's reputation on-chain via ERC-8004. Please rate every completed task so marketplace reputation stays honest — soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -189,4 +189,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.5.0";
+export const SWARM_MCP_VERSION = "0.5.1";

@@ -10,6 +10,7 @@ import TerminalWindow from "@/components/TerminalWindow";
 import DataTable, { type Column } from "@/components/DataTable";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import {
   fetchTasks,
   claimTask,
@@ -62,6 +63,7 @@ export default function TaskBoardPage() {
   const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitText, setSubmitText] = useState<Record<string, string>>({});
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<Record<string, number>>({});
 
@@ -115,11 +117,16 @@ export default function TaskBoardPage() {
 
   const handleSubmit = async (id: string) => {
     const r = submitText[id];
-    if (!r?.trim()) return;
-    await submitTask(id, r);
-    setSubmitText((prev) => ({ ...prev, [id]: "" }));
-    load();
-    setExpanded(null);
+    if (!r?.trim() || submittingId) return;
+    setSubmittingId(id);
+    try {
+      await submitTask(id, r);
+      setSubmitText((prev) => ({ ...prev, [id]: "" }));
+      load();
+      setExpanded(null);
+    } finally {
+      setSubmittingId(null);
+    }
   };
 
   const handleVisibility = async (id: string, next: "public" | "private") => {
@@ -469,7 +476,7 @@ export default function TaskBoardPage() {
                     }
                     className="w-full border border-amber bg-amber text-background text-xs font-bold py-2.5 hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {posting ? "posting…" : "[ post task ]"}
+                    {posting ? <SubmittingLabel text="posting" /> : "[ post task ]"}
                   </button>
                   {postingErr && (
                     <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">
@@ -654,10 +661,14 @@ export default function TaskBoardPage() {
                       />
                       <button
                         onClick={() => handleSubmit(t.id)}
-                        disabled={!submitText[t.id]?.trim()}
+                        disabled={!submitText[t.id]?.trim() || submittingId === t.id}
                         className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        [ submit result & get paid ]
+                        {submittingId === t.id ? (
+                          <SubmittingLabel text="submitting" />
+                        ) : (
+                          "[ submit result & get paid ]"
+                        )}
                       </button>
                     </div>
                   ) : (

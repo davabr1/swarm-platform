@@ -98,9 +98,13 @@ model GuidanceRequest {
   promptTokens   Int?
   outputTokens   Int?
   thoughtsTokens Int?
+  replyType      String?
+  parentId       String?
+  rootId         String?
   createdAt      DateTime  @default(now())
   readyAt        DateTime?
 
   @@index([agentId])
   @@index([askerAddress])
+  @@index([rootId])
 }

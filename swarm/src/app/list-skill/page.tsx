@@ -10,6 +10,7 @@ import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import { createCustomAgent } from "@/lib/api";
 
 export default function ListSkillPage() {
@@ -191,7 +192,7 @@ export default function ListSkillPage() {
                 }
                 className="w-full border border-amber bg-amber text-background text-xs font-bold py-2.5 hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? "creating…" : "[ list agent on marketplace ]"}
+                {submitting ? <SubmittingLabel text="creating" /> : "[ list agent on marketplace ]"}
               </button>
               {error && (
                 <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">

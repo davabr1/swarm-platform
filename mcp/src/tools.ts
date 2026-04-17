@@ -34,7 +34,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      "Ask a Swarm specialist agent for guidance (a second opinion). ASYNC: returns a request `id` and initial `status`. If the response is already in the return payload, use it. Otherwise POLL `swarm_get_guidance` EVERY 10 SECONDS with that id until `status === \"ready\"` — then read `response`. Payment is a three-way split, computed and returned in `breakdown`: commission (agent.price → creator, full) + gemini passthrough (platform) + 5% platform margin. ⛔ BLOCKING: after this succeeds you MUST call `swarm_rate_agent` (1-5) before any other Swarm tool will work (except `swarm_get_guidance` and `swarm_get_human_task`, which stay available so polling never deadlocks).",
+      "Ask a Swarm specialist agent for guidance (a second opinion). The response is an envelope `{ conversation_id, reply_type, text }`. If `reply_type === \"question\"`, the specialist needs more context — answer via `swarm_follow_up(conversation_id, reply)`. The rating gate does NOT engage yet. If `reply_type === \"response\"`, that's the final answer and you MUST call `swarm_rate_agent` (1-5) before any other Swarm tool works (except rate-exempt tools like `swarm_get_guidance`, `swarm_get_human_task`, `swarm_follow_up`, `swarm_check_version`). Payment is a three-way split per turn, returned in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
     inputSchema: {
       type: "object",
       properties: {
@@ -49,6 +49,29 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
         },
       },
       required: ["agent_id", "question"],
+    },
+  },
+  {
+    name: "swarm_follow_up",
+    description:
+      "Answer a specialist's clarifying question. Returns the next turn in the same envelope shape `{ conversation_id, reply_type, text, turn, capped }`. If `reply_type === \"question\"` again, keep following up. Capped at 5 turns per conversation — turn 5 is forced to `response` (`capped: true`). Rating gate engages only when `reply_type === \"response\"`. Each turn is billed identically to `swarm_ask_agent`.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        conversation_id: {
+          type: "string",
+          description: "The `conversation_id` returned by swarm_ask_agent (or any prior swarm_follow_up turn).",
+        },
+        reply: {
+          type: "string",
+          description: "Your answer to the specialist's clarifying question.",
+        },
+        asker_address: {
+          type: "string",
+          description: "Optional: wallet address of the asker (0x…).",
+        },
+      },
+      required: ["conversation_id", "reply"],
     },
   },
   {
@@ -69,7 +92,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_agent",
     description:
-      "Rate an agent 1-5 after a `swarm_ask_agent` call. Writes on-chain via ERC-8004 Reputation Registry. ⛔ BLOCKING: this call is required after every `swarm_ask_agent` — other Swarm tools will refuse until every pending call is rated. Rate even 5-star calls; silence is indistinguishable from a missing rating.",
+      "Rate an agent 1-5 after a `swarm_ask_agent` conversation returned `reply_type: \"response\"` (the final answer). Writes on-chain via ERC-8004 Reputation Registry. ⛔ BLOCKING: required after every completed ask conversation — other Swarm tools refuse until every pending call is rated. Rate even 5-star calls; silence is indistinguishable from a missing rating. A `reply_type: \"question\"` turn does NOT trigger the gate — only the final `response`.",
     inputSchema: {
       type: "object",
       properties: {
@@ -150,6 +173,15 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
       required: ["task_id", "score"],
     },
   },
+  {
+    name: "swarm_check_version",
+    description:
+      "Check whether your installed `swarm-marketplace-mcp` is up to date. Returns `{ current, latest, updateAvailable, command }`. If `updateAvailable: true`, run the returned `command` in your terminal to upgrade. Rate-exempt — safe to call anytime.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
-export const SWARM_MCP_VERSION = "0.4.2";
+export const SWARM_MCP_VERSION = "0.5.0";

@@ -10,6 +10,7 @@ import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import { applyAsExpert } from "@/lib/api";
 
 export default function ApplyExpertPage() {
@@ -148,7 +149,7 @@ export default function ApplyExpertPage() {
                 }
                 className="w-full border border-phosphor bg-phosphor text-background text-xs font-bold py-2.5 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? "submitting…" : "[ submit application ]"}
+                {submitting ? <SubmittingLabel text="submitting" /> : "[ submit application ]"}
               </button>
               {error && (
                 <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">

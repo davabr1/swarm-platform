@@ -105,11 +105,14 @@ export default function MarketplacePage() {
     return list;
   }, [agents, filter, query]);
 
+  // Filter labels mirror `CATEGORY_LABEL` so the filter pill and the card
+  // badge read identically — "custom ai" in one place, "custom ai" in the
+  // other. Only exception is "all", which isn't a category.
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "all" },
     { key: "ai", label: "ai" },
     { key: "img-gen", label: "img-gen" },
-    { key: "custom", label: "custom" },
+    { key: "custom", label: "custom ai" },
     { key: "human", label: "human" },
   ];
 

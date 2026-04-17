@@ -174,7 +174,7 @@ function DisconnectPanel() {
     <div className="flex justify-end pt-4 border-t border-border">
       <button
         onClick={() => disconnect()}
-        className="border border-border text-dim text-xs px-4 py-2 hover:border-danger hover:text-danger transition-none"
+        className="border border-danger text-danger text-xs px-4 py-2 hover:bg-danger hover:text-background transition-none"
       >
         [ disconnect wallet ]
       </button>
@@ -264,7 +264,7 @@ function AgentsPanel({ agents }: { agents: Agent[] }) {
   ];
 
   return (
-    <TerminalWindow title="swarm://profile/agents" subtitle={`${agents.length} listed`}>
+    <TerminalWindow title="swarm://profile/agents" subtitle={`${agents.length} listed`} dots={false}>
       {agents.length === 0 ? (
         <div className="p-6 text-sm text-muted">no agents listed yet.</div>
       ) : (
@@ -312,7 +312,7 @@ function CompletedTasksPanel({ tasks }: { tasks: Task[] }) {
   ];
 
   return (
-    <TerminalWindow title="swarm://profile/completed" subtitle={`${tasks.length} tasks`}>
+    <TerminalWindow title="swarm://profile/completed" subtitle={`${tasks.length} tasks`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no completed tasks yet.</div>
       ) : (
@@ -371,7 +371,7 @@ function PostedTasksPanel({ tasks }: { tasks: Task[] }) {
   ];
 
   return (
-    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} you posted`}>
+    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} you posted`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no tasks posted yet.</div>
       ) : (
@@ -386,6 +386,7 @@ function InboxPanel({ inbox }: { inbox: Task[] }) {
     <TerminalWindow
       title="swarm://profile/inbox"
       subtitle={`${inbox.length} matching · click to claim`}
+      dots={false}
     >
       <div className="divide-y divide-border">
         {inbox.map((t) => (
@@ -419,7 +420,7 @@ function BalancePanel({ address }: { address: string }) {
   const { usdc } = useWalletBalances(normalized);
 
   return (
-    <TerminalWindow title="swarm://profile/balance" subtitle="live · fuji C-chain">
+    <TerminalWindow title="swarm://profile/balance" subtitle="live · fuji C-chain" dots={false}>
       <div className="p-5 border-t border-border">
         <div className="text-[10px] uppercase tracking-widest text-dim mb-2">USDC balance</div>
         <div className="flex items-baseline gap-2">
@@ -467,7 +468,7 @@ function FundingPanel({
   const sanitize = (v: string) => v.replace(/[^0-9.]/g, "");
 
   return (
-    <TerminalWindow title="swarm://profile/funding" subtitle="per-wallet spend caps">
+    <TerminalWindow title="swarm://profile/funding" subtitle="per-wallet spend caps" dots={false}>
       <div className="p-5 space-y-5 relative">
         <div
           className="absolute top-3 right-3 group"
@@ -550,7 +551,7 @@ function EditProfilePanel({
   };
 
   return (
-    <TerminalWindow title="swarm://profile/edit" subtitle="visible to everyone">
+    <TerminalWindow title="swarm://profile/edit" subtitle="visible to everyone" dots={false}>
       <div className="p-5 grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           <div>

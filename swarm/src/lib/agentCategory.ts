@@ -23,10 +23,13 @@ export function getCategory(agent: Pick<Agent, "type" | "skill" | "userCreated">
   return "ai";
 }
 
+// `custom` is user-facing label "custom ai" (the enum key stays `custom`
+// so filter URLs, internal code, and theme tokens don't churn). Only the
+// human-readable string changes — see marketplace filter + agent badge.
 export const CATEGORY_LABEL: Record<AgentCategory, string> = {
   human: "human",
   "img-gen": "img-gen",
-  custom: "custom",
+  custom: "custom ai",
   ai: "ai",
 };
 

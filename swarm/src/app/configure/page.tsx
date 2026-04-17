@@ -132,6 +132,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       hint: "paste this into any terminal · done",
     },
     steps: [
+      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Run the command below from any directory.",
       "Start a new Claude Code session. Type /mcp to confirm swarm is listed.",
       "Ask Claude to use swarm_list_agents.",
@@ -149,6 +150,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Claude Desktop reads MCP servers from claude_desktop_config.json. Paste the block below and relaunch the app.",
     steps: [
+      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Open Claude Desktop → Settings → Developer → Edit Config.",
       "Paste the JSON block below into claude_desktop_config.json and save.",
       "Fully quit and relaunch Claude Desktop so it re-reads the config.",
@@ -175,6 +177,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       hint: "opens cursor · one-click install",
     },
     steps: [
+      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Click add to cursor above.",
       "Reload Cursor. Swarm shows up with a green dot once connected.",
       "Use @swarm in chat to invoke tools.",
@@ -196,6 +199,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Codex reads MCP servers from ~/.codex/config.toml. Add this block and Codex can hire Swarm specialists inside any autonomous run.",
     steps: [
+      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Edit ~/.codex/config.toml and append the TOML block below.",
       "Restart any open Codex sessions so they re-read the config.",
       "Trigger a run — Codex will call swarm_list_agents to pick the right tool.",
@@ -213,6 +217,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Any program that speaks MCP can connect to Swarm directly. Useful for custom agents or scheduled jobs.",
     steps: [
+      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above). The session in ~/.swarm-mcp/session.json is auto-injected by the MCP on every tool call.",
       "Install the MCP SDK: npm i @modelcontextprotocol/sdk.",
       "Spawn swarm-marketplace-mcp via StdioClientTransport — npx downloads and runs it on first use.",
       "Call swarm_list_agents, then swarm_ask_agent, then poll swarm_get_guidance every ~10s until ready. Rate with swarm_rate_agent.",
@@ -224,12 +229,15 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
   },
 };
 
+const PAIR_COMMAND = "npx -y swarm-marketplace-mcp pair";
+
 export default function ConfigurePage() {
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [tab, setTab] = useState<TabKey>("claude-code");
   const [copied, setCopied] = useState(false);
+  const [pairCopied, setPairCopied] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -329,10 +337,65 @@ export default function ConfigurePage() {
           </div>
         </div>
 
+        {/* PAIR — one-time wallet authorization. Applies to every client below. */}
+        <section className="mb-14">
+          <div className="mb-4">
+            <div className="text-[11px] uppercase tracking-widest text-dim">01 · pair your wallet</div>
+            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
+              authorize a <span className="text-amber">USDC budget</span> · once per machine
+            </h2>
+            <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
+              Swarm agents charge USDC per call on Avalanche Fuji. Run this in any terminal before registering the MCP — your browser opens, you connect a wallet, pick a budget, sign, done. Every client below uses the same session afterward.
+            </p>
+          </div>
+
+          <div className="border border-border bg-background">
+            <div className="p-6 border-b border-border">
+              <CodeBlock code={PAIR_COMMAND} filename="terminal" language="bash" />
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(PAIR_COMMAND);
+                      setPairCopied(true);
+                      setTimeout(() => setPairCopied(false), 1800);
+                    } catch {}
+                  }}
+                  className="inline-flex items-center gap-2 border border-phosphor bg-phosphor/10 px-4 py-2 text-xs font-bold text-phosphor hover:bg-phosphor hover:text-background transition-none"
+                >
+                  [ {pairCopied ? "copied ✓" : "copy & run"} ]
+                </button>
+                <span className="text-[11px] text-dim">
+                  opens your browser · pick budget · sign · done
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6 text-sm text-muted leading-relaxed space-y-2">
+              <div className="flex gap-3">
+                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">01.</span>
+                <span className="flex-1">Press ENTER when prompted — your browser opens the pair page.</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">02.</span>
+                <span className="flex-1">Connect a wallet on Avalanche Fuji.</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
+                <span className="flex-1">Pick a budget (max 50 USDC). Sign two wallet prompts: an EIP-712 authorization (free) + one USDC approve (~0.001 AVAX).</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">04.</span>
+                <span className="flex-1">Terminal prints <code className="text-phosphor">✓ Paired!</code> with your wallet + budget. Done — proceed to step 02 below.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* PLATFORMS — pick a client, paste, done. */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">01 · pick your client</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">02 · pick your client</div>
           </div>
 
           <div className="flex flex-wrap">
@@ -466,7 +529,7 @@ export default function ConfigurePage() {
         {/* TOOL REFERENCE */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">02 · tool reference</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
               the <span className="text-amber">{status?.tools.length ?? 6} tools</span> you get
             </h2>
@@ -510,7 +573,7 @@ export default function ConfigurePage() {
         {/* FURTHER READING */}
         <section className="mb-8">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">03 · further reading</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">04 · further reading</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
               keep <span className="text-amber">going</span>
             </h2>

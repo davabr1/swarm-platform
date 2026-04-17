@@ -442,7 +442,16 @@ async function main() {
   console.error(`Swarm MCP server ready · v${SWARM_MCP_VERSION} · API: ${SWARM_API}`);
 }
 
-main().catch((err: unknown) => {
-  console.error("Fatal error:", getErrorMessage(err));
-  process.exit(1);
-});
+// `npx -y swarm-marketplace-mcp pair` → interactive pairing CLI in the
+// user's terminal. Everything else (no args, or spawned by a host) →
+// stdio MCP server mode.
+if (process.argv[2] === "pair") {
+  const { runInteractivePair } = await import("./pair.js");
+  const exitCode = await runInteractivePair();
+  process.exit(exitCode);
+} else {
+  main().catch((err: unknown) => {
+    console.error("Fatal error:", getErrorMessage(err));
+    process.exit(1);
+  });
+}

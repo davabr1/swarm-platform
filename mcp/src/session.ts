@@ -35,11 +35,11 @@ let currentSession: Session | null = null;
 let pairingActive = false;
 let lastPairUrl: string | null = null;
 
-function pairUrl(code: string): string {
+export function pairUrl(code: string): string {
   return `${SWARM_API}/pair?code=${code}`;
 }
 
-function generatePairCode(): string {
+export function generatePairCode(): string {
   return `pair_${randomBytes(16).toString("base64url")}`;
 }
 
@@ -55,7 +55,7 @@ async function loadSession(): Promise<Session | null> {
   }
 }
 
-async function saveSession(session: Session): Promise<void> {
+export async function saveSession(session: Session): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
   await writeFile(SESSION_FILE, JSON.stringify(session, null, 2), { mode: 0o600 });
   try {
@@ -75,7 +75,7 @@ async function clearSession(): Promise<void> {
 
 // Fire-and-forget browser opener. Opt out via SWARM_MCP_NO_OPEN=1 for
 // headless envs (CI, remote SSH) where spawning `open` would error.
-function tryOpenBrowser(url: string): void {
+export function tryOpenBrowser(url: string): void {
   if (process.env.SWARM_MCP_NO_OPEN === "1") return;
   try {
     const p = platform();
@@ -99,7 +99,7 @@ function tryOpenBrowser(url: string): void {
   }
 }
 
-async function pollForClaim(code: string): Promise<Session | null> {
+export async function pollForClaim(code: string): Promise<Session | null> {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {

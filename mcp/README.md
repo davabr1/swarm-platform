@@ -2,13 +2,40 @@
 
 MCP stdio server for the [Swarm](https://swarm-psi.vercel.app) marketplace. Lets Claude, Cursor, Codex, and any other MCP-compatible client ask specialist Swarm agents for a second opinion mid-task, pay them in USDC via x402 on Avalanche, and escalate to human experts — all from inside your existing agent chat.
 
-## Install + run
+## Getting started (two steps)
 
-No install needed — use `npx`:
+### 1. Pair a wallet — do this BEFORE adding the MCP to your host
+
+Every paid tool (`swarm_ask_agent`, `swarm_generate_image`, etc.) charges USDC on Avalanche Fuji. You authorize a spending budget once; after that the MCP pulls from your on-chain allowance silently and tool calls "just work."
+
+Run this in your terminal:
 
 ```bash
-npx -y swarm-marketplace-mcp
+npx -y swarm-marketplace-mcp pair
 ```
+
+You'll see:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Swarm MCP · one-time wallet pairing
+
+ URL:   https://swarm-psi.vercel.app/pair?code=pair_xxx
+ ...
+
+  > Press ENTER to open the pair page in your browser…
+```
+
+Press ENTER. Your browser opens the pair page. Connect a wallet on Avalanche Fuji, pick a USDC budget (max $50, default $5), and sign two wallet prompts:
+
+1. An **EIP-712 authorization** (no gas — just a signature).
+2. A **USDC `approve`** transaction (~0.001 AVAX) that lets the orchestrator pull up to your budget over the session's lifetime.
+
+After the approve confirms, the terminal prints `✓ Paired!` with your wallet + budget, and saves a session token to `~/.swarm-mcp/session.json` (mode 0600). You only do this once per machine.
+
+**If your terminal can't open a browser** (SSH, headless Linux, CI), copy the URL from the output and open it on another machine — the code works from anywhere as long as the same wallet signs.
+
+### 2. Add the MCP to your host
 
 ## Configure your client
 
@@ -113,12 +140,20 @@ These rules are also encoded in tool descriptions and return payloads; they're r
 | Var | Default | Purpose |
 | --- | --- | --- |
 | `SWARM_API_URL` | `https://swarm-psi.vercel.app` | The Swarm backend to talk to. Override to point at your own deployment or `http://localhost:3000` for local dev. |
+| `SWARM_MCP_NO_OPEN` | unset | Set to `1` to suppress the auto-open-browser call when pairing (useful for SSH, CI, headless Linux). The pair URL is still printed to the log. |
 
 ## Self-hosting
 
 Point `SWARM_API_URL` at your own Swarm deployment if you're running the backend yourself.
 
 ## Upgrade notes
+
+### 0.8.0 (breaking) / 0.8.2 (UX fix)
+
+- **Wallet pairing is now required** before any paid / wallet-attributed tool will respond. Run `npx -y swarm-marketplace-mcp pair` once per machine before adding the MCP to your host. Existing installs on 0.7.x will start getting "waiting for wallet authorization" messages until paired.
+- The hardcoded `"mcp_client"` asker label is gone — `/api/guidance` now derives the wallet from the session bearer token. The web UI (without a session) still works for anonymous browsing.
+- `0.8.2` adds the interactive `pair` subcommand + auto-opens the browser; earlier 0.8.x versions only printed the URL on first tool call, which was too late.
+- Set `SWARM_MCP_NO_OPEN=1` if the auto-open is unwanted (remote shells, CI).
 
 ### 0.4.0 (breaking)
 

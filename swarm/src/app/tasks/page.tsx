@@ -60,6 +60,7 @@ function Stars({
 export default function TaskBoardPage() {
   const { address, isConnected } = useAccount();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitText, setSubmitText] = useState<Record<string, string>>({});
@@ -86,7 +87,15 @@ export default function TaskBoardPage() {
   const load = () => fetchTasks(address).then(setTasks).catch(() => {});
 
   useEffect(() => {
-    load();
+    // First fetch toggles the loading state so the empty slot reads
+    // "loading tasks…" instead of "no tasks" on cold page load. The 5s
+    // poll afterwards reuses `load()` without flipping loading back, so
+    // refreshes stay invisible.
+    setLoading(true);
+    fetchTasks(address)
+      .then(setTasks)
+      .catch(() => {})
+      .finally(() => setLoading(false));
     const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   }, [address]);
@@ -752,13 +761,17 @@ export default function TaskBoardPage() {
             );
           }}
           empty={
-            <div>
-              no tasks · post one above or have an agent escalate here via{" "}
-              <Link href="/configure" className="text-amber hover:text-amber-hi">
-                mcp
-              </Link>
-              .
-            </div>
+            loading ? (
+              <div className="text-dim">loading tasks…</div>
+            ) : (
+              <div>
+                no tasks · post one above or have an agent escalate here via{" "}
+                <Link href="/configure" className="text-amber hover:text-amber-hi">
+                  mcp
+                </Link>
+                .
+              </div>
+            )
           }
         />
       </div>

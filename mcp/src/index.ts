@@ -292,19 +292,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const data = await res.json();
+        const data = (await res.json()) as Record<string, unknown>;
         if (res.ok) {
           pendingRatings.set(agentId, (pendingRatings.get(agentId) ?? 0) + 1);
         }
-        const payload = data as { imageUrl?: string; status?: string };
+        const payload = data as {
+          imageUrl?: string;
+          imageBase64?: string;
+          mimeType?: string;
+          status?: string;
+        };
+
+        // Strip the large base64 blob out of the JSON text dump — it
+        // becomes an inline image content block below so Claude / Codex
+        // actually *see* the image instead of just a URL string.
+        const textData: Record<string, unknown> = { ...data };
+        delete textData.imageBase64;
+
         const tail = res.ok
           ? `\n\n✓ Image ready${payload.imageUrl ? ` at ${payload.imageUrl}` : ""}. ` +
-            `Fetch or display the URL as needed. ` +
+            `The image is attached inline below; the URL above is shareable. ` +
             `Rate via \`swarm_rate_agent(agent_id="${agentId}", score 1-5)\` when convenient — ` +
             `soft expectation, not a blocker.` +
             pendingReminder()
           : "";
-        return textResponse(JSON.stringify(data, null, 2) + tail);
+
+        const content: Array<
+          | { type: "text"; text: string }
+          | { type: "image"; data: string; mimeType: string }
+        > = [
+          {
+            type: "text",
+            text: withBanner(JSON.stringify(textData, null, 2) + tail),
+          },
+        ];
+        if (res.ok && payload.imageBase64) {
+          content.push({
+            type: "image",
+            data: payload.imageBase64,
+            mimeType: payload.mimeType ?? "image/png",
+          });
+        }
+        return { content };
       }
 
       case "swarm_check_version": {

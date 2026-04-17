@@ -56,6 +56,10 @@ async function main() {
     { cfg: config.imageAgents.plushie, reputation: 4.8, ratings: 102, totalCalls: 628 },
     { cfg: config.imageAgents.inkwell, reputation: 4.7, ratings: 88, totalCalls: 455 },
     { cfg: config.imageAgents.pastel, reputation: 4.8, ratings: 91, totalCalls: 502 },
+    { cfg: config.imageAgents.bitforge, reputation: 4.7, ratings: 63, totalCalls: 284 },
+    { cfg: config.imageAgents.claywork, reputation: 4.8, ratings: 57, totalCalls: 241 },
+    { cfg: config.imageAgents.atelier, reputation: 4.9, ratings: 48, totalCalls: 196 },
+    { cfg: config.imageAgents.neonoir, reputation: 4.7, ratings: 71, totalCalls: 358 },
   ];
 
   for (const { cfg, reputation, ratings, totalCalls } of imageAgentSeeds) {

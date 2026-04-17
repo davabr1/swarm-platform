@@ -123,6 +123,26 @@ export type GeminiImageResult = {
   usage: GeminiImageUsage;
 };
 
+// Hard directive prepended to every image call. Tells the model its job
+// is to OUTPUT PIXELS, not commentary. Gemini image-preview models will
+// sometimes write a paragraph describing what they would draw instead of
+// drawing it — this kills that failure mode.
+const IMAGE_ONLY_DIRECTIVE =
+  "You are an image-generation model. OUTPUT AN IMAGE ONLY. " +
+  "Do not ask clarifying questions. Do not write captions, explanations, " +
+  "safety disclaimers, or any text describing the image. Render the prompt " +
+  "as a visual image. If the prompt is ambiguous, make a reasonable " +
+  "interpretation and render it — do not respond in text.";
+
+function extractImagePart(
+  response: Awaited<ReturnType<ReturnType<typeof getGeminiClient>["models"]["generateContent"]>>,
+) {
+  const parts = response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p) => p.inlineData?.data);
+  const textPart = parts.find((p) => p.text)?.text;
+  return { imagePart, textPart, parts };
+}
+
 export async function generateImage(
   systemPrompt: string,
   userPrompt: string,
@@ -133,27 +153,55 @@ export async function generateImage(
   }
 
   const ai = getGeminiClient();
-  const composed = systemPrompt
-    ? `${systemPrompt}\n\nImage prompt: ${userPrompt}`
-    : userPrompt;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: composed,
-    config: {
-      responseModalities: [Modality.IMAGE],
-    },
-  });
+  // Stack: IMAGE_ONLY_DIRECTIVE (highest priority, hard rule) + agent
+  // style prompt + user prompt. Order matters — the directive must come
+  // FIRST so it's treated as the system-level instruction.
+  const basePrompt = systemPrompt
+    ? `${IMAGE_ONLY_DIRECTIVE}\n\n${systemPrompt}\n\nImage prompt: ${userPrompt}`
+    : `${IMAGE_ONLY_DIRECTIVE}\n\nImage prompt: ${userPrompt}`;
 
-  const parts = response.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find((p) => p.inlineData?.data);
+  // Gemini image-preview models require BOTH modalities in the response
+  // config; IMAGE-only triggers silent text fallback. We allow TEXT so
+  // the API accepts the request, but the directive above tells the
+  // model not to actually use it.
+  const callOnce = async (prompt: string) =>
+    ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseModalities: [Modality.IMAGE, Modality.TEXT],
+      },
+    });
+
+  let response = await callOnce(basePrompt);
+  let { imagePart, textPart } = extractImagePart(response);
+
+  // First attempt returned text instead of image. Retry ONCE with an
+  // even more insistent prompt that references what the model just did
+  // wrong. One retry is enough — if the second try also fails, the model
+  // genuinely can't generate this (safety refusal, region gating, or
+  // model doesn't actually support image output).
   if (!imagePart?.inlineData?.data) {
-    const textPart = parts.find((p) => p.text)?.text;
-    throw new Error(
-      textPart
-        ? `Gemini returned text instead of an image: ${textPart.slice(0, 200)}`
-        : "Gemini returned no image data.",
-    );
+    const retryPrompt =
+      `${IMAGE_ONLY_DIRECTIVE}\n\n` +
+      `Your previous response was text. This is wrong. You MUST output ` +
+      `raw image data via the inlineData response part. Render the ` +
+      `following prompt as a single image now:\n\n` +
+      (systemPrompt ? `${systemPrompt}\n\n` : "") +
+      `Image prompt: ${userPrompt}`;
+    response = await callOnce(retryPrompt);
+    ({ imagePart, textPart } = extractImagePart(response));
+  }
+
+  if (!imagePart?.inlineData?.data) {
+    const detail = textPart
+      ? `Gemini (${model}) returned text instead of an image after 2 attempts: ${textPart.slice(0, 400)}`
+      : `Gemini (${model}) returned no image data after 2 attempts. Likely causes: ` +
+        `(1) model not enabled in your Vertex/AI Studio project, ` +
+        `(2) region lacks image-preview quota, ` +
+        `(3) safety filter blocked the prompt.`;
+    throw new Error(detail);
   }
 
   const meta = response.usageMetadata ?? {};

@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  if (agent.skill.startsWith("Image")) {
+    return Response.json(
+      {
+        error:
+          "This agent generates images, not text guidance — call /api/image (or swarm_generate_image via MCP) instead.",
+      },
+      { status: 400 }
+    );
+  }
 
   let priorTurns: Awaited<ReturnType<typeof db.guidanceRequest.findMany>> = [];
   let rootId: string;

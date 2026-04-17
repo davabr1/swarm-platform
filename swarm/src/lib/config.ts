@@ -88,7 +88,7 @@ export const config = {
   imageAgents: {
     lumen: {
       privateKey: process.env.LUMEN_PRIVATE_KEY || "",
-      address: process.env.LUMEN_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       id: "lumen",
       name: "Lumen",
       skill: "Image · Photorealistic",
@@ -101,7 +101,7 @@ export const config = {
     },
     plushie: {
       privateKey: process.env.PLUSHIE_PRIVATE_KEY || "",
-      address: process.env.PLUSHIE_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       id: "plushie",
       name: "Plushie",
       skill: "Image · Cute",
@@ -114,7 +114,7 @@ export const config = {
     },
     inkwell: {
       privateKey: process.env.INKWELL_PRIVATE_KEY || "",
-      address: process.env.INKWELL_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       id: "inkwell",
       name: "Inkwell",
       skill: "Image · Cartoon",
@@ -127,7 +127,7 @@ export const config = {
     },
     pastel: {
       privateKey: process.env.PASTEL_PRIVATE_KEY || "",
-      address: process.env.PASTEL_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       id: "pastel",
       name: "Pastel",
       skill: "Image · Anime",
@@ -137,6 +137,65 @@ export const config = {
         "Anime and soft-painterly illustration — clean linework, cel shading, lush studio-style color, and expressive character work.",
       systemPrompt:
         "You are Pastel, an anime-style image generator. Render with clean anime linework, cel shading, studio-quality backgrounds, and lush lighting reminiscent of modern Japanese animation. Prefer expressive eyes and dynamic composition. Avoid photorealism and western cartoon styles.",
+    },
+    // Pixel art — low-detail by nature, Flash handles it cleanly and cheaply.
+    bitforge: {
+      privateKey: process.env.BITFORGE_PRIVATE_KEY || "",
+      address: PLATFORM_AGENT_ADDRESS,
+      id: "bitforge",
+      name: "Bitforge",
+      skill: "Image · Pixel Art",
+      model: "gemini-3.1-flash-image-preview",
+      price: "$0.08",
+      description:
+        "Retro pixel-art image generation — tight dithering, limited palettes, and 8/16-bit game aesthetics ranging from NES sprites to late-SNES scenes.",
+      systemPrompt:
+        "You are Bitforge, a pixel-art image generator. Render subjects as crisp pixel art with a visible grid, limited palette (8–32 colors), and classic 8/16-bit game-console aesthetics — think NES, SNES, Mega Drive, early arcade. Use dithering for gradients, hard aliased edges, and period-correct shading. Avoid smooth anti-aliasing, photorealism, and modern high-resolution detail.",
+    },
+    // Stylized 3D — volumetric lighting + subsurface scattering + material
+    // realism = complex, use Nano Banana Pro for hero-quality CGI.
+    claywork: {
+      privateKey: process.env.CLAYWORK_PRIVATE_KEY || "",
+      address: PLATFORM_AGENT_ADDRESS,
+      id: "claywork",
+      name: "Claywork",
+      skill: "Image · 3D Render",
+      model: "gemini-3-pro-image-preview",
+      price: "$0.18",
+      description:
+        "Stylized 3D / CGI rendering — Pixar-adjacent character and prop art with volumetric lighting, subsurface scattering, and polished materials. Backed by Nano Banana Pro.",
+      systemPrompt:
+        "You are Claywork, a stylized 3D / CGI image generator. Render with a polished Pixar/DreamWorks-adjacent look: stylized character proportions, volumetric lighting, subsurface scattering on skin, physically plausible materials, and a warm studio-film color palette. Prefer cinematic composition with depth and atmospheric haze. Avoid photorealism, anime, and 2D flat styles.",
+    },
+    // Watercolor — paper texture, pigment bleed, and color transitions need
+    // fidelity. Pro holds the delicate gradients without posterizing.
+    atelier: {
+      privateKey: process.env.ATELIER_PRIVATE_KEY || "",
+      address: PLATFORM_AGENT_ADDRESS,
+      id: "atelier",
+      name: "Atelier",
+      skill: "Image · Watercolor",
+      model: "gemini-3-pro-image-preview",
+      price: "$0.14",
+      description:
+        "Watercolor and traditional-media illustration — visible paper grain, wet-edge blooms, soft color bleeds, and light pencil underdrawing. Backed by Nano Banana Pro for texture fidelity.",
+      systemPrompt:
+        "You are Atelier, a watercolor / traditional-media image generator. Render with visible cold-press paper texture, wet-edge blooms, soft pigment bleeds, and translucent layered washes. Let white paper show through highlights; leave confident pencil or ink underdrawing. Prefer a restrained, harmonious palette. Avoid digital-smooth gradients, photorealism, and cartoon line art.",
+    },
+    // Cyberpunk — stacked light sources (neon, volumetric fog, reflections,
+    // chromatic aberration) are where Flash falls apart. Pro handles it.
+    neonoir: {
+      privateKey: process.env.NEONOIR_PRIVATE_KEY || "",
+      address: PLATFORM_AGENT_ADDRESS,
+      id: "neonoir",
+      name: "Neonoir",
+      skill: "Image · Cyberpunk",
+      model: "gemini-3-pro-image-preview",
+      price: "$0.14",
+      description:
+        "Cyberpunk and synthwave imagery — neon signage, rain-slick streets, holographic glitch, and saturated magenta/cyan lighting. Backed by Nano Banana Pro.",
+      systemPrompt:
+        "You are Neonoir, a cyberpunk / synthwave image generator. Render with drenched neon magenta and cyan lighting, volumetric fog, rain-slick reflective surfaces, holographic signage, CRT scanlines or subtle glitch artifacts, and dense futuristic urban density. Prefer dusk/night scenes with strong rim lighting and chromatic aberration. Avoid daylight, pastel, and wholesome styling.",
     },
   },
 

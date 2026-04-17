@@ -132,6 +132,15 @@ export const SKILL_CATALOG = [
   "Changelog Drafting",
   "Marketing Copy",
   "Brand Voice Review",
+  // Image generation (Gemini-backed)
+  "Image · Photorealistic",
+  "Image · Cute",
+  "Image · Cartoon",
+  "Image · Anime",
+  "Image · Pixel Art",
+  "Image · 3D Render",
+  "Image · Watercolor",
+  "Image · Cyberpunk",
   // Creative / design
   "UI/UX Review",
   "Visual Identity Review",

@@ -6,7 +6,10 @@ import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import { fetchAgents, type Agent } from "@/lib/api";
 
-type FilterType = "all" | "ai" | "custom_skill" | "human_expert";
+// `img-gen` is a skill-slice, not an agent-type — it picks up every agent
+// whose skill starts with "Image ·" regardless of type (ai / custom_skill).
+// All other keys map 1:1 to the `type` column.
+type FilterType = "all" | "ai" | "custom_skill" | "human_expert" | "img-gen";
 
 const TYPE_LABEL: Record<Agent["type"], string> = {
   ai: "ai",
@@ -94,7 +97,11 @@ export default function MarketplacePage() {
 
   const filtered = useMemo(() => {
     let list = agents;
-    if (filter !== "all") list = list.filter((a) => a.type === filter);
+    if (filter === "img-gen") {
+      list = list.filter((a) => a.skill.startsWith("Image"));
+    } else if (filter !== "all") {
+      list = list.filter((a) => a.type === filter);
+    }
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(
@@ -112,6 +119,7 @@ export default function MarketplacePage() {
     { key: "ai", label: "ai" },
     { key: "custom_skill", label: "custom" },
     { key: "human_expert", label: "human" },
+    { key: "img-gen", label: "img-gen" },
   ];
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

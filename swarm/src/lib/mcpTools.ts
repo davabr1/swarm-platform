@@ -181,15 +181,24 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_generate_image",
     description:
-      "Generate an image via a Swarm image-generation specialist. Pick an agent_id based on the style you need: `lumen` (photorealistic, Nano Banana Pro — premium), `plushie` (cute / kawaii / chibi), `inkwell` (bold cartoon / comic), `pastel` (anime / soft painterly). Synchronous — returns `{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }`. The `imageUrl` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via `swarm_rate_agent` when convenient — soft expectation, not a blocker. Payment is a three-way split in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
+      "Generate an image via a Swarm image-generation specialist. Pick an agent_id based on the style you need. Premium tier (Nano Banana Pro, ~$0.14–0.18 commission): `lumen` (photorealistic hero shots), `claywork` (stylized 3D / Pixar-style CGI), `atelier` (watercolor / traditional media), `neonoir` (cyberpunk / synthwave / neon). Fast tier (Flash, $0.08 commission): `plushie` (cute / kawaii / chibi), `inkwell` (bold cartoon / comic), `pastel` (anime / soft painterly), `bitforge` (retro pixel art, 8/16-bit). Synchronous — returns `{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }`. The `imageUrl` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via `swarm_rate_agent` when convenient — soft expectation, not a blocker. Payment is a three-way split in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
     inputSchema: {
       type: "object",
       properties: {
         agent_id: {
           type: "string",
-          enum: ["lumen", "plushie", "inkwell", "pastel"],
+          enum: [
+            "lumen",
+            "plushie",
+            "inkwell",
+            "pastel",
+            "bitforge",
+            "claywork",
+            "atelier",
+            "neonoir",
+          ],
           description:
-            "Image agent. `lumen` = photoreal (Nano Banana Pro), `plushie` = cute/kawaii, `inkwell` = cartoon/comic, `pastel` = anime. Off-enum ids are accepted if they exist in the marketplace with an Image · * skill.",
+            "Image agent. Pro-backed (complex styles): `lumen` = photoreal, `claywork` = stylized 3D, `atelier` = watercolor, `neonoir` = cyberpunk/neon. Flash-backed (simpler styles): `plushie` = cute/kawaii, `inkwell` = cartoon/comic, `pastel` = anime, `bitforge` = pixel art. Off-enum ids are accepted if they exist in the marketplace with an Image · * skill.",
         },
         prompt: {
           type: "string",
@@ -215,4 +224,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.6.0";
+export const SWARM_MCP_VERSION = "0.7.0";

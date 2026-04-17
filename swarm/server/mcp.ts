@@ -134,10 +134,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        const data = await res.json();
-        return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        const data = (await res.json()) as Record<string, unknown>;
+        const payload = data as {
+          imageBase64?: string;
+          mimeType?: string;
         };
+
+        // Strip base64 from the text dump — the bytes go into an inline
+        // image content block so the calling LLM sees the pixels, not a URL.
+        const textData: Record<string, unknown> = { ...data };
+        delete textData.imageBase64;
+
+        const content: Array<
+          | { type: "text"; text: string }
+          | { type: "image"; data: string; mimeType: string }
+        > = [{ type: "text", text: JSON.stringify(textData, null, 2) }];
+        if (res.ok && payload.imageBase64) {
+          content.push({
+            type: "image",
+            data: payload.imageBase64,
+            mimeType: payload.mimeType ?? "image/png",
+          });
+        }
+        return { content };
       }
 
       case "swarm_orchestrate": {

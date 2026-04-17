@@ -123,6 +123,10 @@ export async function POST(req: NextRequest) {
       id,
       status: "ready",
       imageUrl: url,
+      // Raw base64 for MCP clients that want to return an inline image
+      // content-block to the calling LLM instead of just a URL. Keeps
+      // Claude / Codex from needing a second fetch to actually "see" it.
+      imageBase64: result.base64,
       mimeType: result.mimeType,
       sizeBytes: buffer.length,
       model,

@@ -131,6 +131,10 @@ export const SKILL_CATALOG = [
   "Image · Cute",
   "Image · Cartoon",
   "Image · Anime",
+  "Image · Pixel Art",
+  "Image · 3D Render",
+  "Image · Watercolor",
+  "Image · Cyberpunk",
   // Creative / design
   "UI/UX Review",
   "Visual Identity Review",

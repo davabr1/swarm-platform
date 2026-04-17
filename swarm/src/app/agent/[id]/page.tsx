@@ -54,7 +54,7 @@ export default function AgentDetailPage() {
   }, [id, router]);
 
   useEffect(() => {
-    if (!log.find((l) => l.kind === "result") || rated) return;
+    if (!log.find((l) => l.kind === "result" || l.kind === "image") || rated) return;
     const onKey = (e: KeyboardEvent) => {
       const k = Number(e.key);
       if (k >= 1 && k <= 5) {
@@ -65,6 +65,8 @@ export default function AgentDetailPage() {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, rated]);
+
+  const isImage = agent?.skill?.startsWith("Image") ?? false;
 
   const askForGuidance = async () => {
     const message = input.trim();
@@ -85,6 +87,44 @@ export default function AgentDetailPage() {
     setThinking(true);
 
     try {
+      if (isImage) {
+        // Image agents take a one-shot prompt → Gemini image model →
+        // PNG on disk. Never run through the guidance envelope (which
+        // would turn them into a text model asking clarifying
+        // questions with no way for the UI to follow up).
+        const res = await fetch("/api/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId: id, prompt: message }),
+        });
+        const data = (await res.json()) as {
+          status?: string;
+          imageUrl?: string;
+          error?: string;
+          breakdown?: GuidanceBreakdown;
+        };
+        setThinking(false);
+        if (!res.ok || data.status !== "ready" || !data.imageUrl) {
+          setLog((prev) => [
+            ...prev,
+            { kind: "error", text: `! image ${data.status ?? "failed"}: ${data.error ?? "no image returned"}` },
+          ]);
+          return;
+        }
+        if (data.breakdown) setBreakdown(data.breakdown);
+        const total = data.breakdown?.totalUsd ?? "?";
+        setLog((prev) => [
+          ...prev,
+          { kind: "success", text: `[settled] $${total} total charged` },
+          { kind: "info", text: `[stream] image from ${agent?.name ?? "agent"}` },
+          { kind: "image", text: data.imageUrl! },
+        ]);
+        const updated = await fetchAgent(id);
+        setAgent(updated);
+        setInput("");
+        return;
+      }
+
       const result = await askAgent(id, message);
       setThinking(false);
       if (result.status !== "ready" || !result.response) {
@@ -254,7 +294,11 @@ export default function AgentDetailPage() {
                 <PromptTextarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={`ask ${agent.name} for guidance…`}
+                  placeholder={
+                    isImage
+                      ? `describe the image you want ${agent.name} to generate…`
+                      : `ask ${agent.name} for guidance…`
+                  }
                   rows={4}
                   className="border-0 border-b border-border"
                 />
@@ -270,9 +314,9 @@ export default function AgentDetailPage() {
                     className="border border-amber bg-amber px-4 py-1.5 text-xs font-bold text-background hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {loading ? (
-                      <SubmittingLabel text="asking" />
+                      <SubmittingLabel text={isImage ? "generating" : "asking"} />
                     ) : (
-                      `[ ask · pay ${agent.price}+ ]`
+                      `[ ${isImage ? "generate" : "ask"} · pay ${agent.price}+ ]`
                     )}
                   </button>
                 </div>
@@ -309,7 +353,9 @@ export default function AgentDetailPage() {
                 <div className="flex-1 min-h-[220px] bg-background">
                   {log.length === 0 ? (
                     <div className="p-6 text-dim text-sm">
-                      guidance streams here after you ask the agent.
+                      {isImage
+                        ? "image renders here after you describe what you want."
+                        : "guidance streams here after you ask the agent."}
                     </div>
                   ) : (
                     <div className="p-4 space-y-2 text-sm">
@@ -330,6 +376,23 @@ export default function AgentDetailPage() {
                         >
                           {line.kind === "result" ? (
                             <pre className="whitespace-pre-wrap border-l border-border pl-3 leading-relaxed">{line.text}</pre>
+                          ) : line.kind === "image" ? (
+                            <a
+                              href={line.text}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block border border-border bg-surface-1 p-2 hover:border-amber transition-none"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={line.text}
+                                alt="generated image"
+                                className="block max-w-full h-auto"
+                              />
+                              <div className="mt-2 text-[10px] text-dim font-mono truncate">
+                                {line.text}
+                              </div>
+                            </a>
                           ) : (
                             <span className="font-mono text-xs">{line.text}</span>
                           )}
@@ -348,7 +411,7 @@ export default function AgentDetailPage() {
                         </div>
                       )}
 
-                      {log.find((l) => l.kind === "result") && !rated && !loading && (
+                      {log.find((l) => l.kind === "result" || l.kind === "image") && !rated && !loading && (
                         <div className="pt-3 mt-3 border-t border-border flex items-center gap-3">
                           <span className="text-[11px] uppercase tracking-widest text-dim">
                             [rate] press 1–5 or click

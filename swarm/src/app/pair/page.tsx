@@ -318,7 +318,7 @@ function PairInner() {
                       />
                       <span className="text-amber ml-1 text-xs">USDC</span>
                     </div>
-                    <div className="text-[10px] text-dim mt-1">max 50 USDC. one approve tx.</div>
+                    <div className="text-[10px] text-dim mt-1">max 50 USDC · one USDC approve transaction</div>
                   </label>
                   <label className="block">
                     <div className="text-[10px] uppercase tracking-widest text-dim mb-2">expires · days</div>
@@ -370,8 +370,9 @@ function PairInner() {
                       href={`https://testnet.snowtrace.io/tx/${approveHash}`}
                       target="_blank"
                       rel="noreferrer"
+                      title="Your USDC approve transaction on the Fuji block explorer"
                     >
-                      approve tx ↗
+                      view tx on Snowtrace ↗
                     </a>
                   )}
                 </div>

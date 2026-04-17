@@ -34,8 +34,9 @@ export async function POST(req: NextRequest) {
   const agentId: string | undefined = body.agentId;
   const prompt: string | undefined = body.prompt;
 
-  // See guidance/route.ts: Authorization header present but invalid → 401
-  // so the MCP re-pairs. Header absent → anonymous browser UI path.
+  // Paid route — require a session. Anonymous callers get 402 so the
+  // browser can open the pair modal. Invalid/revoked tokens → 401 so
+  // MCP clients drop their local session and re-pair.
   const resolution = await resolveSession(req);
   if (resolution.kind === "invalid_token") {
     return Response.json(
@@ -43,12 +44,16 @@ export async function POST(req: NextRequest) {
       { status: 401 },
     );
   }
-  const session = resolution.kind === "session" ? resolution.session : null;
-  const askerAddress: string = session
-    ? session.address
-    : typeof body.askerAddress === "string" && body.askerAddress
-      ? body.askerAddress
-      : "mcp_client";
+  if (resolution.kind === "anonymous") {
+    return json402({
+      resource: "/api/image",
+      microUsdc: BigInt(0),
+      error: "authorization_required",
+      description: "Connect a wallet and authorize a USDC budget to call this agent.",
+    });
+  }
+  const session = resolution.session;
+  const askerAddress: string = session.address;
 
   if (!agentId || !prompt) {
     return Response.json({ error: "Missing 'agentId' or 'prompt'" }, { status: 400 });

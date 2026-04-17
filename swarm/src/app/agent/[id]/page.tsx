@@ -12,11 +12,15 @@ import SubmittingLabel from "@/components/SubmittingLabel";
 import {
   fetchAgent,
   askAgent,
+  callImage,
   rateAgent,
+  PaymentRequiredError,
   type Agent,
   type GuidanceBreakdown,
 } from "@/lib/api";
 import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT } from "@/lib/agentCategory";
+import { useSession } from "@/components/SessionProvider";
+import { useAccount } from "wagmi";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
@@ -26,6 +30,8 @@ export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { ensureSession, clearSession } = useSession();
+  const { isConnected } = useAccount();
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [input, setInput] = useState("");
@@ -70,8 +76,36 @@ export default function AgentDetailPage() {
   const askForGuidance = async () => {
     const message = input.trim();
     if (!message || loading) return;
+
+    if (!isConnected) {
+      setLog((prev) => [
+        ...prev,
+        { kind: "error", text: "! connect a wallet first — agents charge USDC per call" },
+      ]);
+      return;
+    }
+
     setLoading(true);
     ratingInFlight.current = false;
+
+    // Ensure the user has a paired session (an active USDC allowance).
+    // Opens the pair modal if needed; resolves null if they cancel.
+    let token: string | null = null;
+    try {
+      token = await ensureSession();
+    } catch (e) {
+      setLoading(false);
+      setLog((prev) => [...prev, { kind: "error", text: `! ${getErrorMessage(e)}` }]);
+      return;
+    }
+    if (!token) {
+      setLoading(false);
+      setLog((prev) => [
+        ...prev,
+        { kind: "error", text: "! authorization cancelled — agents can't charge until you pair a wallet" },
+      ]);
+      return;
+    }
 
     // If the specialist's last reply was a clarifying question, we thread
     // onto the same conversation instead of starting a new one. Otherwise
@@ -104,45 +138,23 @@ export default function AgentDetailPage() {
         // PNG on disk. Never run through the guidance envelope (which
         // would turn them into a text model asking clarifying
         // questions with no way for the UI to follow up).
-        const res = await fetch("/api/image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId: id, prompt: message }),
-        });
-        // If the route blew up before returning JSON (server crash, Next
-        // default error page, gateway timeout), `.json()` throws
-        // "Unexpected end of JSON input" and the UI shows nothing useful.
-        // Read the body as text first, then try to parse — so we can surface
-        // the HTTP status + raw body in the log.
-        const raw = await res.text();
-        let data: {
-          status?: string;
-          imageUrl?: string;
-          error?: string;
-          breakdown?: GuidanceBreakdown;
-        } = {};
-        try {
-          data = raw ? JSON.parse(raw) : {};
-        } catch {
-          // leave data empty; we'll surface raw text below
-        }
+        const data = await callImage(id, message, { token });
         setThinking(false);
-        if (!res.ok || data.status !== "ready" || !data.imageUrl) {
-          const detail =
-            data.error ??
-            (raw && raw.length < 400 ? raw : `HTTP ${res.status} ${res.statusText}`) ??
-            "no image returned";
+        if (data.status !== "ready" || !data.imageUrl) {
           setLog((prev) => [
             ...prev,
-            { kind: "error", text: `! image ${data.status ?? "failed"}: ${detail}` },
+            { kind: "error", text: `! image ${data.status ?? "failed"}: ${data.error ?? "no image returned"}` },
           ]);
           return;
         }
         if (data.breakdown) setBreakdown(data.breakdown);
         const total = data.breakdown?.totalUsd ?? "?";
+        const txTag = data.settlement?.status === "confirmed"
+          ? ` · tx ${data.settlement.txHash.slice(0, 10)}…`
+          : "";
         setLog((prev) => [
           ...prev,
-          { kind: "success", text: `[settled] $${total} total charged` },
+          { kind: "success", text: `[settled] ${total} USDC charged${txTag}` },
           { kind: "info", text: `[stream] image from ${agent?.name ?? "agent"}` },
           { kind: "image", text: data.imageUrl! },
         ]);
@@ -154,6 +166,7 @@ export default function AgentDetailPage() {
 
       const result = await askAgent(id, message, {
         conversationId: isFollowUp ? conversationId! : undefined,
+        token,
       });
       setThinking(false);
       if (result.status !== "ready" || !result.response) {
@@ -198,7 +211,43 @@ export default function AgentDetailPage() {
       setInput("");
     } catch (err) {
       setThinking(false);
-      setLog((prev) => [...prev, { kind: "error", text: `! error: ${getErrorMessage(err)}` }]);
+      if (err instanceof PaymentRequiredError) {
+        if (err.status === 401 || err.reason === "invalid_session") {
+          // Session token expired / revoked — drop it locally and tell
+          // the user to re-pair on their next attempt.
+          clearSession();
+          setLog((prev) => [
+            ...prev,
+            { kind: "error", text: "! session revoked or expired — retry to authorize a fresh one" },
+          ]);
+        } else if (
+          err.reason === "budget_exhausted" ||
+          err.reason === "allowance_exhausted"
+        ) {
+          setLog((prev) => [
+            ...prev,
+            {
+              kind: "error",
+              text: "! budget exhausted — top up your session on your profile page",
+            },
+          ]);
+        } else if (err.reason === "insufficient_balance") {
+          setLog((prev) => [
+            ...prev,
+            {
+              kind: "error",
+              text: "! not enough USDC in your wallet — top up at faucet.circle.com and retry",
+            },
+          ]);
+        } else {
+          setLog((prev) => [
+            ...prev,
+            { kind: "error", text: `! payment required: ${err.reason}` },
+          ]);
+        }
+      } else {
+        setLog((prev) => [...prev, { kind: "error", text: `! error: ${getErrorMessage(err)}` }]);
+      }
     } finally {
       setLoading(false);
     }

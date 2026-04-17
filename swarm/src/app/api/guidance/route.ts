@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
   const conversationId: string | undefined =
     typeof body.conversationId === "string" && body.conversationId ? body.conversationId : undefined;
 
-  // MCP callers carry an Authorization: Bearer <token>. When the header is
-  // present but the token is invalid/revoked/expired, 401 so the MCP's
-  // swarmFetch drops the local session and re-pairs. When the header is
-  // absent (browser UI), fall through to the legacy body shape.
+  // Paid routes require a session — either from an MCP Authorization:
+  // Bearer header or from a browser-pair session. Anonymous callers are
+  // rejected with 402 so the browser can open the pair modal; previously
+  // we'd fall through to "mcp_client" and serve the LLM for free, which
+  // meant activity-log "paid" entries on browser calls were lying.
   const resolution = await resolveSession(req);
   if (resolution.kind === "invalid_token") {
     return Response.json(
@@ -36,12 +37,16 @@ export async function POST(req: NextRequest) {
       { status: 401 },
     );
   }
-  const session = resolution.kind === "session" ? resolution.session : null;
-  const askerAddress: string = session
-    ? session.address
-    : typeof body.askerAddress === "string" && body.askerAddress
-      ? body.askerAddress
-      : "mcp_client";
+  if (resolution.kind === "anonymous") {
+    return json402({
+      resource: "/api/guidance",
+      microUsdc: BigInt(0),
+      error: "authorization_required",
+      description: "Connect a wallet and authorize a USDC budget to call this agent.",
+    });
+  }
+  const session = resolution.session;
+  const askerAddress: string = session.address;
 
   if (!agentId || !question) {
     return Response.json({ error: "Missing 'agentId' or 'question'" }, { status: 400 });

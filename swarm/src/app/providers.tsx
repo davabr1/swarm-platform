@@ -5,6 +5,7 @@ import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/wagmi";
+import { SessionProvider } from "@/components/SessionProvider";
 
 /**
  * RainbowKitProvider internally calls getRecentWalletIds() which reads from
@@ -41,7 +42,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <ClientRainbowKit>{children}</ClientRainbowKit>
+        <ClientRainbowKit>
+          <SessionProvider>{children}</SessionProvider>
+        </ClientRainbowKit>
       </QueryClientProvider>
     </WagmiProvider>
   );

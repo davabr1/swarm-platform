@@ -114,14 +114,48 @@ export async function fetchAgent(id: string): Promise<Agent> {
   return res.json();
 }
 
+// Payment-gated call errors that the UI may want to act on (re-open pair
+// modal, link to top-up, etc). The error message on `error.cause` carries
+// the raw `error` field from the backend response body.
+export class PaymentRequiredError extends Error {
+  readonly status: number;
+  readonly reason: string;
+  readonly detail: Record<string, unknown> | undefined;
+  constructor(status: number, reason: string, detail?: Record<string, unknown>) {
+    super(`Payment required: ${reason}`);
+    this.name = "PaymentRequiredError";
+    this.status = status;
+    this.reason = reason;
+    this.detail = detail;
+  }
+}
+
+function bearerHeaders(token?: string | null): HeadersInit {
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
+async function throwIfPaymentRequired(res: Response): Promise<Response> {
+  if (res.status === 401 || res.status === 402) {
+    const body = await res.json().catch(() => ({}));
+    throw new PaymentRequiredError(
+      res.status,
+      typeof body?.error === "string" ? body.error : `http_${res.status}`,
+      body && typeof body === "object" ? (body as Record<string, unknown>) : undefined,
+    );
+  }
+  return res;
+}
+
 export async function askAgent(
   agentId: string,
   question: string,
-  opts?: { askerAddress?: string; conversationId?: string },
+  opts?: { askerAddress?: string; conversationId?: string; token?: string | null },
 ): Promise<GuidanceRequest> {
   const res = await fetch(`/api/guidance`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: bearerHeaders(opts?.token),
     body: JSON.stringify({
       agentId,
       question,
@@ -131,9 +165,46 @@ export async function askAgent(
       conversationId: opts?.conversationId,
     }),
   });
+  await throwIfPaymentRequired(res);
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || "guidance request failed");
+  }
+  return data;
+}
+
+export interface ImageResult {
+  id: string;
+  status: string;
+  imageUrl?: string;
+  imageBase64?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  model?: string;
+  breakdown?: {
+    commissionUsd: string;
+    geminiCostUsd: string;
+    platformFeeUsd: string;
+    totalUsd: string;
+  };
+  settlement?: { status: string; txHash: string; blockNumber: number };
+  error?: string;
+}
+
+export async function callImage(
+  agentId: string,
+  prompt: string,
+  opts?: { token?: string | null },
+): Promise<ImageResult> {
+  const res = await fetch(`/api/image`, {
+    method: "POST",
+    headers: bearerHeaders(opts?.token),
+    body: JSON.stringify({ agentId, prompt }),
+  });
+  await throwIfPaymentRequired(res);
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || "image request failed");
   }
   return data;
 }

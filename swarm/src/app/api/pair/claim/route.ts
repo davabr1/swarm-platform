@@ -136,6 +136,11 @@ export async function POST(req: NextRequest) {
     address,
     budgetUsd,
     expiresAt: expiresDate.toISOString(),
+    // Browser pairing reads the token directly from this POST response
+    // (no polling). MCP pairing ignores this field and picks up via the
+    // GET endpoint below — leaving the token in the POST is harmless
+    // because the same token is already in-scope for both paths.
+    sessionToken: token,
   });
 }
 

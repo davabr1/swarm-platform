@@ -46,15 +46,19 @@ function getErrorMessage(error: unknown) {
 /**
  * Tracks agents that have been asked this session but not yet rated.
  * Every swarm_ask_agent increments; every swarm_rate_agent decrements.
- * While this map is non-empty, all other tools (except swarm_get_guidance
- * and swarm_get_human_task, which must remain callable so polling an
- * in-flight guidance or human task doesn't deadlock) return a blocking
- * error telling the caller to rate.
+ * Also tracks human tasks that completed but haven't been rated yet —
+ * swarm_get_human_task adds completed+unrated task ids; swarm_rate_human_task
+ * removes them. While either collection is non-empty, all other tools
+ * (except swarm_get_guidance and swarm_get_human_task, which must stay
+ * callable so polling never deadlocks) return a blocking error telling
+ * the caller to rate.
  */
 const pendingRatings = new Map<string, number>();
+const pendingTaskRatings = new Set<string>();
 
 const RATE_EXEMPT_TOOLS = new Set([
   "swarm_rate_agent",
+  "swarm_rate_human_task",
   "swarm_get_guidance",
   "swarm_get_human_task",
 ]);
@@ -65,18 +69,36 @@ function pendingSummary() {
     .join(", ");
 }
 
+function pendingTaskSummary() {
+  return Array.from(pendingTaskRatings).join(", ");
+}
+
+function hasPending() {
+  return pendingRatings.size > 0 || pendingTaskRatings.size > 0;
+}
+
 function blockingRatingError() {
+  const parts: string[] = [];
+  if (pendingRatings.size > 0) {
+    parts.push(
+      `unrated agent calls [${pendingSummary()}] — call \`swarm_rate_agent\` (1-5) for each`,
+    );
+  }
+  if (pendingTaskRatings.size > 0) {
+    parts.push(
+      `unrated completed human tasks [${pendingTaskSummary()}] — call \`swarm_rate_human_task\` (1-5) for each`,
+    );
+  }
   return {
     isError: true,
     content: [
       {
         type: "text",
         text:
-          `⛔ Blocked: you have unrated agent calls pending [${pendingSummary()}]. ` +
-          `Call \`swarm_rate_agent\` (1-5) for each before using any other Swarm tool ` +
-          `(except \`swarm_get_guidance\` and \`swarm_get_human_task\`, which stay ` +
-          `available so polling doesn't deadlock). Every call must be rated — ` +
-          `silence is indistinguishable from 1-star.`,
+          `⛔ Blocked: ${parts.join("; ")}. ` +
+          `Rate everything before using any other Swarm tool (except ` +
+          `\`swarm_get_guidance\` and \`swarm_get_human_task\`, which stay ` +
+          `available so polling doesn't deadlock). Silence is indistinguishable from 1-star.`,
       },
     ],
   };
@@ -102,7 +124,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const toolArgs = (args ?? {}) as Record<string, unknown>;
 
-  if (pendingRatings.size > 0 && !RATE_EXEMPT_TOOLS.has(name)) {
+  if (hasPending() && !RATE_EXEMPT_TOOLS.has(name)) {
     return blockingRatingError();
   }
 
@@ -185,10 +207,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             pendingRatings.set(agentId, cur - 1);
           }
         }
-        const remaining =
-          pendingRatings.size > 0
-            ? `\n\n⛔ Still pending: [${pendingSummary()}]. Rate these before calling other tools.`
-            : `\n\n✓ All agent calls rated. Other Swarm tools are unblocked.`;
+        const remaining = hasPending()
+          ? `\n\n⛔ Still pending: agents [${pendingSummary() || "—"}]; tasks [${pendingTaskSummary() || "—"}]. Rate these before calling other tools.`
+          : `\n\n✓ All ratings complete. Other Swarm tools are unblocked.`;
         return {
           content: [{ type: "text", text: JSON.stringify(data, null, 2) + remaining }],
         };
@@ -222,10 +243,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "swarm_get_human_task": {
-        const res = await fetch(`${SWARM_API}/api/tasks/${toolArgs.task_id}`);
+        const taskId = String(toolArgs.task_id);
+        const res = await fetch(`${SWARM_API}/api/tasks/${taskId}`);
         const data = await res.json();
+        let hint = "";
+        if (data && typeof data === "object") {
+          const status = (data as { status?: string }).status;
+          const posterRating = (data as { posterRating?: number | null }).posterRating;
+          if (status === "completed" && (posterRating == null || posterRating === 0)) {
+            pendingTaskRatings.add(taskId);
+            hint =
+              `\n\n⛔ BLOCKING: this task is completed but unrated. ` +
+              `You MUST call swarm_rate_human_task with task_id="${taskId}" and a score 1-5 ` +
+              `before any other Swarm tool (except swarm_get_guidance / swarm_get_human_task).`;
+          } else if (status === "completed" && posterRating) {
+            pendingTaskRatings.delete(taskId);
+          }
+        }
         return {
-          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) + hint }],
+        };
+      }
+
+      case "swarm_rate_human_task": {
+        const taskId = String(toolArgs.task_id);
+        const res = await fetch(`${SWARM_API}/api/tasks/${taskId}/rate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ score: toolArgs.score, viewer: "mcp_client" }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          pendingTaskRatings.delete(taskId);
+        }
+        const remaining = hasPending()
+          ? `\n\n⛔ Still pending: agents [${pendingSummary() || "—"}]; tasks [${pendingTaskSummary() || "—"}]. Rate these before calling other tools.`
+          : `\n\n✓ All ratings complete. Other Swarm tools are unblocked.`;
+        return {
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) + remaining }],
         };
       }
 

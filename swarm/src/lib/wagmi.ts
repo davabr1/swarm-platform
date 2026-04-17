@@ -2,6 +2,7 @@ import { http, createConfig, cookieStorage, createStorage } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
+  coreWallet,
   metaMaskWallet,
   coinbaseWallet,
   rainbowWallet,
@@ -23,6 +24,10 @@ const walletConnectProjectId =
 // Keeping this explicit also lets us pick exactly which wallets we want.
 const connectors = connectorsForWallets(
   [
+    {
+      groupName: "avalanche",
+      wallets: [coreWallet],
+    },
     {
       groupName: "popular",
       wallets: [metaMaskWallet, rainbowWallet, coinbaseWallet, walletConnectWallet, injectedWallet],

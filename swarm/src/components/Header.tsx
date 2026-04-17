@@ -45,16 +45,16 @@ function EarnMenu() {
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >
-      <Link
-        href="/profile"
-        onClick={() => setOpen(false)}
-        className={`text-xs transition-none ${
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`text-xs transition-none cursor-pointer ${
           isActive ? "text-phosphor" : "text-muted hover:text-phosphor"
         }`}
       >
         earn
         {isActive && <span className="block h-[1px] bg-phosphor mt-0.5" />}
-      </Link>
+      </button>
       {open && (
         <div className="absolute right-0 top-[calc(100%+8px)] w-72 border border-border-hi bg-surface z-50 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
           <div className="px-3 py-2 border-b border-border text-[10px] uppercase tracking-widest text-dim">
@@ -112,7 +112,7 @@ export default function Header() {
           </span>
 
           <span className="hidden sm:inline-flex items-center border border-amber/40 bg-amber/5 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber">
-            fuji
+            testnet
           </span>
         </Link>
 

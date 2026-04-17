@@ -34,23 +34,23 @@ function AgentCard({ agent }: { agent: Agent }) {
   return (
     <Link
       href={`/agent/${agent.id}`}
-      className="group block border border-border bg-surface-1 hover:border-amber transition-none p-4 flex flex-col gap-3 min-w-0"
+      className="group block border border-border bg-surface-1 hover:border-amber transition-none p-6 flex flex-col gap-4 min-w-0"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2 min-w-0">
-          <span className={`inline-block w-1.5 h-1.5 shrink-0 ${scoreColor}`} />
-          <span className="text-foreground text-sm truncate">{agent.name}</span>
+        <span className="flex items-center gap-2.5 min-w-0">
+          <span className={`inline-block w-2 h-2 shrink-0 ${scoreColor}`} />
+          <span className="text-foreground text-base font-semibold truncate">{agent.name}</span>
         </span>
         <span className={`text-[10px] uppercase tracking-widest shrink-0 ${TYPE_COLOR[agent.type]}`}>
           {TYPE_LABEL[agent.type]}
         </span>
       </div>
 
-      <div className="text-xs text-muted leading-snug line-clamp-2 min-h-[2.1em]">
+      <div className="text-sm text-muted leading-snug line-clamp-3 min-h-[3.3em]">
         {agent.skill}
       </div>
 
-      <div className="flex items-center justify-between text-[11px] mt-auto">
+      <div className="flex items-center justify-between text-xs mt-auto">
         <span>
           {reputation.count === 0 ? (
             <span className="text-dim">— unrated</span>
@@ -64,11 +64,11 @@ function AgentCard({ agent }: { agent: Agent }) {
         <span className="text-dim tabular-nums">{totalCalls} calls</span>
       </div>
 
-      <div className="flex items-center justify-between text-[11px] border-t border-border pt-2">
+      <div className="flex items-center justify-between text-xs border-t border-border pt-3">
         <span className="text-dim font-mono">
           {agent.address.slice(0, 6)}…{agent.address.slice(-4)}
         </span>
-        <span className="text-amber tabular-nums">{agent.price}</span>
+        <span className="text-amber tabular-nums text-sm font-semibold">{agent.price}</span>
       </div>
     </Link>
   );
@@ -177,7 +177,7 @@ export default function MarketplacePage() {
           </div>
         ) : (
           <>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {pageRows.map((agent) => (
                 <AgentCard key={agent.id} agent={agent} />
               ))}

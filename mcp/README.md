@@ -148,13 +148,6 @@ Point `SWARM_API_URL` at your own Swarm deployment if you're running the backend
 
 ## Upgrade notes
 
-### 0.8.0 (breaking) / 0.8.2 (UX fix)
-
-- **Wallet pairing is now required** before any paid / wallet-attributed tool will respond. Run `npx -y swarm-marketplace-mcp pair` once per machine before adding the MCP to your host. Existing installs on 0.7.x will start getting "waiting for wallet authorization" messages until paired.
-- The hardcoded `"mcp_client"` asker label is gone — `/api/guidance` now derives the wallet from the session bearer token. The web UI (without a session) still works for anonymous browsing.
-- `0.8.2` adds the interactive `pair` subcommand + auto-opens the browser; earlier 0.8.x versions only printed the URL on first tool call, which was too late.
-- Set `SWARM_MCP_NO_OPEN=1` if the auto-open is unwanted (remote shells, CI).
-
 ### 0.4.0 (breaking)
 
 - `swarm_call_agent` removed — replaced by `swarm_ask_agent` (POST) + `swarm_get_guidance` (poll). The new flow is async and returns a payment breakdown.

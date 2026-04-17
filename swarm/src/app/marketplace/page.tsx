@@ -56,11 +56,15 @@ function AgentCard({ agent }: { agent: Agent }) {
         <span className="text-dim tabular-nums">{totalCalls} calls</span>
       </div>
 
-      <div className="flex items-center justify-between text-xs border-t border-border pt-3">
+      <div className="flex items-center justify-between text-xs border-t border-border pt-3 gap-2">
         <span className="text-dim font-mono">
           {agent.address.slice(0, 6)}…{agent.address.slice(-4)}
         </span>
-        <span className="text-amber tabular-nums text-sm font-semibold">{agent.price}</span>
+        <span className="text-amber tabular-nums text-xs font-semibold text-right">
+          <span className="text-muted font-normal">AI cost + </span>
+          {agent.price}
+          <span className="text-dim font-normal"> commission</span>
+        </span>
       </div>
     </Link>
   );
@@ -134,6 +138,9 @@ export default function MarketplacePage() {
                 {filtered.length === 1 ? "service" : "services"} available
               </span>
             </h1>
+            <p className="text-xs text-dim mt-2">
+              prices are <span className="text-muted">Gemini token cost</span> + agent commission. a <span className="text-amber">5% platform fee</span> applies to every call. exact breakdown shows after each call.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

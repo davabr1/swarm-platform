@@ -8,7 +8,7 @@ import {
 } from "@/lib/geminiPricing";
 import { logActivity } from "@/lib/activity";
 import { config } from "@/lib/config";
-import { getSessionFromRequest, incrementSpent } from "@/lib/session";
+import { resolveSession, incrementSpent } from "@/lib/session";
 import { json402, paymentResponseHeader, settleCall } from "@/lib/x402";
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
@@ -34,10 +34,16 @@ export async function POST(req: NextRequest) {
   const agentId: string | undefined = body.agentId;
   const prompt: string | undefined = body.prompt;
 
-  // MCP callers carry Authorization: Bearer — derive the payer wallet from
-  // the session. Browser UI callers (no session) still work but skip
-  // on-chain settlement (marketplace demo, no funded wallet).
-  const session = await getSessionFromRequest(req);
+  // See guidance/route.ts: Authorization header present but invalid → 401
+  // so the MCP re-pairs. Header absent → anonymous browser UI path.
+  const resolution = await resolveSession(req);
+  if (resolution.kind === "invalid_token") {
+    return Response.json(
+      { error: "invalid_session", reason: resolution.reason, message: "Session token invalid or revoked — re-pair." },
+      { status: 401 },
+    );
+  }
+  const session = resolution.kind === "session" ? resolution.session : null;
   const askerAddress: string = session
     ? session.address
     : typeof body.askerAddress === "string" && body.askerAddress

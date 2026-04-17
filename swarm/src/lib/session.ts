@@ -18,16 +18,34 @@ function provider(): ethers.JsonRpcProvider {
   return readProvider;
 }
 
-export async function getSessionFromRequest(req: Request): Promise<McpSession | null> {
+export type SessionResolution =
+  | { kind: "session"; session: McpSession }
+  | { kind: "anonymous" }
+  | { kind: "invalid_token"; reason: "unknown" | "revoked" | "expired" };
+
+// Returns a discriminated result so callers can distinguish "no auth
+// header at all" (browser UI / anonymous caller, serve normally without
+// settlement) from "auth header present but bad" (revoked or expired MCP
+// token — MUST 401 so the MCP's session.ts:swarmFetch drops the local
+// session and re-pairs). Without this distinction a revoked token was
+// getting served as if anonymous.
+export async function resolveSession(req: Request): Promise<SessionResolution> {
   const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
-  if (!header || !header.toLowerCase().startsWith("bearer ")) return null;
+  if (!header || !header.toLowerCase().startsWith("bearer ")) return { kind: "anonymous" };
   const token = header.slice(7).trim();
-  if (!token) return null;
+  if (!token) return { kind: "invalid_token", reason: "unknown" };
   const session = await db.mcpSession.findUnique({ where: { token } });
-  if (!session) return null;
-  if (session.revokedAt) return null;
-  if (session.expiresAt.getTime() <= Date.now()) return null;
-  return session;
+  if (!session) return { kind: "invalid_token", reason: "unknown" };
+  if (session.revokedAt) return { kind: "invalid_token", reason: "revoked" };
+  if (session.expiresAt.getTime() <= Date.now()) return { kind: "invalid_token", reason: "expired" };
+  return { kind: "session", session };
+}
+
+// Legacy shim — returns null for anonymous AND invalid-token callers.
+// Prefer resolveSession() for routes that need to 401 on bad tokens.
+export async function getSessionFromRequest(req: Request): Promise<McpSession | null> {
+  const r = await resolveSession(req);
+  return r.kind === "session" ? r.session : null;
 }
 
 export async function incrementSpent(sessionId: string, costUsd: number): Promise<void> {

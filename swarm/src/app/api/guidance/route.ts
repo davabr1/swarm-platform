@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { callAgentStructured } from "@/lib/llm";
 import { computeGeminiCost, formatUsd, parsePrice } from "@/lib/geminiPricing";
 import { logActivity } from "@/lib/activity";
-import { getSessionFromRequest, incrementSpent } from "@/lib/session";
+import { resolveSession, incrementSpent } from "@/lib/session";
 import { config } from "@/lib/config";
 import { json402, paymentResponseHeader, settleCall } from "@/lib/x402";
 import { randomUUID } from "node:crypto";
@@ -25,10 +25,18 @@ export async function POST(req: NextRequest) {
   const conversationId: string | undefined =
     typeof body.conversationId === "string" && body.conversationId ? body.conversationId : undefined;
 
-  // MCP callers carry an Authorization: Bearer <token>. When present, the
-  // paired wallet is the real identity — ignore whatever is in the body.
-  // Browser UI callers have no header and fall back to the legacy shape.
-  const session = await getSessionFromRequest(req);
+  // MCP callers carry an Authorization: Bearer <token>. When the header is
+  // present but the token is invalid/revoked/expired, 401 so the MCP's
+  // swarmFetch drops the local session and re-pairs. When the header is
+  // absent (browser UI), fall through to the legacy body shape.
+  const resolution = await resolveSession(req);
+  if (resolution.kind === "invalid_token") {
+    return Response.json(
+      { error: "invalid_session", reason: resolution.reason, message: "Session token invalid or revoked — re-pair." },
+      { status: 401 },
+    );
+  }
+  const session = resolution.kind === "session" ? resolution.session : null;
   const askerAddress: string = session
     ? session.address
     : typeof body.askerAddress === "string" && body.askerAddress

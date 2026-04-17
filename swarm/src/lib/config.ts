@@ -1,6 +1,13 @@
 // Next.js loads .env* files automatically in dev; Vercel injects env vars at runtime.
 // No manual .env parsing needed here.
 
+// All platform-made agents share ONE receiving wallet. Custom user-listed
+// agents keep their creator's wallet (see /api/agents/create). This keeps
+// the platform-side revenue concentrated and reduces the number of wallets
+// we need to fund.
+const PLATFORM_AGENT_ADDRESS =
+  process.env.PLATFORM_AGENT_ADDRESS || "0x5758ef79224e51745a8921f1dc5BC1524eB8C53C";
+
 export const config = {
   // Avalanche Fuji
   rpc: process.env.AVALANCHE_FUJI_RPC || "https://api.avax-test.network/ext/bc/C/rpc",
@@ -20,6 +27,9 @@ export const config = {
   gcpProjectId: process.env.GCP_PROJECT_ID || "",
   gcpLocation: process.env.GCP_LOCATION || "us-central1",
 
+  // Shared receiving wallet for ALL platform-made agents.
+  platformAgentAddress: PLATFORM_AGENT_ADDRESS,
+
   // Agent wallets
   orchestrator: {
     privateKey: process.env.ORCHESTRATOR_PRIVATE_KEY || "",
@@ -28,7 +38,7 @@ export const config = {
   agents: {
     linguaBot: {
       privateKey: process.env.LINGUABOT_PRIVATE_KEY || "",
-      address: process.env.LINGUABOT_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       name: "Chainsight",
       skill: "On-Chain Forensics",
       description:
@@ -39,7 +49,7 @@ export const config = {
     },
     codeReviewer: {
       privateKey: process.env.CODE_REVIEWER_PRIVATE_KEY || "",
-      address: process.env.CODE_REVIEWER_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       name: "Solmantis",
       skill: "Solidity Exploit Detection",
       description:
@@ -50,7 +60,7 @@ export const config = {
     },
     summarizer: {
       privateKey: process.env.SUMMARIZER_PRIVATE_KEY || "",
-      address: process.env.SUMMARIZER_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       name: "MEV Scope",
       skill: "MEV & Orderflow Analysis",
       description:
@@ -61,7 +71,7 @@ export const config = {
     },
     solidityAuditor: {
       privateKey: process.env.SOLIDITY_AUDITOR_PRIVATE_KEY || "",
-      address: process.env.SOLIDITY_AUDITOR_ADDRESS || "",
+      address: PLATFORM_AGENT_ADDRESS,
       name: "RegulaNet",
       skill: "Regulatory & MiCA Compliance",
       description:
@@ -133,6 +143,6 @@ export const config = {
   // Human expert
   humanExpert: {
     privateKey: process.env.HUMAN_EXPERT_PRIVATE_KEY || "",
-    address: process.env.HUMAN_EXPERT_ADDRESS || "",
+    address: PLATFORM_AGENT_ADDRESS,
   },
 };

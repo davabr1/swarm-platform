@@ -46,6 +46,15 @@ export default function AgentDetailPage() {
   const [rated, setRated] = useState(false);
   const ratingInFlight = useRef(false);
   const [breakdown, setBreakdown] = useState<GuidanceBreakdown | null>(null);
+  // Follow-up envelope state. Mirrors the MCP's `swarm_follow_up` loop:
+  // if the specialist replies with `replyType === "question"`, we stash the
+  // conversationId so the user's next send threads onto the same chain
+  // (same 5-turn cap as the route). Cleared on a fresh ask or once the
+  // specialist gives a final `response`.
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [turn, setTurn] = useState(0);
+  const [awaitingReply, setAwaitingReply] = useState(false);
+  const TURN_CAP = 5;
 
   const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -72,16 +81,24 @@ export default function AgentDetailPage() {
     const message = input.trim();
     if (!message || loading) return;
     setLoading(true);
-    setRated(false);
-    setRating(0);
-    setBreakdown(null);
     ratingInFlight.current = false;
 
-    setLog([{ kind: "prompt", text: `❯ ${message}` }]);
+    // If the specialist's last reply was a clarifying question, we thread
+    // onto the same conversation instead of starting a new one. Otherwise
+    // we wipe the slate (new question = new rating, new breakdown, new log).
+    const isFollowUp = awaitingReply && conversationId !== null;
+    if (!isFollowUp) {
+      setRated(false);
+      setRating(0);
+      setBreakdown(null);
+      setLog([{ kind: "prompt", text: `❯ ${message}` }]);
+    } else {
+      setLog((prev) => [...prev, { kind: "prompt", text: `❯ ${message}` }]);
+    }
     await pause(300);
     setLog((prev) => [
       ...prev,
-      { kind: "info", text: `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin` },
+      { kind: "info", text: `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}` },
     ]);
     await pause(500);
     setThinking(true);
@@ -97,17 +114,32 @@ export default function AgentDetailPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ agentId: id, prompt: message }),
         });
-        const data = (await res.json()) as {
+        // If the route blew up before returning JSON (server crash, Next
+        // default error page, gateway timeout), `.json()` throws
+        // "Unexpected end of JSON input" and the UI shows nothing useful.
+        // Read the body as text first, then try to parse — so we can surface
+        // the HTTP status + raw body in the log.
+        const raw = await res.text();
+        let data: {
           status?: string;
           imageUrl?: string;
           error?: string;
           breakdown?: GuidanceBreakdown;
-        };
+        } = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          // leave data empty; we'll surface raw text below
+        }
         setThinking(false);
         if (!res.ok || data.status !== "ready" || !data.imageUrl) {
+          const detail =
+            data.error ??
+            (raw && raw.length < 400 ? raw : `HTTP ${res.status} ${res.statusText}`) ??
+            "no image returned";
           setLog((prev) => [
             ...prev,
-            { kind: "error", text: `! image ${data.status ?? "failed"}: ${data.error ?? "no image returned"}` },
+            { kind: "error", text: `! image ${data.status ?? "failed"}: ${detail}` },
           ]);
           return;
         }
@@ -125,7 +157,9 @@ export default function AgentDetailPage() {
         return;
       }
 
-      const result = await askAgent(id, message);
+      const result = await askAgent(id, message, {
+        conversationId: isFollowUp ? conversationId! : undefined,
+      });
       setThinking(false);
       if (result.status !== "ready" || !result.response) {
         setLog((prev) => [
@@ -136,12 +170,34 @@ export default function AgentDetailPage() {
       }
       setBreakdown(result.breakdown);
       const total = result.breakdown?.totalUsd ?? "?";
-      setLog((prev) => [
-        ...prev,
-        { kind: "success", text: `[settled] $${total} total charged` },
-        { kind: "info", text: `[stream] response from ${agent?.name ?? "agent"}` },
-        { kind: "result", text: result.response ?? "" },
-      ]);
+      // Envelope handling: a "question" reply keeps the conversation open —
+      // user sees it styled differently and can reply without triggering the
+      // rating gate. A "response" (or a 5-turn `capped` forced final) closes
+      // the loop, renders as the final `result`, and arms the rating UI.
+      const replyType = result.replyType ?? "response";
+      const nextTurn = result.turn ?? (isFollowUp ? turn + 1 : 1);
+      const capped = !!result.capped;
+      if (replyType === "question" && !capped) {
+        setConversationId(result.conversationId ?? result.id);
+        setTurn(nextTurn);
+        setAwaitingReply(true);
+        setLog((prev) => [
+          ...prev,
+          { kind: "success", text: `[settled] $${total} charged · turn ${nextTurn}/${TURN_CAP}` },
+          { kind: "info", text: `[stream] ${agent?.name ?? "agent"} asked a clarifying question` },
+          { kind: "question", text: result.response ?? "" },
+        ]);
+      } else {
+        setConversationId(null);
+        setTurn(0);
+        setAwaitingReply(false);
+        setLog((prev) => [
+          ...prev,
+          { kind: "success", text: `[settled] $${total} total charged${capped ? ` · turn ${nextTurn}/${TURN_CAP} (final)` : ""}` },
+          { kind: "info", text: `[stream] response from ${agent?.name ?? "agent"}` },
+          { kind: "result", text: result.response ?? "" },
+        ]);
+      }
       const updated = await fetchAgent(id);
       setAgent(updated);
       setInput("");
@@ -286,7 +342,13 @@ export default function AgentDetailPage() {
           ) : (
             <TerminalWindow
               title={`swarm://agent/${agent.id}/ask`}
-              subtitle={loading ? "asking…" : "ready"}
+              subtitle={
+                loading
+                  ? "asking…"
+                  : awaitingReply
+                  ? `awaiting reply · turn ${turn}/${TURN_CAP}`
+                  : "ready"
+              }
               className="h-full flex flex-col"
               bodyClassName="flex-1 flex flex-col"
             >
@@ -297,6 +359,8 @@ export default function AgentDetailPage() {
                   placeholder={
                     isImage
                       ? `describe the image you want ${agent.name} to generate…`
+                      : awaitingReply
+                      ? `reply to ${agent.name}'s question…`
                       : `ask ${agent.name} for guidance…`
                   }
                   rows={4}
@@ -307,6 +371,9 @@ export default function AgentDetailPage() {
                     commission <span className="text-amber">{agent.price}</span>
                     <span className="text-muted"> + gemini + 5% margin</span>
                     {" · settles via x402"}
+                    {awaitingReply && (
+                      <span className="text-amber"> · follow-up turn {turn}/{TURN_CAP}</span>
+                    )}
                   </span>
                   <button
                     onClick={askForGuidance}
@@ -314,7 +381,11 @@ export default function AgentDetailPage() {
                     className="border border-amber bg-amber px-4 py-1.5 text-xs font-bold text-background hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {loading ? (
-                      <SubmittingLabel text={isImage ? "generating" : "asking"} />
+                      <SubmittingLabel
+                        text={isImage ? "generating" : awaitingReply ? "replying" : "asking"}
+                      />
+                    ) : awaitingReply ? (
+                      `[ reply · pay ${agent.price}+ ]`
                     ) : (
                       `[ ${isImage ? "generate" : "ask"} · pay ${agent.price}+ ]`
                     )}
@@ -371,11 +442,23 @@ export default function AgentDetailPage() {
                               ? "text-danger"
                               : line.kind === "success"
                               ? "text-phosphor"
+                              : line.kind === "question"
+                              ? "text-amber"
                               : "text-foreground"
                           }
                         >
                           {line.kind === "result" ? (
                             <pre className="whitespace-pre-wrap border-l border-border pl-3 leading-relaxed">{line.text}</pre>
+                          ) : line.kind === "question" ? (
+                            <div className="border border-amber/60 bg-amber/5 p-3">
+                              <div className="text-[10px] uppercase tracking-widest text-amber mb-1">
+                                ❯ specialist asks
+                              </div>
+                              <pre className="whitespace-pre-wrap leading-relaxed text-foreground">{line.text}</pre>
+                              <div className="mt-2 text-[10px] uppercase tracking-widest text-dim">
+                                ↓ reply below to continue · rating unlocks after a final answer
+                              </div>
+                            </div>
                           ) : line.kind === "image" ? (
                             <a
                               href={line.text}

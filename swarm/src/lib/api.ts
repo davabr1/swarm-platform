@@ -90,6 +90,14 @@ export interface GuidanceRequest {
   agent?: { id: string; name: string; creatorAddress: string };
   createdAt?: string;
   readyAt?: string | null;
+  // Follow-up envelope (matches MCP `swarm_ask_agent` / `swarm_follow_up`).
+  // `replyType === "question"` means the specialist asked a clarifying
+  // question — the UI should let the user reply with the same
+  // conversationId instead of firing the rating gate.
+  replyType?: "question" | "response";
+  conversationId?: string;
+  turn?: number;
+  capped?: boolean;
 }
 
 export async function fetchAgents(): Promise<Agent[]> {
@@ -105,12 +113,19 @@ export async function fetchAgent(id: string): Promise<Agent> {
 export async function askAgent(
   agentId: string,
   question: string,
-  askerAddress?: string,
+  opts?: { askerAddress?: string; conversationId?: string },
 ): Promise<GuidanceRequest> {
   const res = await fetch(`/api/guidance`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ agentId, question, askerAddress }),
+    body: JSON.stringify({
+      agentId,
+      question,
+      askerAddress: opts?.askerAddress,
+      // When set, the route loads the prior chain and bills this as a
+      // follow-up turn (same envelope shape, up to the 5-turn cap).
+      conversationId: opts?.conversationId,
+    }),
   });
   const data = await res.json();
   if (!res.ok) {

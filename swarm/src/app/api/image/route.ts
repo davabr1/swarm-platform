@@ -9,8 +9,6 @@ import {
 import { logActivity } from "@/lib/activity";
 import { config } from "@/lib/config";
 import { randomUUID } from "node:crypto";
-import { writeFile, mkdir } from "node:fs/promises";
-import path from "node:path";
 import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -19,12 +17,6 @@ export const runtime = "nodejs";
 const AGENT_MODELS: Record<string, string> = Object.fromEntries(
   Object.values(config.imageAgents).map((a) => [a.id, a.model]),
 );
-
-function extensionForMime(mime: string): string {
-  if (mime === "image/jpeg") return "jpg";
-  if (mime === "image/webp") return "webp";
-  return "png";
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -66,13 +58,11 @@ export async function POST(req: NextRequest) {
     const result = await generateImage(agent.systemPrompt ?? "", prompt, model);
 
     const buffer = Buffer.from(result.base64, "base64");
-    const ext = extensionForMime(result.mimeType);
-    const filename = `${id}.${ext}`;
-    const dir = path.join(process.cwd(), "public", "generated");
-    await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, filename), buffer);
-
-    const url = `${req.nextUrl.origin}/generated/${filename}`;
+    // Serverless filesystems (Vercel, Lambda) are read-only — `/var/task`
+    // rejects mkdir. Instead of writing to `public/generated/` we stash the
+    // base64 in Postgres and serve it via GET /api/image/[id]. Same URL shape
+    // from the caller's perspective, and it survives cold starts + deploys.
+    const url = `${req.nextUrl.origin}/api/image/${id}`;
 
     const imageCost = computeImageCost(model);
     const tokenCost = computeGeminiCost({
@@ -95,6 +85,7 @@ export async function POST(req: NextRequest) {
       data: {
         status: "ready",
         imageUrl: url,
+        imageBase64: result.base64,
         mimeType: result.mimeType,
         sizeBytes: buffer.length,
         readyAt: new Date(),

@@ -116,6 +116,10 @@ model ImageGeneration {
   prompt         String
   status         String    @default("pending")
   imageUrl       String?
+  // Base64-encoded PNG/JPEG bytes. Stored in Postgres so we can serve the
+  // image via GET /api/image/[id] — Vercel's filesystem is read-only so we
+  // can't persist to `public/generated/` like we do in local dev.
+  imageBase64    String?
   mimeType       String?
   sizeBytes      Int?
   model          String?

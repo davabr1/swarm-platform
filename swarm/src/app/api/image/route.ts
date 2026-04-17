@@ -12,6 +12,10 @@ import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
+// Flash typically returns in 3-10s, but cold starts, region latency, and the
+// occasional retry-on-text-fallback can push a call past Vercel's default
+// 10s budget. 60s gives us headroom without silently 504'ing mid-gen.
+export const maxDuration = 60;
 
 // Map built-in image agent ids → Gemini model. Keeps the route thin.
 const AGENT_MODELS: Record<string, string> = Object.fromEntries(
@@ -80,35 +84,39 @@ export async function POST(req: NextRequest) {
     const platformFeeUsd = formatUsd(platformFee);
     const totalUsd = formatUsd(total);
 
-    const updated = await db.imageGeneration.update({
-      where: { id },
-      data: {
-        status: "ready",
-        imageUrl: url,
-        imageBase64: result.base64,
-        mimeType: result.mimeType,
-        sizeBytes: buffer.length,
-        readyAt: new Date(),
-        commissionUsd,
-        geminiCostUsd,
-        platformFeeUsd,
-        totalUsd,
-        promptTokens: result.usage.promptTokens,
-        outputTokens: result.usage.outputTokens,
-        thoughtsTokens: result.usage.thoughtsTokens,
-      },
-    });
-
-    await db.agent.update({
-      where: { id: agentId },
-      data: { totalCalls: { increment: 1 } },
-    });
-
+    // Fan the three closing writes out in parallel — they're independent
+    // (the ImageGeneration row is what we return, the agent-counter bump
+    // and activity log are bookkeeping). On Supabase's pooler this trims
+    // ~200-400ms off the response vs. the previous sequential chain.
     const creator = agent.creatorAddress ?? agent.walletAddress;
-    await logActivity(
-      "payment",
-      `image · ${agent.name} · $${totalUsd} — creator ${creator.slice(0, 8)}... gets $${commissionUsd}, gemini $${geminiCostUsd}`,
-    );
+    const [updated] = await Promise.all([
+      db.imageGeneration.update({
+        where: { id },
+        data: {
+          status: "ready",
+          imageUrl: url,
+          imageBase64: result.base64,
+          mimeType: result.mimeType,
+          sizeBytes: buffer.length,
+          readyAt: new Date(),
+          commissionUsd,
+          geminiCostUsd,
+          platformFeeUsd,
+          totalUsd,
+          promptTokens: result.usage.promptTokens,
+          outputTokens: result.usage.outputTokens,
+          thoughtsTokens: result.usage.thoughtsTokens,
+        },
+      }),
+      db.agent.update({
+        where: { id: agentId },
+        data: { totalCalls: { increment: 1 } },
+      }),
+      logActivity(
+        "payment",
+        `image · ${agent.name} · $${totalUsd} — creator ${creator.slice(0, 8)}... gets $${commissionUsd}, gemini $${geminiCostUsd}`,
+      ),
+    ]);
 
     return Response.json({
       id,

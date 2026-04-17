@@ -26,7 +26,7 @@ You'll see:
   > Press ENTER to open the pair page in your browser…
 ```
 
-Press ENTER. Your browser opens the pair page. Connect a wallet on Avalanche Fuji, pick a USDC budget (max $50, default $5), and sign two wallet prompts:
+Press ENTER. Your browser opens the pair page. Connect a wallet on Avalanche Fuji, pick a USDC budget (max 50 USDC, default 5 USDC), and sign two wallet prompts:
 
 1. An **EIP-712 authorization** (no gas — just a signature).
 2. A **USDC `approve`** transaction (~0.001 AVAX) that lets the orchestrator pull up to your budget over the session's lifetime.

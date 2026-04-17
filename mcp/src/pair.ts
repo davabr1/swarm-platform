@@ -106,7 +106,7 @@ export async function runInteractivePair(): Promise<number> {
   console.log("  ✓ Paired!");
   console.log("");
   console.log(`    Wallet:  ${formatAddress(session.address)}`);
-  console.log(`    Budget:  $${session.budgetUsd.toFixed(2)} USDC`);
+  console.log(`    Budget:  ${session.budgetUsd.toFixed(2)} USDC`);
   console.log(`    Expires: ${expiryDate}`);
   console.log("");
   console.log("  The session is saved at ~/.swarm-mcp/session.json.");

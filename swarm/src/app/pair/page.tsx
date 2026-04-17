@@ -190,9 +190,8 @@ function PairInner() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block">
-                    <div className="text-[10px] uppercase tracking-widest text-dim mb-2">budget · usd</div>
+                    <div className="text-[10px] uppercase tracking-widest text-dim mb-2">budget · usdc</div>
                     <div className="flex items-baseline border border-border px-2 py-2">
-                      <span className="text-amber mr-1">$</span>
                       <input
                         type="text"
                         inputMode="decimal"
@@ -200,8 +199,9 @@ function PairInner() {
                         onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
                         className="w-full bg-transparent text-amber tabular-nums outline-none border-0"
                       />
+                      <span className="text-amber ml-1 text-xs">USDC</span>
                     </div>
-                    <div className="text-[10px] text-dim mt-1">max $50. one USDC approve.</div>
+                    <div className="text-[10px] text-dim mt-1">max 50 USDC. one approve tx.</div>
                   </label>
                   <label className="block">
                     <div className="text-[10px] uppercase tracking-widest text-dim mb-2">expires · days</div>
@@ -222,7 +222,7 @@ function PairInner() {
                   Authorizing will prompt two wallet actions:
                   <ol className="list-decimal ml-4 mt-1 space-y-1">
                     <li>One off-chain EIP-712 signature (free) — proves you authorized this session.</li>
-                    <li>One USDC <code className="text-amber">approve</code> transaction (~0.001 AVAX) — the orchestrator can pull up to <span className="text-amber">${budget || "0"}</span> of USDC on your behalf. You stay in full control; revoke any time from your profile page.</li>
+                    <li>One USDC <code className="text-amber">approve</code> transaction (~0.001 AVAX) — the orchestrator can pull up to <span className="text-amber">{budget || "0"} USDC</span> on your behalf. You stay in full control; revoke any time from your profile page.</li>
                   </ol>
                 </div>
 

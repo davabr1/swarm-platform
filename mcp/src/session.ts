@@ -157,7 +157,7 @@ function startPairingInBackground(): void {
         currentSession = session;
         await saveSession(session);
         console.error(
-          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · $${session.budgetUsd.toFixed(2)} budget · expires ${new Date(session.expiresAt).toISOString()}\n`,
+          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · ${session.budgetUsd.toFixed(2)} USDC budget · expires ${new Date(session.expiresAt).toISOString()}\n`,
         );
       } else {
         // Timed out — drop the URL so the next tool call can generate a
@@ -180,7 +180,7 @@ export async function initSession(): Promise<void> {
   if (cached) {
     currentSession = cached;
     console.error(
-      `Swarm MCP paired as ${cached.address.slice(0, 8)}... · $${cached.budgetUsd.toFixed(2)} budget`,
+      `Swarm MCP paired as ${cached.address.slice(0, 8)}... · ${cached.budgetUsd.toFixed(2)} USDC budget`,
     );
     return;
   }

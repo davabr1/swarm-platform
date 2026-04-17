@@ -247,7 +247,7 @@ function McpSessionsPanel({ address }: { address: string }) {
                 <div key={s.id} className="py-3 flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-foreground tabular-nums">
-                      ${s.spentUsd.toFixed(4)} <span className="text-dim">of ${s.budgetUsd.toFixed(2)} spent · {daysLeft}d left</span>
+                      {s.spentUsd.toFixed(4)} USDC <span className="text-dim">of {s.budgetUsd.toFixed(2)} spent · {daysLeft}d left</span>
                     </div>
                     <div className="h-1 bg-border mt-1 overflow-hidden">
                       <div className="h-full bg-amber" style={{ width: `${pct}%` }} />

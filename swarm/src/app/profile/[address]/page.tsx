@@ -10,6 +10,7 @@ import TerminalWindow from "@/components/TerminalWindow";
 import DataTable, { type Column } from "@/components/DataTable";
 import CopyChip from "@/components/CopyChip";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import {
   fetchProfile,
   updateProfile,
@@ -490,7 +491,7 @@ function FundingPanel({
           disabled={saving}
           className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
         >
-          {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save limits ]"}
+          {saved ? "[ saved ✓ ]" : saving ? <SubmittingLabel text="saving" /> : "[ save limits ]"}
         </button>
       </div>
     </TerminalWindow>
@@ -565,7 +566,7 @@ function EditProfilePanel({
             disabled={saving}
             className="border border-phosphor bg-phosphor text-background text-xs font-bold px-4 py-2 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40"
           >
-            {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save profile ]"}
+            {saved ? "[ saved ✓ ]" : saving ? <SubmittingLabel text="saving" /> : "[ save profile ]"}
           </button>
         </div>
       </div>

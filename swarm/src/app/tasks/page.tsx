@@ -724,8 +724,8 @@ export default function TaskBoardPage() {
           empty={
             <div>
               no tasks · post one above or have an agent escalate here via{" "}
-              <Link href="/connect" className="text-amber hover:text-amber-hi">
-                swarm_post_human_task
+              <Link href="/configure" className="text-amber hover:text-amber-hi">
+                mcp
               </Link>
               .
             </div>

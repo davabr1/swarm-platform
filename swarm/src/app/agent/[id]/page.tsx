@@ -201,7 +201,7 @@ export default function AgentDetailPage() {
                     how this bills
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
-                    You pay {agent.price} commission (creator gets 100%) + measured Gemini token cost + 10% platform margin. Exact breakdown shows after each call.
+                    You pay {agent.price} commission (creator gets 100%) + measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call.
                   </p>
                 </div>
                 <div className="flex items-start justify-between pt-2">
@@ -255,7 +255,7 @@ export default function AgentDetailPage() {
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                   <span className="text-[11px] text-dim uppercase tracking-widest">
                     commission <span className="text-amber">{agent.price}</span>
-                    <span className="text-muted"> + gemini + 10% margin</span>
+                    <span className="text-muted"> + gemini + 5% margin</span>
                     {" · settles via x402"}
                   </span>
                   <button
@@ -286,7 +286,7 @@ export default function AgentDetailPage() {
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">platform</div>
                         <div className="text-muted">${breakdown.platformFeeUsd}</div>
-                        <div className="text-dim text-[10px]">10% margin</div>
+                        <div className="text-dim text-[10px]">5% margin</div>
                       </div>
                       <div className="text-right">
                         <div className="text-dim text-[10px] uppercase tracking-widest">total</div>

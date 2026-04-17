@@ -48,6 +48,7 @@ export default function PublicProfilePage() {
 
   const [portfolio, setPortfolio] = useState<ProfilePortfolio | null>(null);
   const [err, setErr] = useState("");
+  const [editing, setEditing] = useState(false);
 
   const load = useCallback(() => {
     if (!isAddress(address)) {
@@ -97,35 +98,51 @@ export default function PublicProfilePage() {
       <CommandPalette />
 
       <div className="px-6 lg:px-10 py-8">
-        <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-widest text-dim">
-            swarm://profile/{address.slice(0, 10)}…
-          </div>
-          <h1 className="text-2xl text-foreground mt-1">
-            {portfolio.profile.displayName ? (
-              <>
-                {portfolio.profile.displayName}{" "}
-                <span className="text-dim">· {address.slice(0, 8)}…{address.slice(-6)}</span>
-              </>
-            ) : (
-              <>
-                {address.slice(0, 10)}…{address.slice(-6)}
-              </>
-            )}
-          </h1>
-          {portfolio.profile.bio && (
-            <p className="text-sm text-muted mt-1 max-w-2xl whitespace-pre-wrap">
-              {portfolio.profile.bio}
-            </p>
-          )}
-          {isSelf && (
-            <div className="mt-2 text-[11px] text-phosphor">
-              ❯ this is you · scroll down to edit your profile
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-widest text-dim">
+              swarm://profile/{address.slice(0, 10)}…
             </div>
+            <h1 className="text-2xl text-foreground mt-1">
+              {portfolio.profile.displayName ? (
+                <>
+                  {portfolio.profile.displayName}{" "}
+                  <span className="text-dim">· {address.slice(0, 8)}…{address.slice(-6)}</span>
+                </>
+              ) : (
+                <>
+                  {address.slice(0, 10)}…{address.slice(-6)}
+                </>
+              )}
+            </h1>
+            {portfolio.profile.bio && (
+              <p className="text-sm text-muted mt-1 max-w-2xl whitespace-pre-wrap">
+                {portfolio.profile.bio}
+              </p>
+            )}
+          </div>
+          {isSelf && (
+            <button
+              onClick={() => setEditing((v) => !v)}
+              className="shrink-0 border border-amber text-amber bg-transparent text-xs font-bold px-4 py-2 hover:bg-amber hover:text-background transition-none"
+            >
+              {editing ? "[ close ]" : "[ edit ]"}
+            </button>
           )}
         </div>
 
         <div className="grid gap-6">
+          {isSelf && editing && (
+            <EditProfilePanel
+              address={address}
+              portfolio={portfolio}
+              onSaved={() => {
+                load();
+                setEditing(false);
+              }}
+            />
+          )}
+
           <IdentityCard address={address} portfolio={portfolio} />
 
           {isSelf && <FundingPanel address={address} portfolio={portfolio} onSaved={load} />}
@@ -139,8 +156,6 @@ export default function PublicProfilePage() {
           {isSelf && (
             <PostedTasksPanel tasks={portfolio.postedTasks} />
           )}
-
-          {isSelf && <EditProfilePanel address={address} portfolio={portfolio} onSaved={load} />}
         </div>
       </div>
     </div>
@@ -410,86 +425,67 @@ function FundingPanel({
     }
   };
 
+  const sanitize = (v: string) => v.replace(/[^0-9.]/g, "");
+
   return (
     <TerminalWindow title="swarm://profile/funding" subtitle="per-wallet spend caps">
-      <div className="p-5 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <div className="space-y-4">
-          <p className="text-sm text-muted leading-relaxed">
-            These caps are wallet-scoped and sync across every browser — the same wallet on a different
-            machine loads the same limits. An agent cannot exceed them without an explicit top-up.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-dim mb-1.5">
-                per-task cap (usdc)
-              </div>
-              <div className="flex items-center border border-border bg-surface-1">
-                <span className="pl-3 text-dim text-sm">$</span>
-                <input
-                  type="text"
-                  value={perTask}
-                  onChange={(e) => setPerTask(e.target.value)}
-                  className="flex-1 bg-transparent px-2 py-2 text-sm text-foreground font-mono tabular-nums"
-                />
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-dim mb-1.5">
-                per-session cap (usdc)
-              </div>
-              <div className="flex items-center border border-border bg-surface-1">
-                <span className="pl-3 text-dim text-sm">$</span>
-                <input
-                  type="text"
-                  value={perSession}
-                  onChange={(e) => setPerSession(e.target.value)}
-                  className="flex-1 bg-transparent px-2 py-2 text-sm text-foreground font-mono tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
+      <div className="p-5 space-y-5">
+        <p className="text-sm text-muted leading-relaxed max-w-2xl">
+          These caps are wallet-scoped and sync across every browser. An agent cannot exceed them
+          without an explicit top-up. Click the numbers to edit.
+        </p>
 
-          <label className="flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={autoTopup}
-              onChange={(e) => setAutoTopup(e.target.checked)}
-              className="accent-amber"
-            />
-            auto top-up session when 20% remains
-            <span className="text-dim text-xs">(requires signature each time)</span>
+        <div className="grid gap-0 sm:grid-cols-2 border border-border">
+          <label className="block p-5 cursor-text">
+            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per task</div>
+            <div className="flex items-baseline">
+              <span className="text-2xl text-amber tabular-nums mr-1">$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={perTask}
+                onChange={(e) => setPerTask(sanitize(e.target.value))}
+                className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
+              />
+            </div>
           </label>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={save}
-              disabled={saving}
-              className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
-            >
-              {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save limits ]"}
-            </button>
-            <span className="text-xs text-dim">
-              stored in Postgres · same across browsers & devices
-            </span>
-          </div>
+          <label className="block p-5 cursor-text sm:border-l border-border">
+            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per session</div>
+            <div className="flex items-baseline">
+              <span className="text-2xl text-amber tabular-nums mr-1">$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={perSession}
+                onChange={(e) => setPerSession(sanitize(e.target.value))}
+                className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
+              />
+            </div>
+          </label>
         </div>
 
-        <div className="border-l border-border pl-5 space-y-4">
-          <div className="text-[11px] uppercase tracking-widest text-phosphor">❯ live envelope</div>
-          <div className="space-y-3">
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-dim">per task</div>
-              <div className="text-2xl text-amber tabular-nums">
-                ${Number(perTask || 0).toFixed(2)}
-              </div>
-            </div>
-            <div className="border-t border-border pt-3">
-              <div className="text-[10px] uppercase tracking-widest text-dim">per session</div>
-              <div className="text-2xl text-amber tabular-nums">
-                ${Number(perSession || 0).toFixed(2)}
-              </div>
-            </div>
-          </div>
+        <label className="flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={autoTopup}
+            onChange={(e) => setAutoTopup(e.target.checked)}
+            className="accent-amber"
+          />
+          auto top-up session when 20% remains
+          <span className="text-dim text-xs">(requires signature each time)</span>
+        </label>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
+          >
+            {saved ? "[ saved ✓ ]" : saving ? "saving…" : "[ save limits ]"}
+          </button>
+          <span className="text-xs text-dim">
+            stored in Postgres · same across browsers & devices
+          </span>
         </div>
       </div>
     </TerminalWindow>

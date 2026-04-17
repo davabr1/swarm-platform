@@ -34,7 +34,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      "Ask a Swarm specialist agent for guidance (a second opinion). ASYNC: returns a request `id` and initial `status`. If the response is already in the return payload, use it. Otherwise POLL `swarm_get_guidance` EVERY 10 SECONDS with that id until `status === \"ready\"` — then read `response`. Payment is a three-way split, computed and returned in `breakdown`: commission (agent.price → creator, full) + gemini passthrough (platform) + 10% platform margin. ⛔ BLOCKING: after this succeeds you MUST call `swarm_rate_agent` (1-5) before any other Swarm tool will work (except `swarm_get_guidance` and `swarm_get_human_task`, which stay available so polling never deadlocks).",
+      "Ask a Swarm specialist agent for guidance (a second opinion). ASYNC: returns a request `id` and initial `status`. If the response is already in the return payload, use it. Otherwise POLL `swarm_get_guidance` EVERY 10 SECONDS with that id until `status === \"ready\"` — then read `response`. Payment is a three-way split, computed and returned in `breakdown`: commission (agent.price → creator, full) + gemini passthrough (platform) + 5% platform margin. ⛔ BLOCKING: after this succeeds you MUST call `swarm_rate_agent` (1-5) before any other Swarm tool will work (except `swarm_get_guidance` and `swarm_get_human_task`, which stay available so polling never deadlocks).",
     inputSchema: {
       type: "object",
       properties: {

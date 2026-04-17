@@ -183,7 +183,11 @@ function PairInner() {
 
   const { signTypedDataAsync } = useSignTypedData();
   const { writeContractAsync } = useWriteContract();
-  const { isSuccess: receiptOk, isError: receiptErr } = useWaitForTransactionReceipt({
+  const {
+    data: approveReceipt,
+    isSuccess: receiptOk,
+    isError: receiptErr,
+  } = useWaitForTransactionReceipt({
     hash: approveHash ?? undefined,
   });
 
@@ -375,16 +379,51 @@ function PairInner() {
                     {stage === "paired" ? "[ paired ✓ ]" : null}
                     {(stage === "idle" || stage === "error") ? "[ authorize MCP session ]" : null}
                   </button>
-                  {approveHash && (
-                    <button
-                      onClick={() => openPopup(`https://testnet.snowtrace.io/tx/${approveHash}`)}
-                      className="text-[10px] text-dim hover:text-amber bg-transparent border-0 p-0 cursor-pointer"
-                      title="Your USDC approve transaction on the Fuji block explorer"
-                    >
-                      view tx on Snowtrace ↗
-                    </button>
-                  )}
                 </div>
+
+                {approveHash && (
+                  <div className="border border-border p-3 text-[11px] leading-relaxed">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[10px] uppercase tracking-widest text-dim">approve transaction</span>
+                      <button
+                        onClick={() => openPopup(`https://testnet.snowtrace.io/tx/${approveHash}`)}
+                        className="text-[10px] text-dim hover:text-amber bg-transparent border-0 p-0 cursor-pointer"
+                        title="Open on Fuji block explorer"
+                      >
+                        view on Snowtrace ↗
+                      </button>
+                    </div>
+                    {receiptOk && approveReceipt ? (
+                      <div className="space-y-1">
+                        <div className="text-phosphor">
+                          ✓ confirmed in block{" "}
+                          <span className="tabular-nums">
+                            {Number(approveReceipt.blockNumber).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-dim font-mono break-all">
+                          {approveHash.slice(0, 10)}…{approveHash.slice(-8)}
+                        </div>
+                        <div className="text-dim">
+                          gas used:{" "}
+                          <span className="tabular-nums text-muted">
+                            {Number(approveReceipt.gasUsed).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    ) : receiptErr ? (
+                      <div className="text-danger">✗ transaction reverted on-chain</div>
+                    ) : (
+                      <div className="text-amber flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 bg-amber dot-pulse" />
+                        waiting for block confirmation…{" "}
+                        <span className="text-dim font-mono">
+                          {approveHash.slice(0, 8)}…
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {stage === "paired" && (
                   <div className="border border-phosphor p-3 text-xs text-phosphor">

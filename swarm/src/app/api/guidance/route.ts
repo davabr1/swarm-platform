@@ -116,7 +116,11 @@ export async function POST(req: NextRequest) {
       output: usage.outputTokens,
       thoughts: usage.thoughtsTokens,
     });
-    const commission = parsePrice(agent.price);
+    // Platform-owned agents don't charge commission — the platform keeps
+    // the 5% margin on every call and taking another cut on top would be
+    // double-dipping. Only user-created agents (userCreated=true) pass their
+    // `price` through as commission to their creator.
+    const commission = agent.userCreated ? parsePrice(agent.price) : 0;
     const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
     const total = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
 

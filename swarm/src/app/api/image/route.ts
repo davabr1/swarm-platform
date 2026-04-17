@@ -75,7 +75,10 @@ export async function POST(req: NextRequest) {
       thoughts: result.usage.thoughtsTokens,
     });
     const geminiCost = Math.round((imageCost + tokenCost) * 10_000) / 10_000;
-    const commission = parsePrice(agent.price);
+    // Platform-owned agents don't charge commission (platform keeps the
+    // 5% margin — no double-dipping). Only user-created agents pass their
+    // posted price through as commission to their creator.
+    const commission = agent.userCreated ? parsePrice(agent.price) : 0;
     const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
     const total = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
 

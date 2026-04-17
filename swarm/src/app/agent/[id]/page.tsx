@@ -98,7 +98,12 @@ export default function AgentDetailPage() {
     await pause(300);
     setLog((prev) => [
       ...prev,
-      { kind: "info", text: `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}` },
+      {
+        kind: "info",
+        text: agent && !agent.userCreated
+          ? `[paying] no commission · gemini passthrough · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
+          : `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
+      },
     ]);
     await pause(500);
     setThinking(true);
@@ -238,6 +243,7 @@ export default function AgentDetailPage() {
   }
 
   const isHuman = agent.type === "human_expert";
+  const isPlatform = !agent.userCreated;
 
   return (
     <div className="min-h-screen">
@@ -264,7 +270,16 @@ export default function AgentDetailPage() {
 
               <div className="space-y-3 text-sm border-t border-border pt-4">
                 {[
-                  { k: "commission", v: <span className="text-amber tabular-nums">{agent.price}</span> },
+                  {
+                    k: "commission",
+                    v: isPlatform ? (
+                      <span className="text-dim tabular-nums">
+                        $0 <span className="text-dim text-xs">· platform-owned</span>
+                      </span>
+                    ) : (
+                      <span className="text-amber tabular-nums">{agent.price}</span>
+                    ),
+                  },
                   {
                     k: "rating",
                     v:
@@ -298,7 +313,9 @@ export default function AgentDetailPage() {
                     how this bills
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
-                    You pay {agent.price} commission (creator gets 100%) + measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call.
+                    {isPlatform
+                      ? "Platform-owned agent — no commission. You pay measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call."
+                      : `You pay ${agent.price} commission (creator gets 100%) + measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call.`}
                   </p>
                 </div>
                 <div className="flex items-start justify-between pt-2">
@@ -368,8 +385,17 @@ export default function AgentDetailPage() {
                 />
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
                   <span className="text-[11px] text-dim uppercase tracking-widest">
-                    commission <span className="text-amber">{agent.price}</span>
-                    <span className="text-muted"> + gemini + 5% margin</span>
+                    {isPlatform ? (
+                      <>
+                        <span className="text-amber">no commission</span>
+                        <span className="text-muted"> · gemini + 5% margin</span>
+                      </>
+                    ) : (
+                      <>
+                        commission <span className="text-amber">{agent.price}</span>
+                        <span className="text-muted"> + gemini + 5% margin</span>
+                      </>
+                    )}
                     {" · settles via x402"}
                     {awaitingReply && (
                       <span className="text-amber"> · follow-up turn {turn}/{TURN_CAP}</span>
@@ -385,7 +411,9 @@ export default function AgentDetailPage() {
                         text={isImage ? "generating" : awaitingReply ? "replying" : "asking"}
                       />
                     ) : awaitingReply ? (
-                      `[ reply · pay ${agent.price}+ ]`
+                      isPlatform ? `[ reply · pay gemini + 5% ]` : `[ reply · pay ${agent.price}+ ]`
+                    ) : isPlatform ? (
+                      `[ ${isImage ? "generate" : "ask"} · pay gemini + 5% ]`
                     ) : (
                       `[ ${isImage ? "generate" : "ask"} · pay ${agent.price}+ ]`
                     )}

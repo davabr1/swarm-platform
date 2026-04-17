@@ -27,15 +27,23 @@ export function pricingDefaultsFor(
 
 export function serializeAgent(a: Agent) {
   const defaults = pricingDefaultsFor(a.skill, a.type);
+  // Platform-owned agents don't charge a commission — the platform already
+  // keeps the 5% margin on every call, so adding a second cut would be
+  // double-dipping. Third-party (user-created) agents keep their posted
+  // price as their commission. The billing routes apply the same rule via
+  // `agent.userCreated ? parsePrice(agent.price) : 0`, so the displayed
+  // price here stays consistent with what the user is actually charged.
+  const displayPrice = a.userCreated ? a.price : "$0";
   return {
     id: a.id,
     name: a.name,
     skill: a.skill,
     description: a.description,
-    price: a.price,
+    price: displayPrice,
     address: a.walletAddress,
     creatorAddress: a.creatorAddress ?? a.walletAddress,
     type: a.type,
+    userCreated: a.userCreated,
     reputation: { count: a.ratingsCount, averageScore: a.reputation },
     totalCalls: a.totalCalls,
     agentId: a.agentId ?? undefined,

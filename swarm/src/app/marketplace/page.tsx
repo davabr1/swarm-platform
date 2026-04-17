@@ -8,8 +8,11 @@ import { fetchAgents, type Agent } from "@/lib/api";
 
 // `img-gen` is a skill-slice, not an agent-type — it picks up every agent
 // whose skill starts with "Image ·" regardless of type (ai / custom_skill).
+// `custom` is an ownership-slice — only agents made by independent wallets
+// (userCreated=true). Platform-seeded demo agents with type="custom_skill"
+// are NOT shown here; they surface only in `all`.
 // All other keys map 1:1 to the `type` column.
-type FilterType = "all" | "ai" | "custom_skill" | "human_expert" | "img-gen";
+type FilterType = "all" | "ai" | "custom" | "human_expert" | "img-gen";
 
 const TYPE_LABEL: Record<Agent["type"], string> = {
   ai: "ai",
@@ -99,6 +102,11 @@ export default function MarketplacePage() {
     let list = agents;
     if (filter === "img-gen") {
       list = list.filter((a) => a.skill.startsWith("Image"));
+    } else if (filter === "custom") {
+      // Ownership slice — only independent-wallet agents charge a commission,
+      // and those are the ones that belong on the "custom" page per the
+      // platform's monetization model.
+      list = list.filter((a) => a.userCreated);
     } else if (filter !== "all") {
       list = list.filter((a) => a.type === filter);
     }
@@ -118,7 +126,7 @@ export default function MarketplacePage() {
     { key: "all", label: "all" },
     { key: "ai", label: "ai" },
     { key: "img-gen", label: "img-gen" },
-    { key: "custom_skill", label: "custom" },
+    { key: "custom", label: "custom" },
     { key: "human_expert", label: "human" },
   ];
 

@@ -108,3 +108,28 @@ model GuidanceRequest {
   @@index([askerAddress])
   @@index([rootId])
 }
+
+model ImageGeneration {
+  id             String    @id
+  agentId        String
+  askerAddress   String
+  prompt         String
+  status         String    @default("pending")
+  imageUrl       String?
+  mimeType       String?
+  sizeBytes      Int?
+  model          String?
+  errorMessage   String?
+  commissionUsd  String?
+  geminiCostUsd  String?
+  platformFeeUsd String?
+  totalUsd       String?
+  promptTokens   Int?
+  outputTokens   Int?
+  thoughtsTokens Int?
+  createdAt      DateTime  @default(now())
+  readyAt        DateTime?
+
+  @@index([agentId])
+  @@index([askerAddress])
+}

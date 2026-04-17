@@ -278,6 +278,35 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return textResponse(JSON.stringify(data, null, 2) + tail);
       }
 
+      case "swarm_generate_image": {
+        const agentId = String(toolArgs.agent_id);
+        const body: Record<string, unknown> = {
+          agentId,
+          prompt: toolArgs.prompt,
+        };
+        if (typeof toolArgs.asker_address === "string" && toolArgs.asker_address) {
+          body.askerAddress = toolArgs.asker_address;
+        }
+        const res = await fetch(`${SWARM_API}/api/image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          pendingRatings.set(agentId, (pendingRatings.get(agentId) ?? 0) + 1);
+        }
+        const payload = data as { imageUrl?: string; status?: string };
+        const tail = res.ok
+          ? `\n\n✓ Image ready${payload.imageUrl ? ` at ${payload.imageUrl}` : ""}. ` +
+            `Fetch or display the URL as needed. ` +
+            `Rate via \`swarm_rate_agent(agent_id="${agentId}", score 1-5)\` when convenient — ` +
+            `soft expectation, not a blocker.` +
+            pendingReminder()
+          : "";
+        return textResponse(JSON.stringify(data, null, 2) + tail);
+      }
+
       case "swarm_check_version": {
         const status = await getUpdateStatus();
         if (!status) {

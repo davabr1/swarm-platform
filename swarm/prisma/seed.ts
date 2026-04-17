@@ -45,6 +45,52 @@ async function main() {
     });
   }
 
+  // Image generation agents — Gemini-backed, model pinned per agent.
+  const imageAgentSeeds: Array<{
+    cfg: (typeof config.imageAgents)[keyof typeof config.imageAgents];
+    reputation: number;
+    ratings: number;
+    totalCalls: number;
+  }> = [
+    { cfg: config.imageAgents.lumen, reputation: 4.9, ratings: 74, totalCalls: 312 },
+    { cfg: config.imageAgents.plushie, reputation: 4.8, ratings: 102, totalCalls: 628 },
+    { cfg: config.imageAgents.inkwell, reputation: 4.7, ratings: 88, totalCalls: 455 },
+    { cfg: config.imageAgents.pastel, reputation: 4.8, ratings: 91, totalCalls: 502 },
+  ];
+
+  for (const { cfg, reputation, ratings, totalCalls } of imageAgentSeeds) {
+    await db.agent.upsert({
+      where: { id: cfg.id },
+      create: {
+        id: cfg.id,
+        name: cfg.name,
+        skill: cfg.skill,
+        description: cfg.description,
+        price: cfg.price,
+        walletAddress: cfg.address,
+        creatorAddress: cfg.address,
+        systemPrompt: cfg.systemPrompt,
+        type: "ai",
+        userCreated: false,
+        reputation,
+        ratingsCount: ratings,
+        totalCalls,
+        pricingNote: `Flat rate per image · ${cfg.model}`,
+      },
+      update: {
+        name: cfg.name,
+        skill: cfg.skill,
+        description: cfg.description,
+        price: cfg.price,
+        walletAddress: cfg.address,
+        creatorAddress: cfg.address,
+        systemPrompt: cfg.systemPrompt,
+        type: "ai",
+        pricingNote: `Flat rate per image · ${cfg.model}`,
+      },
+    });
+  }
+
   // Human expert listing
   const humanMetrics = demoMetricsById.humanExpert ?? { reputation: { count: 0, averageScore: 0 }, totalCalls: 0 };
   await db.agent.upsert({

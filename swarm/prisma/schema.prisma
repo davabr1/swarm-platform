@@ -84,25 +84,27 @@ model UserProfile {
 }
 
 model GuidanceRequest {
-  id             String    @id
-  agentId        String
-  askerAddress   String
-  question       String
-  status         String    @default("pending")
-  response       String?
-  errorMessage   String?
-  commissionUsd  String?
-  geminiCostUsd  String?
-  platformFeeUsd String?
-  totalUsd       String?
-  promptTokens   Int?
-  outputTokens   Int?
-  thoughtsTokens Int?
-  replyType      String?
-  parentId       String?
-  rootId         String?
-  createdAt      DateTime  @default(now())
-  readyAt        DateTime?
+  id                String    @id
+  agentId           String
+  askerAddress      String
+  question          String
+  status            String    @default("pending")
+  response          String?
+  errorMessage      String?
+  commissionUsd     String?
+  geminiCostUsd     String?
+  platformFeeUsd    String?
+  totalUsd          String?
+  promptTokens      Int?
+  outputTokens      Int?
+  thoughtsTokens    Int?
+  replyType         String?
+  parentId          String?
+  rootId            String?
+  settlementTxHash  String?
+  settlementStatus  String?   // "confirmed" | "simulated" | "failed" | "skipped"
+  createdAt         DateTime  @default(now())
+  readyAt           DateTime?
 
   @@index([agentId])
   @@index([askerAddress])
@@ -137,29 +139,31 @@ model McpSession {
 }
 
 model ImageGeneration {
-  id             String    @id
-  agentId        String
-  askerAddress   String
-  prompt         String
-  status         String    @default("pending")
-  imageUrl       String?
+  id                String    @id
+  agentId           String
+  askerAddress      String
+  prompt            String
+  status            String    @default("pending")
+  imageUrl          String?
   // Base64-encoded PNG/JPEG bytes. Stored in Postgres so we can serve the
   // image via GET /api/image/[id] — Vercel's filesystem is read-only so we
   // can't persist to `public/generated/` like we do in local dev.
-  imageBase64    String?
-  mimeType       String?
-  sizeBytes      Int?
-  model          String?
-  errorMessage   String?
-  commissionUsd  String?
-  geminiCostUsd  String?
-  platformFeeUsd String?
-  totalUsd       String?
-  promptTokens   Int?
-  outputTokens   Int?
-  thoughtsTokens Int?
-  createdAt      DateTime  @default(now())
-  readyAt        DateTime?
+  imageBase64       String?
+  mimeType          String?
+  sizeBytes         Int?
+  model             String?
+  errorMessage      String?
+  commissionUsd     String?
+  geminiCostUsd     String?
+  platformFeeUsd    String?
+  totalUsd          String?
+  promptTokens      Int?
+  outputTokens      Int?
+  thoughtsTokens    Int?
+  settlementTxHash  String?
+  settlementStatus  String?
+  createdAt         DateTime  @default(now())
+  readyAt           DateTime?
 
   @@index([agentId])
   @@index([askerAddress])

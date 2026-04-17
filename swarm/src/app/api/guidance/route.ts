@@ -3,8 +3,12 @@ import { callAgentStructured } from "@/lib/llm";
 import { computeGeminiCost, formatUsd, parsePrice } from "@/lib/geminiPricing";
 import { logActivity } from "@/lib/activity";
 import { getSessionFromRequest, incrementSpent } from "@/lib/session";
+import { config } from "@/lib/config";
+import { json402, paymentResponseHeader, settleCall } from "@/lib/x402";
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
+
+export const maxDuration = 60;
 
 const TURN_CAP = 5;
 // Pre-flight budget estimate: agent commission + Gemini ceiling + 5% cushion.
@@ -89,16 +93,13 @@ export async function POST(req: NextRequest) {
     const preflight =
       (commissionEstimate + PREFLIGHT_GEMINI_CEILING_USD) * PREFLIGHT_OVERHEAD_RATIO;
     if (session.spentUsd + preflight > session.budgetUsd) {
-      return Response.json(
-        {
-          error: "budget_exhausted",
-          spentUsd: session.spentUsd,
-          budgetUsd: session.budgetUsd,
-          message:
-            "Your MCP session budget is exhausted. Re-pair to authorize a fresh USDC budget.",
-        },
-        { status: 402 },
-      );
+      return json402({
+        resource: "/api/guidance",
+        microUsdc: BigInt(Math.ceil(preflight * 1_000_000)),
+        error: "budget_exhausted",
+        description: "MCP session budget exhausted — re-pair to authorize a fresh USDC budget.",
+        detail: { spentUsd: session.spentUsd, budgetUsd: session.budgetUsd },
+      });
     }
   }
 
@@ -161,6 +162,77 @@ export async function POST(req: NextRequest) {
     const platformFeeUsd = formatUsd(platformFee);
     const totalUsd = formatUsd(total);
 
+    // Settle on-chain BEFORE persisting status="ready" so a settlement
+    // failure doesn't leave the row claiming success. Browser UI callers
+    // (no session) skip settlement entirely — the marketplace UI is
+    // demo-only and doesn't hit the payer's wallet.
+    let settlement: Awaited<ReturnType<typeof settleCall>> | null = null;
+    if (session) {
+      const microUsdc = BigInt(Math.round(total * 1_000_000));
+      settlement = await settleCall({
+        payer: session.address,
+        payTo: config.orchestrator.address,
+        microUsdc,
+        description: `guidance · ${agent.name}`,
+      });
+    }
+
+    // Payer-side failure (insufficient allowance / balance): persist
+    // breakdown so the row explains *why* it failed, but NOT spentUsd —
+    // otherwise a stuck DB counter would persistently 402 the user. Return
+    // 402 with a structured payment-required body.
+    if (settlement && !settlement.ok && settlement.payerError) {
+      await db.guidanceRequest.update({
+        where: { id },
+        data: {
+          status: "failed_settlement",
+          response: text,
+          replyType,
+          commissionUsd,
+          geminiCostUsd,
+          platformFeeUsd,
+          totalUsd,
+          promptTokens: usage.promptTokens,
+          outputTokens: usage.outputTokens,
+          thoughtsTokens: usage.thoughtsTokens,
+          settlementStatus: settlement.kind,
+          errorMessage: settlement.message,
+        },
+      });
+      return json402({
+        resource: "/api/guidance",
+        microUsdc: BigInt(Math.round(total * 1_000_000)),
+        error: settlement.kind,
+        description:
+          settlement.kind === "allowance_exhausted"
+            ? "Your USDC allowance to the orchestrator is exhausted. Re-pair to approve a fresh budget."
+            : "Insufficient USDC in your wallet. Top up and retry.",
+      });
+    }
+
+    // Server-side failure (RPC down, orchestrator out of gas): same row
+    // treatment but 502 so the client retries later.
+    if (settlement && !settlement.ok && !settlement.payerError) {
+      await db.guidanceRequest.update({
+        where: { id },
+        data: {
+          status: "failed_settlement",
+          response: text,
+          replyType,
+          commissionUsd,
+          geminiCostUsd,
+          platformFeeUsd,
+          totalUsd,
+          settlementStatus: settlement.kind,
+          errorMessage: settlement.message,
+        },
+      });
+      return Response.json(
+        { id, conversationId: rootId, status: "failed_settlement", error: settlement.message },
+        { status: 502 },
+      );
+    }
+
     const updated = await db.guidanceRequest.update({
       where: { id },
       data: {
@@ -175,6 +247,8 @@ export async function POST(req: NextRequest) {
         promptTokens: usage.promptTokens,
         outputTokens: usage.outputTokens,
         thoughtsTokens: usage.thoughtsTokens,
+        settlementTxHash: settlement?.ok ? settlement.txHash : null,
+        settlementStatus: settlement?.ok ? settlement.status : "skipped",
       },
     });
 
@@ -184,46 +258,60 @@ export async function POST(req: NextRequest) {
     });
 
     if (session) {
-      // Post-flight increment with the actual totalUsd. The on-chain allowance
-      // is the hard cap x402 (Phase 2) will enforce; this DB counter is what
-      // lets us 402 before even calling the LLM on subsequent requests.
+      // Post-flight increment with the actual totalUsd. The DB counter
+      // stays ahead of any pre-flight estimate so subsequent calls 402
+      // once real spend (including this one) catches the budget.
       await incrementSpent(session.id, total);
     }
 
     const creator = agent.creatorAddress ?? agent.walletAddress;
     const kindLabel = replyType === "question" ? "clarify" : "guidance";
+    const txTag = settlement?.ok && settlement.status === "confirmed"
+      ? ` · tx ${settlement.txHash.slice(0, 10)}…`
+      : "";
     await logActivity(
       "payment",
-      `${kindLabel} · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, platform ${geminiCostUsd}+${platformFeeUsd} USDC`
+      `${kindLabel} · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, platform ${geminiCostUsd}+${platformFeeUsd} USDC${txTag}`
     );
 
-    return Response.json({
-      id,
-      conversationId: rootId,
-      status: "ready",
-      replyType,
-      response: text,
-      turn: turnNumber,
-      capped: isFinalTurn,
-      breakdown: {
-        commissionUsd,
-        geminiCostUsd,
-        platformFeeUsd,
-        totalUsd,
+    const headers: Record<string, string> = {};
+    if (settlement?.ok) {
+      headers["X-PAYMENT-RESPONSE"] = paymentResponseHeader(settlement);
+    }
+
+    return Response.json(
+      {
+        id,
+        conversationId: rootId,
+        status: "ready",
+        replyType,
+        response: text,
+        turn: turnNumber,
+        capped: isFinalTurn,
+        breakdown: {
+          commissionUsd,
+          geminiCostUsd,
+          platformFeeUsd,
+          totalUsd,
+        },
+        settlement: settlement?.ok
+          ? { status: settlement.status, txHash: settlement.txHash, blockNumber: settlement.blockNumber }
+          : undefined,
+        tokens: {
+          prompt: usage.promptTokens,
+          output: usage.outputTokens,
+          thoughts: usage.thoughtsTokens,
+        },
+        agent: {
+          id: agent.id,
+          name: agent.name,
+          creatorAddress: creator,
+        },
+        createdAt: updated.createdAt,
+        readyAt: updated.readyAt,
       },
-      tokens: {
-        prompt: usage.promptTokens,
-        output: usage.outputTokens,
-        thoughts: usage.thoughtsTokens,
-      },
-      agent: {
-        id: agent.id,
-        name: agent.name,
-        creatorAddress: creator,
-      },
-      createdAt: updated.createdAt,
-      readyAt: updated.readyAt,
-    });
+      { headers },
+    );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     await db.guidanceRequest.update({

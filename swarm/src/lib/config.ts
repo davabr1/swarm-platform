@@ -17,6 +17,11 @@ export const config = {
 
   // x402
   facilitatorUrl: process.env.FACILITATOR_URL || "https://facilitator.ultravioletadao.xyz",
+  // When true (default), paid routes pull USDC on-chain via transferFrom
+  // before returning a response. Set X402_ENFORCE=false locally to skip
+  // real transfers against an unfunded orchestrator — the route still
+  // runs and returns 200, but the row is marked settlementStatus="simulated".
+  x402Enforce: process.env.X402_ENFORCE !== "false",
 
   // ERC-8004
   identityRegistry: process.env.IDENTITY_REGISTRY || "0x8004A818BFB912233c491871b3d84c89A494BD9e",

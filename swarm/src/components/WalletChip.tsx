@@ -3,6 +3,16 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useWalletBalances } from "@/lib/useWalletBalances";
+
+function BalanceInline({ address }: { address: `0x${string}` }) {
+  const { usdc } = useWalletBalances(address);
+  return (
+    <span className="hidden sm:inline text-dim tabular-nums">
+      {usdc.formatted}<span className="text-dim/70"> USDC</span>
+    </span>
+  );
+}
 
 export default function WalletChip() {
   const [mounted, setMounted] = useState(false);
@@ -64,6 +74,8 @@ export default function WalletChip() {
             className="h-8 px-3 flex items-center gap-2 text-xs border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
           >
             <span className="w-1.5 h-1.5 bg-phosphor" />
+            <BalanceInline address={account.address as `0x${string}`} />
+            <span className="text-dim/40">·</span>
             [ {label} ]
           </Link>
         );

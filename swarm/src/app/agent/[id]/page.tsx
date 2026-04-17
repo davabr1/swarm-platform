@@ -244,8 +244,13 @@ export default function AgentDetailPage() {
               </div>
             </TerminalWindow>
           ) : (
-            <TerminalWindow title={`swarm://agent/${agent.id}/ask`} subtitle={loading ? "asking…" : "ready"}>
-              <div className="p-0">
+            <TerminalWindow
+              title={`swarm://agent/${agent.id}/ask`}
+              subtitle={loading ? "asking…" : "ready"}
+              className="h-full flex flex-col"
+              bodyClassName="flex-1 flex flex-col"
+            >
+              <div className="p-0 flex-1 flex flex-col">
                 <PromptTextarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -301,7 +306,7 @@ export default function AgentDetailPage() {
                   </div>
                 )}
 
-                <div className="min-h-[220px] bg-background">
+                <div className="flex-1 min-h-[220px] bg-background">
                   {log.length === 0 ? (
                     <div className="p-6 text-dim text-sm">
                       guidance streams here after you ask the agent.

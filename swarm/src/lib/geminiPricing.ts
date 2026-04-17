@@ -29,3 +29,14 @@ export function parsePrice(price: string): number {
   const n = parseFloat(stripped);
   return Number.isFinite(n) ? n : 0;
 }
+
+// Gemini image generation — flat USD per image by model.
+// Update when Google publishes official rates.
+const IMAGE_PRICE_PRO = 0.134; // gemini-3-pro-image-preview (Nano Banana Pro)
+const IMAGE_PRICE_FLASH = 0.039; // gemini-3.1-flash-image-preview (Nano Banana 2)
+
+export function computeImageCost(model: string): number {
+  if (model.includes("pro-image")) return IMAGE_PRICE_PRO;
+  if (model.includes("flash-image")) return IMAGE_PRICE_FLASH;
+  return IMAGE_PRICE_FLASH;
+}

@@ -121,6 +121,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "swarm_generate_image": {
+        const body: Record<string, unknown> = {
+          agentId: toolArgs.agent_id,
+          prompt: toolArgs.prompt,
+        };
+        if (typeof toolArgs.asker_address === "string" && toolArgs.asker_address) {
+          body.askerAddress = toolArgs.asker_address;
+        }
+        const res = await fetch(`${SWARM_API}/api/image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        return {
+          content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+        };
+      }
+
       case "swarm_orchestrate": {
         const res = await fetch(`${SWARM_API}/api/orchestrate`, {
           method: "POST",

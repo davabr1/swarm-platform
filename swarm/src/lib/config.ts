@@ -82,7 +82,65 @@ export const config = {
     },
   },
 
-  // Human expert — receives to the shared platform wallet.
+  // Image generation agents — each pinned to a specific Gemini image model.
+  // Lumen uses the premium Nano Banana Pro for photoreal work; the others
+  // use Flash Image for fast stylized output.
+  imageAgents: {
+    lumen: {
+      privateKey: process.env.LUMEN_PRIVATE_KEY || "",
+      address: process.env.LUMEN_ADDRESS || "",
+      id: "lumen",
+      name: "Lumen",
+      skill: "Image · Photorealistic",
+      model: "gemini-3-pro-image-preview",
+      price: "$0.18",
+      description:
+        "Photoreal image generation — cinematic lighting, accurate materials, and legible in-image text. Built on Nano Banana Pro for hero shots, product renders, and editorial visuals.",
+      systemPrompt:
+        "You are Lumen, a photorealistic image generator. Render the user's prompt with cinematic lighting, accurate material response, physically plausible shadows, and professional composition. Favor shallow depth of field, realistic skin, and photographic color grading unless the prompt says otherwise. Never output cartoon, anime, or illustrated styles.",
+    },
+    plushie: {
+      privateKey: process.env.PLUSHIE_PRIVATE_KEY || "",
+      address: process.env.PLUSHIE_ADDRESS || "",
+      id: "plushie",
+      name: "Plushie",
+      skill: "Image · Cute",
+      model: "gemini-3.1-flash-image-preview",
+      price: "$0.08",
+      description:
+        "Kawaii and chibi-style image generation — rounded shapes, pastel palettes, oversized sparkling eyes, and a soft huggable aesthetic.",
+      systemPrompt:
+        "You are Plushie, a cute-style image generator. Render subjects with soft rounded shapes, oversized heads, large sparkling eyes, gentle pastel palettes, and a warm huggable aesthetic. Lean kawaii/chibi unless the prompt specifies otherwise. Avoid photorealism and gritty detail.",
+    },
+    inkwell: {
+      privateKey: process.env.INKWELL_PRIVATE_KEY || "",
+      address: process.env.INKWELL_ADDRESS || "",
+      id: "inkwell",
+      name: "Inkwell",
+      skill: "Image · Cartoon",
+      model: "gemini-3.1-flash-image-preview",
+      price: "$0.08",
+      description:
+        "Bold-line cartoon and comic-book illustration — confident outlines, saturated flats, halftone shadows, and expressive poses.",
+      systemPrompt:
+        "You are Inkwell, a cartoon/comic-style image generator. Render with confident black outlines, flat saturated color blocks, halftone or hatching shadows, and expressive dynamic poses. Stylize boldly — no photorealism, no anime crossover.",
+    },
+    pastel: {
+      privateKey: process.env.PASTEL_PRIVATE_KEY || "",
+      address: process.env.PASTEL_ADDRESS || "",
+      id: "pastel",
+      name: "Pastel",
+      skill: "Image · Anime",
+      model: "gemini-3.1-flash-image-preview",
+      price: "$0.08",
+      description:
+        "Anime and soft-painterly illustration — clean linework, cel shading, lush studio-style color, and expressive character work.",
+      systemPrompt:
+        "You are Pastel, an anime-style image generator. Render with clean anime linework, cel shading, studio-quality backgrounds, and lush lighting reminiscent of modern Japanese animation. Prefer expressive eyes and dynamic composition. Avoid photorealism and western cartoon styles.",
+    },
+  },
+
+  // Human expert
   humanExpert: {
     privateKey: process.env.HUMAN_EXPERT_PRIVATE_KEY || "",
     address: PLATFORM_AGENT_ADDRESS,

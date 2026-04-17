@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { config } from "./config";
 
 let geminiClient: GoogleGenAI | null = null;
@@ -109,4 +109,61 @@ export async function callAgentStructured(
     // fall through
   }
   return { type: "response", text: raw.trim(), usage };
+}
+
+export type GeminiImageUsage = {
+  promptTokens: number;
+  outputTokens: number;
+  thoughtsTokens: number;
+};
+
+export type GeminiImageResult = {
+  base64: string;
+  mimeType: string;
+  usage: GeminiImageUsage;
+};
+
+export async function generateImage(
+  systemPrompt: string,
+  userPrompt: string,
+  model: string,
+): Promise<GeminiImageResult> {
+  if (!config.googleApiKey) {
+    throw new Error("No AI provider configured. Set GOOGLE_API_KEY.");
+  }
+
+  const ai = getGeminiClient();
+  const composed = systemPrompt
+    ? `${systemPrompt}\n\nImage prompt: ${userPrompt}`
+    : userPrompt;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: composed,
+    config: {
+      responseModalities: [Modality.IMAGE],
+    },
+  });
+
+  const parts = response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p) => p.inlineData?.data);
+  if (!imagePart?.inlineData?.data) {
+    const textPart = parts.find((p) => p.text)?.text;
+    throw new Error(
+      textPart
+        ? `Gemini returned text instead of an image: ${textPart.slice(0, 200)}`
+        : "Gemini returned no image data.",
+    );
+  }
+
+  const meta = response.usageMetadata ?? {};
+  return {
+    base64: imagePart.inlineData.data,
+    mimeType: imagePart.inlineData.mimeType ?? "image/png",
+    usage: {
+      promptTokens: meta.promptTokenCount ?? 0,
+      outputTokens: meta.candidatesTokenCount ?? 0,
+      thoughtsTokens: meta.thoughtsTokenCount ?? 0,
+    },
+  };
 }

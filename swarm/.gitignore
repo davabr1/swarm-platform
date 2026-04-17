@@ -46,3 +46,6 @@ node_modules/
 
 # swarm local persistence
 /data/
+
+# generated images (Gemini image agents write here)
+/public/generated/

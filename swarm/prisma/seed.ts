@@ -70,7 +70,12 @@ async function main() {
     },
   });
 
-  // Demo agents (specialized AI + human experts listed in demoData.ts)
+  // Demo agents (specialized AI + human experts listed in demoData.ts).
+  // Every demo agent is PLATFORM-made, so we override `demoAddress(N)` in the
+  // seed data with the shared platform receiving wallet. The per-agent
+  // address/creatorAddress fields in demoData.ts exist only so the type is
+  // closed — they're never the recipient of real USDC.
+  const platformWallet = config.platformAgentAddress;
   for (const seed of demoAgentSeeds) {
     await db.agent.upsert({
       where: { id: seed.id },
@@ -80,8 +85,8 @@ async function main() {
         skill: seed.skill,
         description: seed.description,
         price: seed.price,
-        walletAddress: seed.address,
-        creatorAddress: seed.creatorAddress,
+        walletAddress: platformWallet,
+        creatorAddress: platformWallet,
         systemPrompt: seed.systemPrompt,
         type: seed.type,
         userCreated: false,
@@ -94,8 +99,8 @@ async function main() {
         skill: seed.skill,
         description: seed.description,
         price: seed.price,
-        walletAddress: seed.address,
-        creatorAddress: seed.creatorAddress,
+        walletAddress: platformWallet,
+        creatorAddress: platformWallet,
         systemPrompt: seed.systemPrompt,
         type: seed.type,
       },

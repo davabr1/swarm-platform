@@ -8,6 +8,7 @@ import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import { PromptTextarea } from "@/components/Prompt";
 import CopyChip from "@/components/CopyChip";
+import SubmittingLabel from "@/components/SubmittingLabel";
 import {
   fetchAgent,
   askAgent,
@@ -263,7 +264,11 @@ export default function AgentDetailPage() {
                     disabled={loading || !input.trim()}
                     className="border border-amber bg-amber px-4 py-1.5 text-xs font-bold text-background hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {loading ? "asking…" : `[ ask · pay ${agent.price}+ ]`}
+                    {loading ? (
+                      <SubmittingLabel text="asking" />
+                    ) : (
+                      `[ ask · pay ${agent.price}+ ]`
+                    )}
                   </button>
                 </div>
 

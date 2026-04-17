@@ -64,6 +64,8 @@ export default function TaskBoardPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitText, setSubmitText] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [togglingVisId, setTogglingVisId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<Record<string, number>>({});
 
@@ -101,8 +103,9 @@ export default function TaskBoardPage() {
   };
 
   const handleClaim = async (id: string) => {
-    if (!address) return;
+    if (!address || claimingId) return;
     setClaimError((p) => ({ ...p, [id]: "" }));
+    setClaimingId(id);
     try {
       await claimTask(id, address);
       load();
@@ -112,6 +115,8 @@ export default function TaskBoardPage() {
         ...p,
         [id]: e instanceof Error ? e.message : "claim failed",
       }));
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -130,12 +135,15 @@ export default function TaskBoardPage() {
   };
 
   const handleVisibility = async (id: string, next: "public" | "private") => {
-    if (!address) return;
+    if (!address || togglingVisId) return;
+    setTogglingVisId(id);
     try {
       await updateTaskVisibility(id, address, next);
       load();
     } catch {
       // silently fail — reload will reset
+    } finally {
+      setTogglingVisId(null);
     }
   };
 
@@ -546,9 +554,14 @@ export default function TaskBoardPage() {
                             t.visibility === "private" ? "public" : "private",
                           )
                         }
-                        className="border border-border text-muted hover:text-foreground hover:border-border-hi px-2 py-1 text-[10px] transition-none"
+                        disabled={togglingVisId === t.id}
+                        className="border border-border text-muted hover:text-foreground hover:border-border-hi px-2 py-1 text-[10px] transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        → {t.visibility === "private" ? "make public" : "make private"}
+                        {togglingVisId === t.id ? (
+                          <SubmittingLabel text="updating" />
+                        ) : (
+                          <>→ {t.visibility === "private" ? "make public" : "make private"}</>
+                        )}
                       </button>
                     )}
                   </div>
@@ -631,10 +644,16 @@ export default function TaskBoardPage() {
                     <div className="flex flex-col items-end gap-1">
                       <button
                         onClick={() => handleClaim(t.id)}
-                        disabled={!isConnected}
+                        disabled={!isConnected || claimingId === t.id}
                         className="border border-phosphor bg-phosphor text-background text-xs font-bold px-4 py-2 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-                        {isConnected ? "[ claim task ]" : "[ connect wallet to claim ]"}
+                        {claimingId === t.id ? (
+                          <SubmittingLabel text="claiming" />
+                        ) : isConnected ? (
+                          "[ claim task ]"
+                        ) : (
+                          "[ connect wallet to claim ]"
+                        )}
                       </button>
                       {claimError[t.id] && (
                         <span className="text-[11px] text-danger">

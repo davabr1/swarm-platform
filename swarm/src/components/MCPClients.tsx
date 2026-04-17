@@ -17,38 +17,39 @@ const CLIENTS: Client[] = [
   { name: "Cursor", src: "/logos/codex.png", light: true },
 ];
 
-// Drain Gang easter egg — triple-click the Claude Code logo within ~900ms
-// to flash a random quip. Every line references a specific member of the
-// crew by name (Bladee, Ecco2k, Yung Lean, Thaiboy Digital, Whitearmor,
-// Gud, Mechatok) or "Drain Gang" itself, usually pointing at a real song
-// or album. Same "flash toast" pattern as the TerminalWindow stoplight
-// quips — discoverable if you fidget, invisible if you don't.
+// Drain Gang easter egg — triple-click the Claude Code LOGO (not the
+// text, only the glyph) within ~900ms to flash a random quip. Every
+// line names exactly one of the three artists the user asked for
+// (Bladee, Ecco2k, Yung Lean) and pairs them with a specific real
+// song/album/motif so the reference actually lands. The toast anchors
+// to the logo and has a downward tail so it reads as a speech bubble
+// coming out of the glyph.
 const DRAIN_QUIPS = [
   "bladee is icedancer-coding this build",
-  "ecco2k stared at the diff until it passed",
-  "yung lean bought this dip back in 2013",
-  "thaiboy digital: legendary member of staff",
-  "drain gang's 333 block just confirmed",
-  "whitearmor cooked this beat, not claude",
-  "gud on the boards, bladee on the keys",
-  "mechatok set detected in the cron job",
-  "bladee · reindeer · loops while you wait",
-  "ecco2k · pxe era · cold start, still icy",
-  "yung lean warlord mode: testnet conquered",
-  "bladee signed trash star · 1/1 · burned",
-  "drain story arc unlocked at block 333",
-  "ecco2k's 'e' · one bit, whole aesthetic",
-  "the flag is raised (bladee, of course)",
-  "yung lean kyoto · 12 validators · overcast",
-  "thaiboy tiger just re-orged the chain",
-  "bladee whispered 'be nice 2 me' to the db",
-  "ecco2k peroxide filter on the stderr",
-  "drain gang confirmed · all buy-side",
-  "bladee gotham-core terminal achieved",
-  "yung lean red bottom sky over this PR",
-  "ecco2k calcium.png · 1 pixel, infinite vibe",
-  "bladee somewhere in exeter, routing packets",
-  "gud just gud'd the whole monorepo",
+  "yung lean · ginseng strip 2002 · older than this chain",
+  "ecco2k · peroxide · bleached the stderr clean",
+  "bladee · 333 · your favorite block number",
+  "yung lean · kyoto · raining on the testnet",
+  "ecco2k · calcium · strong bones, strong typing",
+  "bladee · trash star · minted · burned · minted again",
+  "yung lean · warlord · owns every validator",
+  "ecco2k · blue eyes · watching the mempool",
+  "bladee · exeter · signs tx from nowhere",
+  "yung lean · hoover · the hat, not the vacuum",
+  "ecco2k · 'e' · one letter, one whole album",
+  "bladee · reindeer · cross-chain migration",
+  "yung lean · agony · when the tx reverts",
+  "ecco2k · sugar · the cache is sweet",
+  "bladee · be nice 2 me · begs the linter",
+  "yung lean · red bottom sky · gas fees on fire",
+  "ecco2k · fast drive · rpc latency zero",
+  "bladee · cold visions · january-energy commit",
+  "yung lean · yoshi city · where the full nodes chill",
+  "ecco2k · aaa powerline · 99.999% uptime",
+  "bladee · drain story · you're block 333 of it",
+  "yung lean · unknown memory · like your last deploy",
+  "ecco2k · wiggle · the price chart is doing it",
+  "bladee · the fool · who pushes to main on friday",
 ];
 
 function pick<T>(arr: T[]): T {
@@ -57,13 +58,13 @@ function pick<T>(arr: T[]): T {
 
 export default function MCPClients() {
   const [toast, setToast] = useState<string | null>(null);
-  // Rolling window of recent click timestamps on the Claude Code logo.
-  // We don't use a simple counter because we want the 3 clicks to be
-  // fast (<900ms total) — a counter would fire on 3 slow clicks too.
+  // Rolling window of click timestamps on the Claude Code LOGO only. A
+  // simple counter would fire on 3 slow clicks too — we want the clicks
+  // to actually be fast (<900ms total) for the "fidget trigger" feel.
   const clicks = useRef<number[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const onClaudeClick = () => {
+  const onClaudeLogoClick = () => {
     const now = Date.now();
     clicks.current = [...clicks.current, now].filter((t) => now - t < 900);
     if (clicks.current.length >= 3) {
@@ -80,42 +81,67 @@ export default function MCPClients() {
         <span className="text-[11px] uppercase tracking-widest text-dim">
           supported ai platforms
         </span>
-        <div className="relative flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {CLIENTS.map((c) => {
             const isClaudeCode = c.name === "Claude Code";
             return (
               <div
                 key={c.name}
-                className={`group flex items-center gap-2 text-muted hover:text-amber transition-none ${
-                  isClaudeCode ? "cursor-pointer select-none" : ""
-                }`}
-                title={isClaudeCode ? "Claude Code · via MCP (try triple-click)" : `${c.name} · via MCP`}
-                onClick={isClaudeCode ? onClaudeClick : undefined}
+                className="group flex items-center gap-2 text-muted hover:text-amber transition-none"
+                title={`${c.name} · via MCP`}
               >
-                <Image
-                  src={c.src}
-                  alt=""
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 shrink-0 object-contain"
-                  aria-hidden="true"
-                />
+                {/* Only the logo glyph is the click target. The text
+                    label is inert so accidental text clicks don't fire
+                    the easter egg. */}
+                {isClaudeCode ? (
+                  <button
+                    type="button"
+                    onClick={onClaudeLogoClick}
+                    aria-label="Claude Code logo"
+                    className="relative shrink-0 cursor-pointer select-none focus:outline-none"
+                  >
+                    <Image
+                      src={c.src}
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 object-contain"
+                      aria-hidden="true"
+                      draggable={false}
+                    />
+                    {toast && (
+                      <span
+                        className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-3 z-20 border border-amber bg-background px-3 py-1.5 text-[11px] font-mono text-amber whitespace-nowrap animate-fade-up"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {toast}
+                        {/* Downward tail · two borders of a rotated
+                            square become the two visible sides of the
+                            triangle pointing at the logo. */}
+                        <span
+                          aria-hidden="true"
+                          className="absolute left-1/2 -translate-x-1/2 top-full -mt-[5px] w-2 h-2 rotate-45 bg-background border-r border-b border-amber"
+                        />
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  <Image
+                    src={c.src}
+                    alt=""
+                    width={24}
+                    height={24}
+                    className="w-6 h-6 shrink-0 object-contain"
+                    aria-hidden="true"
+                  />
+                )}
                 <span className="text-sm font-semibold tracking-tight">
                   {c.name}
                 </span>
               </div>
             );
           })}
-
-          {toast && (
-            <div
-              className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-9 z-20 border border-amber bg-background px-3 py-1.5 text-[11px] font-mono text-amber whitespace-nowrap animate-fade-up"
-              role="status"
-              aria-live="polite"
-            >
-              {toast}
-            </div>
-          )}
         </div>
       </div>
     </section>

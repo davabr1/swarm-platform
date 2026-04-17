@@ -117,9 +117,9 @@ export default function MarketplacePage() {
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "all" },
     { key: "ai", label: "ai" },
+    { key: "img-gen", label: "img-gen" },
     { key: "custom_skill", label: "custom" },
     { key: "human_expert", label: "human" },
-    { key: "img-gen", label: "img-gen" },
   ];
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

@@ -121,6 +121,17 @@ export default function PairPage() {
   );
 }
 
+// Open external references (faucet, block explorer) as small popup windows
+// centered on the current screen rather than new full tabs — keeps the user
+// oriented in the pair flow instead of yanking them to a full page.
+function openPopup(url: string, width = 900, height = 720) {
+  if (typeof window === "undefined") return;
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  const features = `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)},noopener,noreferrer,menubar=no,toolbar=no,location=no,status=no`;
+  window.open(url, "_blank", features);
+}
+
 function PairInner() {
   const params = useSearchParams();
   const code = params.get("code") ?? "";
@@ -365,15 +376,13 @@ function PairInner() {
                     {(stage === "idle" || stage === "error") ? "[ authorize MCP session ]" : null}
                   </button>
                   {approveHash && (
-                    <a
-                      className="text-[10px] text-dim hover:text-amber"
-                      href={`https://testnet.snowtrace.io/tx/${approveHash}`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => openPopup(`https://testnet.snowtrace.io/tx/${approveHash}`)}
+                      className="text-[10px] text-dim hover:text-amber bg-transparent border-0 p-0 cursor-pointer"
                       title="Your USDC approve transaction on the Fuji block explorer"
                     >
                       view tx on Snowtrace ↗
-                    </a>
+                    </button>
                   )}
                 </div>
 
@@ -396,14 +405,12 @@ function PairInner() {
                         </button>
                       )}
                       {errorInfo.showFaucet && (
-                        <a
-                          href="https://faucet.avax.network"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="border border-phosphor text-phosphor text-[11px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none"
+                        <button
+                          onClick={() => openPopup("https://faucet.avax.network")}
+                          className="border border-phosphor text-phosphor text-[11px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none bg-transparent cursor-pointer"
                         >
                           [ fuji faucet ↗ ]
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>

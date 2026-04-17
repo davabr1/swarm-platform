@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
 import { getMcpStatus } from "@/lib/api";
 
 export default function StatusBar() {
+  const pathname = usePathname();
+  const isBlackFooter = pathname === "/" || pathname === "/about";
   const { address, isConnected } = useAccount();
   const [mcp, setMcp] = useState<"ready" | "down" | "checking">("checking");
   const [toolCount, setToolCount] = useState<number>(0);
@@ -60,7 +63,7 @@ export default function StatusBar() {
       : "bg-amber";
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 h-7 border-t border-border bg-surface scanlines">
+    <div className={`fixed bottom-0 left-0 right-0 z-40 h-7 border-t border-border scanlines ${isBlackFooter ? "bg-background" : "bg-surface"}`}>
       <div className="h-full px-4 flex items-center justify-between text-[11px] text-muted gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <span className="flex items-center gap-1.5">

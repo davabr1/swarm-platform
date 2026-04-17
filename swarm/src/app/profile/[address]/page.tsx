@@ -11,6 +11,7 @@ import DataTable, { type Column } from "@/components/DataTable";
 import CopyChip from "@/components/CopyChip";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SubmittingLabel from "@/components/SubmittingLabel";
+import { useWalletBalances } from "@/lib/useWalletBalances";
 import {
   fetchProfile,
   updateProfile,
@@ -145,6 +146,8 @@ export default function PublicProfilePage() {
           )}
 
           <IdentityCard address={address} portfolio={portfolio} />
+
+          <BalancePanel address={address} />
 
           {isSelf && <FundingPanel address={address} portfolio={portfolio} onSaved={load} />}
           {isSelf && portfolio.inbox.length > 0 && <InboxPanel inbox={portfolio.inbox} />}
@@ -406,6 +409,27 @@ function InboxPanel({ inbox }: { inbox: Task[] }) {
             </div>
           </Link>
         ))}
+      </div>
+    </TerminalWindow>
+  );
+}
+
+function BalancePanel({ address }: { address: string }) {
+  const normalized = (address.startsWith("0x") ? address : `0x${address}`) as `0x${string}`;
+  const { usdc } = useWalletBalances(normalized);
+
+  return (
+    <TerminalWindow title="swarm://profile/balance" subtitle="live · fuji C-chain">
+      <div className="p-5 border-t border-border">
+        <div className="text-[10px] uppercase tracking-widest text-dim mb-2">USDC balance</div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl text-phosphor tabular-nums">{usdc.formatted}</span>
+          <span className="text-xs text-dim">USDC</span>
+          {usdc.loading && <span className="text-[10px] text-dim">· syncing</span>}
+        </div>
+        <div className="text-[10px] text-dim mt-2">
+          spendable via x402 payments · gas is covered by the facilitator
+        </div>
       </div>
     </TerminalWindow>
   );

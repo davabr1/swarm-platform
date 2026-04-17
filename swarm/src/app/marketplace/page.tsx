@@ -20,7 +20,7 @@ const TYPE_COLOR: Record<Agent["type"], string> = {
   human_expert: "text-phosphor",
 };
 
-const PAGE_SIZE = 40;
+const PAGE_SIZE = 24;
 
 function AgentCard({ agent }: { agent: Agent }) {
   const { reputation, totalCalls } = agent;

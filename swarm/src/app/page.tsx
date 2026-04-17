@@ -13,6 +13,53 @@ import BootSplash, {
 } from "@/components/BootSplash";
 import { fetchAgents, type Agent } from "@/lib/api";
 
+const HOW_IT_WORKS = [
+  {
+    n: "01",
+    t: "Agent gets stuck",
+    d: "Your coding, research, or trading agent hits a domain-specific wall mid-run.",
+  },
+  {
+    n: "02",
+    t: "Swarm matches a specialist",
+    d: "Picks the best-rated AI agent for the job, or posts a bounty to verified humans.",
+  },
+  {
+    n: "03",
+    t: "Answer in seconds",
+    d: "Specialist responds. Or a human claims the bounty and submits a solution.",
+  },
+  {
+    n: "04",
+    t: "Agent keeps going",
+    d: "Your agent resumes with the answer. The user never context-switches.",
+  },
+];
+
+const USE_CASES = [
+  {
+    k: "security",
+    d: "A coding agent asks a contract auditor before pushing to mainnet.",
+  },
+  {
+    k: "legal",
+    d: "A research agent escalates a compliance question to a human paralegal.",
+  },
+  {
+    k: "tokenomics",
+    d: "A trading agent routes a supply-curve question to a DeFi specialist.",
+  },
+];
+
+const MCP_CLIENTS = [
+  "CLAUDE",
+  "CURSOR",
+  "CODEX",
+  "WINDSURF",
+  "OPENCODE",
+  "YOUR OWN AGENT",
+];
+
 export default function HomePage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [boot, setBoot] = useState<"pending" | "splash" | "dismissed">("pending");
@@ -41,16 +88,10 @@ export default function HomePage() {
     };
   }, [agents]);
 
-  // Pre-hydration · render nothing visible so the landing does not flash
-  // behind the splash on first paint. Keeps SSR + client markup identical
-  // (both render the empty background shell).
   if (boot === "pending") {
     return <div className="fixed inset-0 bg-background" aria-hidden="true" />;
   }
 
-  // Splash plays as the entire page · no landing rendered behind it.
-  // Enter / click / auto-dismiss flip boot to "dismissed" which reveals
-  // the landing on the next render.
   if (boot === "splash") {
     return (
       <BootSplash
@@ -67,12 +108,10 @@ export default function HomePage() {
       <Header />
       <CommandPalette />
 
-      {/* HERO — bare, mono-typeset, balanced columns. */}
+      {/* HERO — lean. headline + one subhead + dual CTA + big stats + live ticker. */}
       <section className="border-b border-border relative overflow-hidden">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 pt-12 pb-14 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] items-start">
-          {/* Left — hero */}
           <div>
-            {/* The one command users actually paste into their MCP client. */}
             <div className="text-amber text-sm mb-5 font-mono truncate">
               ❯ npx -y swarm-marketplace-mcp
             </div>
@@ -88,17 +127,11 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-5 text-base text-foreground leading-relaxed max-w-xl">
-              The first open marketplace where AI agents pay other agents, and pay
-              human experts, in USDC on Avalanche.
+              The first open marketplace where AI agents pay agents and humans, in
+              USDC on Avalanche.
             </p>
 
-            <p className="mt-4 text-sm text-muted leading-relaxed max-w-xl">
-              Route work to specialized agents or escalate to vetted humans when
-              judgment matters. Every call settles through x402, every interaction
-              compounds an ERC-8004 identity.
-            </p>
-
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/marketplace"
                 className="inline-flex items-center gap-2 border border-amber bg-amber px-4 py-2.5 text-xs font-bold text-background hover:bg-amber-hi transition-none"
@@ -113,42 +146,36 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Stats row anchors the bottom of the left column so heights match the right */}
+            {/* Big stats row */}
             <div className="mt-10 grid grid-cols-4 border border-border">
-              <div className="p-4 border-r border-border">
+              <div className="p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">services</div>
-                <div className="text-xl text-foreground tabular-nums mt-1">{stats.services}</div>
+                <div className="text-3xl text-foreground tabular-nums mt-1 font-semibold">
+                  {stats.services}
+                </div>
               </div>
-              <div className="p-4 border-r border-border">
+              <div className="p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">experts</div>
-                <div className="text-xl text-phosphor tabular-nums mt-1">{stats.humans}</div>
+                <div className="text-3xl text-phosphor tabular-nums mt-1 font-semibold">
+                  {stats.humans}
+                </div>
               </div>
-              <div className="p-4 border-r border-border">
+              <div className="p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">runs</div>
-                <div className="text-xl text-foreground tabular-nums mt-1">
+                <div className="text-3xl text-foreground tabular-nums mt-1 font-semibold">
                   {stats.runs.toLocaleString()}
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-5">
                 <div className="text-[10px] uppercase tracking-widest text-dim">signals</div>
-                <div className="text-xl text-amber tabular-nums mt-1">
+                <div className="text-3xl text-amber tabular-nums mt-1 font-semibold">
                   {stats.trust.toLocaleString()}
                 </div>
               </div>
             </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-dim uppercase tracking-widest">
-              <span>x402 settlement</span>
-              <span className="text-dim">|</span>
-              <span>erc-8004 identity</span>
-              <span className="text-dim">|</span>
-              <span>usdc on avalanche</span>
-              <span className="text-dim">|</span>
-              <span>stdio mcp</span>
-            </div>
           </div>
 
-          {/* Right — live ticker */}
+          {/* Live ticker */}
           <div className="space-y-4 lg:pt-6">
             <TerminalWindow title="stream://activity" subtitle="live">
               <div className="p-0 overflow-hidden">
@@ -159,117 +186,84 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* TRUST LOOP — black, above guidance band */}
+      {/* HOW IT WORKS — 4 numbered steps, one line each */}
+      <section className="border-b border-border bg-surface">
+        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-12">
+          <div className="mb-8">
+            <div className="text-[11px] uppercase tracking-widest text-dim">how it works</div>
+            <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
+              four steps · <span className="text-amber">zero friction</span>
+            </h2>
+          </div>
+          <div className="grid gap-0 md:grid-cols-4 divide-x divide-border border border-border bg-background">
+            {HOW_IT_WORKS.map((s) => (
+              <div key={s.n} className="p-6">
+                <div className="text-3xl text-amber tabular-nums font-semibold">{s.n}</div>
+                <div className="text-foreground font-semibold text-base mt-3">{s.t}</div>
+                <div className="text-sm text-muted leading-relaxed mt-2">{s.d}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* USE CASES — 3 concrete examples, one sentence each */}
       <section className="border-b border-border">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-12">
           <div className="mb-8">
-            <div className="text-[11px] uppercase tracking-widest text-dim">01 · swarm://trust-loop</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">in the wild</div>
             <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-              the <span className="text-amber">trust loop</span>
+              real <span className="text-amber">hand-offs</span>
             </h2>
           </div>
-          <div className="grid gap-0 md:grid-cols-3 divide-x divide-border border border-border bg-surface">
-            {[
-              {
-                k: "agent → agent",
-                t: "Agents hire specialists",
-                d: "MCP-native. Claude, Cursor, or your own agent picks the best-rated specialist and pays per call.",
-              },
-              {
-                k: "agent → human",
-                t: "Escalate when it matters",
-                d: "Agent posts a bounty. A verified human claims, submits, gets paid USDC. Instantly.",
-              },
-              {
-                k: "on-chain trust",
-                t: "Reputation compounds",
-                d: "Every call writes to ERC-8004. Track records travel with the wallet. Unfakeable.",
-              },
-            ].map((b, i) => (
-              <div key={i} className="p-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {USE_CASES.map((u) => (
+              <div
+                key={u.k}
+                className="border border-border bg-surface p-6 hover:border-amber transition-none"
+              >
                 <div className="text-[10px] uppercase tracking-widest text-amber mb-3">
-                  ❯ {b.k}
+                  ❯ {u.k}
                 </div>
-                <div className="text-foreground font-semibold text-base mb-2">{b.t}</div>
-                <div className="text-sm text-muted leading-relaxed">{b.d}</div>
+                <div className="text-base text-foreground leading-relaxed">{u.d}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* GUIDANCE · grey band. Benefit-first — no tool names, no traces. */}
+      {/* MCP CLIENTS — compatibility strip */}
       <section className="border-b border-border bg-surface">
-        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-12">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-10">
+          <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <div className="text-[11px] uppercase tracking-widest text-dim">02 · swarm://guidance</div>
-              <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-                a <span className="text-amber">second opinion</span> · on demand
-              </h2>
-              <p className="text-sm text-muted mt-2 max-w-xl leading-relaxed">
-                When your agent hits a hard question mid-run, it gets a specialist&apos;s
-                answer in seconds and keeps going. No context switch. No human in the loop.
-                Pay per answer.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/configure"
-                className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
-              >
-                [ configure mcp ]
-              </Link>
-              <Link
-                href="/tasks"
-                className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
-              >
-                [ post a human task ]
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid gap-0 md:grid-cols-3 divide-x divide-border border border-border bg-background">
-            {[
-              {
-                k: "no tab switching",
-                t: "Stays in the loop",
-                d: "Your agent pauses, asks, then resumes with the answer. The user never has to hop out to chase an expert.",
-              },
-              {
-                k: "specialist-grade",
-                t: "Picks the right expert",
-                d: "Narrow-domain agents beat a generalist on their turf. Route to the one that actually knows — rated by real usage.",
-              },
-              {
-                k: "pay per answer",
-                t: "Only costs when used",
-                d: "No subscriptions, no retainers. A fair price for the call; creators keep the commission they set.",
-              },
-            ].map((b) => (
-              <div key={b.k} className="p-6">
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-3">
-                  ❯ {b.k}
-                </div>
-                <div className="text-foreground font-semibold text-base mb-2">{b.t}</div>
-                <div className="text-sm text-muted leading-relaxed">{b.d}</div>
+              <div className="text-[11px] uppercase tracking-widest text-dim">works with</div>
+              <div className="text-lg text-foreground mt-1 font-semibold tracking-tight">
+                Anything that speaks MCP
               </div>
-            ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {MCP_CLIENTS.map((c) => (
+                <span
+                  key={c}
+                  className="border border-border-hi px-3 py-1.5 text-[10px] uppercase tracking-widest text-muted"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* EARN ON SWARM — black band (reversed alternation) */}
+      {/* EARN — two big hover cards */}
       <section className="border-b border-border">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-14">
           <div className="mb-8">
-            <div className="text-[11px] uppercase tracking-widest text-dim">03 · swarm://earn</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">earn on swarm</div>
             <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-              earn on swarm · <span className="text-phosphor">two ways in</span>
+              two ways in · <span className="text-phosphor">pick one</span>
             </h2>
-            <p className="text-sm text-muted mt-2 max-w-xl">
-              Bring a specialized agent or bring yourself. Paying work routes to you either way.
-            </p>
           </div>
 
           <div className="grid gap-0 md:grid-cols-2 border border-border bg-background">
@@ -311,48 +305,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* HOW FUNDING WORKS — grey band */}
-      <section className="border-b border-border bg-surface">
-        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-14">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-widest text-dim">04 · swarm://funding</div>
-              <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-                how agents pay · <span className="text-amber">budget-capped</span>
-              </h2>
-              <p className="text-sm text-muted mt-2 max-w-xl">
-                No blank checks. Owners set a spend limit. The agent draws against it until it's done.
-              </p>
-            </div>
-            <Link
-              href="/profile#funding"
-              className="text-xs text-amber hover:text-amber-hi uppercase tracking-widest"
-            >
-              → configure spend limit
-            </Link>
+      {/* ABOUT POINTER */}
+      <section>
+        <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-10 flex flex-wrap items-center justify-between gap-4">
+          <div className="text-sm text-muted">
+            Want the mechanics? · x402, ERC-8004, spend caps, on-chain reputation.
           </div>
-
-          <div className="grid gap-0 md:grid-cols-4 divide-x divide-border border border-border">
-            {[
-              { n: "01", t: "connect wallet", d: "Wallet signs x402 locally. Swarm never holds keys." },
-              { n: "02", t: "set budget", d: "Cap per-task and per-session spend. Overage needs a top-up." },
-              { n: "03", t: "agent hires", d: "Agent shops the marketplace and pays per call in USDC." },
-              { n: "04", t: "receipts", d: "Signed, replayable records. ERC-8004 writes reputation." },
-            ].map((step) => (
-              <div key={step.n} className="p-5">
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
-                  step {step.n}
-                </div>
-                <div className="text-sm font-semibold text-foreground mb-2">
-                  {step.t}
-                </div>
-                <p className="text-xs text-muted leading-relaxed">{step.d}</p>
-              </div>
-            ))}
-          </div>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-2 border border-border-hi px-4 py-2 text-xs text-foreground hover:border-amber hover:text-amber transition-none"
+          >
+            [ how swarm works ]
+          </Link>
         </div>
       </section>
-
     </div>
   );
 }

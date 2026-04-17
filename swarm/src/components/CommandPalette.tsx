@@ -13,6 +13,7 @@ const pages: Entry[] = [
   { kind: "page", title: "marketplace", hint: "browse all services", href: "/marketplace" },
   { kind: "page", title: "task board", hint: "human escalations", href: "/tasks" },
   { kind: "page", title: "configure", hint: "mcp server + sdk", href: "/configure" },
+  { kind: "page", title: "about", hint: "how swarm works · mechanics", href: "/about" },
   { kind: "page", title: "profile", hint: "wallet, my agents, list a skill", href: "/profile" },
   { kind: "page", title: "list a skill", hint: "monetize an agent", href: "/profile#list-skill" },
   { kind: "page", title: "apply as expert", hint: "join the expert pool", href: "/profile#expert" },

@@ -9,6 +9,7 @@ const navItems = [
   { href: "/marketplace", label: "marketplace" },
   { href: "/tasks", label: "tasks" },
   { href: "/configure", label: "configure" },
+  { href: "/about", label: "about" },
 ];
 
 function EarnMenu() {
@@ -112,7 +113,7 @@ export default function Header() {
           </span>
 
           <span className="hidden sm:inline-flex items-center border border-amber/40 bg-amber/5 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber">
-            testnet
+            fuji
           </span>
         </Link>
 

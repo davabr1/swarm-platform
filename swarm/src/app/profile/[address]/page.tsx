@@ -147,9 +147,12 @@ export default function PublicProfilePage() {
 
           <IdentityCard address={address} portfolio={portfolio} />
 
-          <BalancePanel address={address} />
-
-          {isSelf && <FundingPanel address={address} portfolio={portfolio} onSaved={load} />}
+          <WalletPanel
+            address={address}
+            portfolio={portfolio}
+            isSelf={isSelf}
+            onSaved={load}
+          />
           {isSelf && portfolio.inbox.length > 0 && <InboxPanel inbox={portfolio.inbox} />}
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -415,36 +418,24 @@ function InboxPanel({ inbox }: { inbox: Task[] }) {
   );
 }
 
-function BalancePanel({ address }: { address: string }) {
-  const normalized = (address.startsWith("0x") ? address : `0x${address}`) as `0x${string}`;
-  const { usdc } = useWalletBalances(normalized);
-
-  return (
-    <TerminalWindow title="swarm://profile/balance" subtitle="live · fuji C-chain" dots={false}>
-      <div className="p-5 border-t border-border">
-        <div className="text-[10px] uppercase tracking-widest text-dim mb-2">USDC balance</div>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl text-phosphor tabular-nums">{usdc.formatted}</span>
-          <span className="text-xs text-dim">USDC</span>
-          {usdc.loading && <span className="text-[10px] text-dim">· syncing</span>}
-        </div>
-        <div className="text-[10px] text-dim mt-2">
-          spendable via x402 payments · gas is covered by the facilitator
-        </div>
-      </div>
-    </TerminalWindow>
-  );
-}
-
-function FundingPanel({
+// Merged balance + spend-caps panel. Balance is always visible (live
+// read from chain); caps + save button only render for the wallet owner.
+// Previously these were two stacked TerminalWindows — conceptually one
+// section ("your money: what you have, what you'll let agents spend").
+function WalletPanel({
   address,
   portfolio,
+  isSelf,
   onSaved,
 }: {
   address: string;
   portfolio: ProfilePortfolio;
+  isSelf: boolean;
   onSaved: () => void;
 }) {
+  const normalized = (address.startsWith("0x") ? address : `0x${address}`) as `0x${string}`;
+  const { usdc } = useWalletBalances(normalized);
+
   const [perTask, setPerTask] = useState(portfolio.profile.spendCapPerTask ?? "5.00");
   const [perSession, setPerSession] = useState(portfolio.profile.spendCapPerSession ?? "50.00");
   const [saved, setSaved] = useState(false);
@@ -468,56 +459,71 @@ function FundingPanel({
   const sanitize = (v: string) => v.replace(/[^0-9.]/g, "");
 
   return (
-    <TerminalWindow title="swarm://profile/funding" subtitle="per-wallet spend caps" dots={false}>
-      <div className="p-5 space-y-5 relative">
-        <div
-          className="absolute top-3 right-3 group"
-          aria-label="About spend caps"
-        >
-          <span className="inline-flex items-center justify-center w-5 h-5 border border-border text-dim text-[10px] cursor-help hover:border-amber hover:text-amber transition-none">
-            i
-          </span>
-          <div className="pointer-events-none absolute right-0 top-7 w-64 border border-border bg-surface p-3 text-xs text-muted leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            Caps are wallet-scoped and sync across every browser. An agent cannot exceed them without an explicit top-up.
+    <TerminalWindow
+      title="swarm://profile/wallet"
+      subtitle={isSelf ? "live balance · per-wallet spend caps" : "live · fuji C-chain"}
+      dots={false}
+    >
+      <div className="p-5">
+        <div className={`grid gap-6 ${isSelf ? "lg:grid-cols-3" : ""}`}>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">USDC balance</div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl text-phosphor tabular-nums">{usdc.formatted}</span>
+              <span className="text-xs text-dim">USDC</span>
+              {usdc.loading && <span className="text-[10px] text-dim">· syncing</span>}
+            </div>
+            <div className="text-[10px] text-dim mt-2 leading-relaxed">
+              spendable via x402 · gas covered by the facilitator
+            </div>
           </div>
+
+          {isSelf && (
+            <>
+              <label className="cursor-text block">
+                <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per-task cap</div>
+                <div className="flex items-baseline">
+                  <span className="text-2xl text-amber tabular-nums mr-1">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={perTask}
+                    onChange={(e) => setPerTask(sanitize(e.target.value))}
+                    className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
+                  />
+                </div>
+              </label>
+              <label className="cursor-text block">
+                <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per-session cap</div>
+                <div className="flex items-baseline">
+                  <span className="text-2xl text-amber tabular-nums mr-1">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={perSession}
+                    onChange={(e) => setPerSession(sanitize(e.target.value))}
+                    className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
+                  />
+                </div>
+              </label>
+            </>
+          )}
         </div>
 
-        <div className="grid gap-0 sm:grid-cols-2 border border-border">
-          <label className="block p-5 cursor-text">
-            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per task</div>
-            <div className="flex items-baseline">
-              <span className="text-2xl text-amber tabular-nums mr-1">$</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={perTask}
-                onChange={(e) => setPerTask(sanitize(e.target.value))}
-                className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
-              />
+        {isSelf && (
+          <div className="mt-5 pt-4 border-t border-border flex items-center justify-between gap-4 flex-wrap">
+            <div className="text-[11px] text-dim leading-relaxed max-w-xl">
+              caps are wallet-scoped and sync across every browser · an agent cannot exceed them without an explicit top-up
             </div>
-          </label>
-          <label className="block p-5 cursor-text sm:border-l border-border">
-            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">per session</div>
-            <div className="flex items-baseline">
-              <span className="text-2xl text-amber tabular-nums mr-1">$</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={perSession}
-                onChange={(e) => setPerSession(sanitize(e.target.value))}
-                className="w-full bg-transparent text-2xl text-amber tabular-nums outline-none border-0 focus:outline-none"
-              />
-            </div>
-          </label>
-        </div>
-
-        <button
-          onClick={save}
-          disabled={saving}
-          className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
-        >
-          {saved ? "[ saved ✓ ]" : saving ? <SubmittingLabel text="saving" /> : "[ save limits ]"}
-        </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="shrink-0 border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi transition-none disabled:opacity-40"
+            >
+              {saved ? "[ saved ✓ ]" : saving ? <SubmittingLabel text="saving" /> : "[ save limits ]"}
+            </button>
+          </div>
+        )}
       </div>
     </TerminalWindow>
   );
@@ -564,7 +570,7 @@ function EditProfilePanel({
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-widest text-dim mb-2">
-              contact email · private, for notifications (not yet wired)
+              contact email · private, for notifications
             </div>
             <PromptInput
               value={email}

@@ -45,9 +45,9 @@ export async function runInteractiveUnpair(): Promise<number> {
   console.log("  To pair a wallet again, run:");
   console.log("    npx -y swarm-marketplace-mcp pair");
   console.log("");
-  console.log("  Run this BEFORE your MCP client picks up the server. If");
-  console.log("  Claude Code is already running, fully quit and relaunch it");
-  console.log("  after pairing so it picks up the new session.");
+  console.log("  If Claude Code / Cursor / Codex is already open, fully quit");
+  console.log("  and relaunch it after you pair — these clients pick up the");
+  console.log("  new session only on startup.");
   console.log("");
   console.log("  Note: this does NOT revoke the bearer token on the server —");
   console.log("  it will expire on its own at its scheduled time. For a full");

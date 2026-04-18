@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSignMessage } from "wagmi";
 import TerminalWindow from "./TerminalWindow";
 import SubmittingLabel from "./SubmittingLabel";
+import Link from "next/link";
 import DepositFlow from "./DepositFlow";
-import PairModal from "./PairModal";
 import { useWalletBalances } from "@/lib/useWalletBalances";
 import {
   fetchBalance,
@@ -50,7 +50,6 @@ export default function BalanceAutonomousAccessPanel({
   const [balance, setBalance] = useState<Balance | null>(null);
   const [balanceErr, setBalanceErr] = useState("");
   const [depositOpen, setDepositOpen] = useState(false);
-  const [pairOpen, setPairOpen] = useState(false);
 
   const loadBalance = useCallback(() => {
     fetchBalance(address)
@@ -72,13 +71,14 @@ export default function BalanceAutonomousAccessPanel({
   // deposited balance is smaller, which is wrong — the ledger blocks on
   // whichever limit hits first.
   const remainingUsd = (() => {
-    if (!balance || !capSet) return "—";
+    if (!balance) return "—";
+    const deposited = Number(balance.balanceMicroUsd) / 1_000_000;
+    if (!capSet) return deposited.toFixed(2);
     const capLeft = Math.max(
       0,
       Number(balance.autonomousCapMicroUsd) / 1_000_000 -
         Number(balance.autonomousSpentMicroUsd) / 1_000_000,
     );
-    const deposited = Number(balance.balanceMicroUsd) / 1_000_000;
     return Math.min(capLeft, deposited).toFixed(2);
   })();
 
@@ -255,18 +255,14 @@ export default function BalanceAutonomousAccessPanel({
           )}
 
           {/* Row 3: MCP sessions */}
-          {isSelf && <McpSessionsRow address={address} onPair={() => setPairOpen(true)} />}
+          {isSelf && <McpSessionsRow address={address} />}
         </div>
       </TerminalWindow>
-
-      {isSelf && (
-        <PairModal open={pairOpen} onCancel={() => setPairOpen(false)} />
-      )}
     </>
   );
 }
 
-function McpSessionsRow({ address, onPair }: { address: string; onPair: () => void }) {
+function McpSessionsRow({ address }: { address: string }) {
   const [rows, setRows] = useState<McpSessionRow[] | null>(null);
   const [err, setErr] = useState("");
   const [revokingId, setRevokingId] = useState<string | null>(null);
@@ -325,12 +321,12 @@ function McpSessionsRow({ address, onPair }: { address: string; onPair: () => vo
             </span>
           </div>
         </div>
-        <button
-          onClick={onPair}
+        <Link
+          href="/configure"
           className="border border-amber text-amber text-xs px-3 py-2 hover:bg-amber hover:text-background transition-none"
         >
-          [ how to pair ]
-        </button>
+          [ pair a new client ]
+        </Link>
       </div>
       {err && <div className="text-[11px] text-danger mb-2">{err}</div>}
       {!rows ? (

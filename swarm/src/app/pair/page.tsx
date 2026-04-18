@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import PairForm from "@/components/PairForm";
+import PairOnboarding from "@/components/PairOnboarding";
 
 export default function PairPage() {
   return (
@@ -19,6 +20,7 @@ function PairInner() {
   const params = useSearchParams();
   const code = params.get("code") ?? "";
   const validCode = /^pair_[A-Za-z0-9_-]{16,64}$/.test(code);
+  const [pairedAddress, setPairedAddress] = useState<string | null>(null);
 
   if (!validCode) {
     return (
@@ -36,15 +38,12 @@ function PairInner() {
             <PairForm
               code={code}
               defaultExpiryDays="30"
-              onSuccess={() => {
-                // MCP pair flow — the session lives in the backend and the
-                // MCP will pick it up via its GET poll. Nothing to do here;
-                // PairForm's own UI already displays the "✓ Paired" state.
-              }}
+              onSuccess={(r) => setPairedAddress(r.address.toLowerCase())}
               showCodeHeader
             />
           </div>
         </TerminalWindow>
+        {pairedAddress && <PairOnboarding address={pairedAddress} />}
       </div>
     </Shell>
   );

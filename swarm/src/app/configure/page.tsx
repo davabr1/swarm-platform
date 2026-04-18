@@ -429,8 +429,8 @@ export default function ConfigurePage() {
                   <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
                     npx -y swarm-marketplace-mcp pair
                   </code>
-                  <p className="text-amber">
-                    ⓘ Run this in your terminal <span className="text-foreground">before</span> your MCP client starts the server. If Claude Code / Cursor / Codex is already running, fully quit and relaunch it after pairing — it only reads the session file at startup.
+                  <p>
+                    If Claude Code / Cursor / Codex is already open, fully quit and relaunch it after you pair — these clients pick up the new session only on startup.
                   </p>
                   <p>
                     You can pair a different wallet this way too; the last pair wins.

@@ -219,4 +219,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.9.0";
+export const SWARM_MCP_VERSION = "0.9.1";

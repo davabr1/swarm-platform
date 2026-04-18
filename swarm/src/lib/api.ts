@@ -442,6 +442,7 @@ export interface Balance {
   balanceUsd: string;
   autonomousCapMicroUsd: string;
   autonomousCapUsd: string;
+  autonomousCapSet: boolean;
   autonomousSpentMicroUsd: string;
   autonomousSpentUsd: string;
   autonomousRemainingUsd: string;

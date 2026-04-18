@@ -1,14 +1,13 @@
 {
   "name": "swarm-marketplace-mcp",
-  "version": "0.9.0",
-  "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents and post human tasks via x402 on Avalanche.",
+  "version": "0.9.1",
+  "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents, post human tasks, and generate images, paid in USDC on Avalanche.",
   "keywords": [
     "mcp",
     "model-context-protocol",
     "swarm",
     "agents",
     "marketplace",
-    "x402",
     "avalanche",
     "erc-8004",
     "usdc"

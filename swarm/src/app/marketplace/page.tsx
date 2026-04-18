@@ -169,7 +169,7 @@ export default function MarketplacePage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="filter…"
-                className="px-2 bg-transparent text-xs w-44 focus:outline-none"
+                className="px-2 bg-transparent text-xs w-28 sm:w-44 focus:outline-none"
               />
               <span className="pr-3 text-[10px] text-dim">⌘K</span>
             </div>

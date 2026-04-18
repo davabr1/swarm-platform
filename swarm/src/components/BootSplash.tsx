@@ -48,7 +48,9 @@ export const SWARM_ART = [
 // frame reads as "Swarm is live on Avalanche" to anyone glancing.
 // Earlier lines cover the generic boot stuff (MCP tools, agent registry,
 // Gemini handshake) and scroll off before the user sees them freeze.
-const LINES: string[] = [
+// The final line is built dynamically in the component — touch devices see
+// "tap anywhere to continue", keyboards see "press enter to continue".
+const LINES_PREFIX: string[] = [
   // scroll-off · generic swarm boot
   "swarm init · bootstrapping the agent marketplace",
   "connecting to gemini · warming up",
@@ -60,13 +62,12 @@ const LINES: string[] = [
   "streaming expert pool · 8 humans loaded",
   "priming reputation cache · 1,248 signals",
   "preflight complete · powering on avalanche stack",
-  // final six · avalanche sponsor checkpoints, visible at rest
+  // final five · avalanche sponsor checkpoints, visible at rest
   "handshake · avalanche c-chain validator set",
   "avalanche fuji · chain 43113 · public rpc online",
   "x402 resource server · facilitator online · eip155:43113",
   "erc-8004 identity + reputation registries · live on fuji",
   "usdc · eip-3009 transferWithAuthorization · native on fuji",
-  "ready · press enter to continue",
 ];
 
 const LINE_STEP_MS = 110;
@@ -84,6 +85,18 @@ export interface BootSplashProps {
 
 export default function BootSplash({ onDismiss }: BootSplashProps) {
   const [revealed, setRevealed] = useState(0);
+  // Detect coarse pointer (touch) so we can show "tap anywhere" instead of
+  // "press enter" on phones/tablets where there's no keyboard to press.
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    setIsTouch(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  const LINES = [
+    ...LINES_PREFIX,
+    isTouch ? "ready · tap anywhere to continue" : "ready · press enter to continue",
+  ];
 
   // Chained reveal · one timer at a time based on current `revealed`.
   // Avoids the StrictMode double-mount scheduling 42 concurrent timers,
@@ -92,7 +105,7 @@ export default function BootSplash({ onDismiss }: BootSplashProps) {
     if (revealed >= LINES.length) return;
     const t = setTimeout(() => setRevealed((r) => r + 1), LINE_STEP_MS);
     return () => clearTimeout(t);
-  }, [revealed]);
+  }, [revealed, LINES.length]);
 
   useEffect(() => {
     const auto = setTimeout(onDismiss, AUTO_DISMISS_MS);
@@ -113,7 +126,7 @@ export default function BootSplash({ onDismiss }: BootSplashProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-6 cursor-pointer"
+      className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-6 cursor-pointer overflow-x-hidden"
       onClick={onDismiss}
       role="button"
       tabIndex={0}
@@ -127,15 +140,15 @@ export default function BootSplash({ onDismiss }: BootSplashProps) {
             (╗╚╝║═) sit flush against the █ blocks. JetBrains Mono renders
             them with a 1-px gap and shatters the logo. leading 1.2 is
             what Gemini's reference HTML uses. */}
-        <div className="flex items-center gap-6 mb-10">
+        <div className="flex items-center gap-6 mb-6 sm:mb-10">
           <pre
-            className="text-amber text-[clamp(11px,1.4vw,18px)] leading-[1.2] select-none whitespace-pre font-bold"
+            className="text-amber text-[7px] sm:text-[clamp(11px,1.4vw,18px)] leading-[1.2] select-none whitespace-pre font-bold"
             style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             {CHEVRON_MASCOT}
           </pre>
           <pre
-            className="text-foreground text-[clamp(11px,1.4vw,18px)] leading-[1.2] select-none whitespace-pre font-bold"
+            className="text-foreground text-[7px] sm:text-[clamp(11px,1.4vw,18px)] leading-[1.2] select-none whitespace-pre font-bold"
             style={{ fontFamily: "'Courier New', Courier, monospace" }}
           >
             {SWARM_ART}

@@ -100,6 +100,12 @@ function EarnMenu() {
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   // Triple-click on the SWARM logo within 1500ms opens the hidden admin
   // gate. Single click still navigates home via the Link default.
   const logoClicks = useRef<number[]>([]);
@@ -160,8 +166,8 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-6 text-xs justify-self-center">
+        {/* Navigation — desktop */}
+        <nav className="hidden md:flex items-center gap-6 text-xs justify-self-center">
           {navItems.map((item, i) => {
             const isActive =
               item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
@@ -202,11 +208,85 @@ export default function Header() {
           </Link>
         </nav>
 
+        {/* Hamburger — mobile only */}
+        <button
+          type="button"
+          aria-label={mobileOpen ? "close menu" : "open menu"}
+          aria-expanded={mobileOpen}
+          onClick={() => setMobileOpen((v) => !v)}
+          className="md:hidden justify-self-center inline-flex items-center justify-center w-9 h-9 border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
+        >
+          {mobileOpen ? (
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M2 2 L12 12 M12 2 L2 12" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          ) : (
+            <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true">
+              <path d="M0 1 H16 M0 6 H16 M0 11 H16" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          )}
+        </button>
+
         {/* Wallet */}
         <div className="flex items-center gap-3 justify-self-end">
           <WalletChip />
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <nav className="md:hidden border-t border-border bg-background text-sm">
+          {navItems.map((item) => {
+            const isActive =
+              item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`block px-6 py-3 border-b border-border transition-none ${
+                  isActive ? "text-amber" : "text-foreground hover:text-amber"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+          <Link
+            href="/list-skill"
+            onClick={() => setMobileOpen(false)}
+            className={`block px-6 py-3 border-b border-border transition-none ${
+              pathname?.startsWith("/list-skill")
+                ? "text-amber"
+                : "text-foreground hover:text-amber"
+            }`}
+          >
+            list a skill
+          </Link>
+          <Link
+            href="/apply-expert"
+            onClick={() => setMobileOpen(false)}
+            className={`block px-6 py-3 border-b border-border transition-none ${
+              pathname?.startsWith("/apply-expert")
+                ? "text-phosphor"
+                : "text-foreground hover:text-phosphor"
+            }`}
+          >
+            apply as expert
+          </Link>
+          <Link
+            href="/about"
+            onClick={() => setMobileOpen(false)}
+            className={`block px-6 py-3 transition-none ${
+              pathname?.startsWith("/about")
+                ? "text-amber"
+                : "text-foreground hover:text-amber"
+            }`}
+          >
+            about
+          </Link>
+        </nav>
+      )}
     </header>
   );
 }

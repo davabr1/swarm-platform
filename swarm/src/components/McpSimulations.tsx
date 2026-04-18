@@ -569,7 +569,7 @@ export default function McpSimulations() {
   return (
     <div
       ref={scrollRef}
-      className="h-[475px] overflow-y-auto scrollbar-none select-none"
+      className="h-[475px] max-w-full overflow-y-auto overflow-x-hidden scrollbar-none select-none"
       style={{ pointerEvents: "none" }}
       aria-label="live mcp conversation"
     >

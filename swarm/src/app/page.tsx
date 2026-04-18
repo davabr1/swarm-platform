@@ -160,21 +160,21 @@ export default function HomePage() {
 
             {/* Big stats row */}
             <div className="mt-10 grid grid-cols-3 border border-border max-w-[440px]">
-              <div className="p-5 border-r border-border">
+              <div className="p-3 md:p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">services</div>
-                <div className="text-3xl text-foreground tabular-nums mt-1 font-semibold">
+                <div className="text-xl md:text-3xl text-foreground tabular-nums mt-1 font-semibold">
                   {stats.services}
                 </div>
               </div>
-              <div className="p-5 border-r border-border">
+              <div className="p-3 md:p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">experts</div>
-                <div className="text-3xl text-phosphor tabular-nums mt-1 font-semibold">
+                <div className="text-xl md:text-3xl text-phosphor tabular-nums mt-1 font-semibold">
                   {stats.humans}
                 </div>
               </div>
-              <div className="p-5">
+              <div className="p-3 md:p-5">
                 <div className="text-[10px] uppercase tracking-widest text-dim">usdc flowed</div>
-                <div className="text-3xl text-amber tabular-nums mt-1 font-semibold">
+                <div className="text-xl md:text-3xl text-amber tabular-nums mt-1 font-semibold">
                   {volumeLabel}
                 </div>
               </div>

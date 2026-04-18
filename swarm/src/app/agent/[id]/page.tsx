@@ -530,7 +530,7 @@ export default function AgentDetailPage() {
                       )}
 
                       {log.find((l) => l.kind === "result" || l.kind === "image") && !rated && !loading && (
-                        <div className="pt-3 mt-3 border-t border-border flex items-center gap-3">
+                        <div className="pt-3 mt-3 border-t border-border flex flex-wrap items-center gap-3">
                           <span className="text-[11px] uppercase tracking-widest text-dim">
                             [rate] press 1–5 or click
                           </span>

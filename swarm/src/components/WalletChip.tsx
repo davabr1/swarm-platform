@@ -3,13 +3,34 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useWalletBalances } from "@/lib/useWalletBalances";
+import { fetchBalance } from "@/lib/api";
 
+// Shows the wallet's *deposited* (on-site) balance, not the on-chain USDC
+// balance. That's the number every paid call actually debits, so surfacing
+// it here lets users see when a top-up landed without opening /profile.
 function BalanceInline({ address }: { address: `0x${string}` }) {
-  const { usdc } = useWalletBalances(address);
+  const [formatted, setFormatted] = useState("—");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchBalance(address)
+        .then((b) => {
+          if (!cancelled) setFormatted(Number(b.balanceUsd).toFixed(2));
+        })
+        .catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [address]);
+
   return (
     <span className="hidden sm:inline text-dim tabular-nums">
-      {usdc.formatted}<span className="text-dim/70"> USDC</span>
+      {formatted}<span className="text-dim/70"> USDC</span>
     </span>
   );
 }

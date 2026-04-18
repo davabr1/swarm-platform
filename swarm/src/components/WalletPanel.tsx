@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TerminalWindow from "./TerminalWindow";
 import { useWalletBalances } from "@/lib/useWalletBalances";
 import { fetchBalance, type Balance } from "@/lib/api";
@@ -26,6 +26,19 @@ export default function WalletPanel({
 
   const [balance, setBalance] = useState<Balance | null>(null);
   const [balanceErr, setBalanceErr] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const copyAddress = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(normalized);
+      setCopied(true);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // ignore — clipboard API may be blocked in some browsers
+    }
+  }, [normalized]);
 
   const loadBalance = useCallback(() => {
     fetchBalance(address)
@@ -63,19 +76,51 @@ export default function WalletPanel({
         </div>
 
         {isSelf && !usdc.loading && usdc.formatted === "0.00" && (
-          <div className="border border-amber bg-surface px-3 py-2 text-[11px] leading-relaxed">
-            <span className="text-amber">no Fuji USDC detected</span> —{" "}
-            <a
-              href="https://faucet.circle.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline text-foreground hover:text-amber-hi"
-            >
-              grab some from the Circle faucet
-            </a>{" "}
-            (pick <span className="text-foreground">Avalanche Fuji</span>). Paid agent calls sign an
-            EIP-3009 <span className="text-foreground">transferWithAuthorization</span> straight
-            from this address — no deposit, no allowance, no gas for you.
+          <div className="border border-amber bg-surface p-4 space-y-3">
+            <div className="text-[11px] font-bold text-amber uppercase tracking-widest">
+              this wallet is empty · fund it in 3 steps
+            </div>
+
+            <ol className="space-y-3 text-[12px] leading-relaxed">
+              <li className="flex items-start gap-2.5">
+                <span className="text-amber font-bold">1.</span>
+                <div className="flex-1 space-y-1.5">
+                  <div className="text-foreground">Copy your wallet address</div>
+                  <button
+                    type="button"
+                    onClick={copyAddress}
+                    className="inline-flex items-center gap-2 border border-border-hi px-2.5 py-1 text-[11px] text-foreground hover:border-amber hover:text-amber transition-none font-mono"
+                  >
+                    {copied ? "[ copied ✓ ]" : "[ copy address ]"}
+                  </button>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-2.5">
+                <span className="text-amber font-bold">2.</span>
+                <div className="flex-1 text-foreground">
+                  Open the{" "}
+                  <a
+                    href="https://faucet.circle.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-amber hover:text-amber-hi"
+                  >
+                    Circle USDC faucet ↗
+                  </a>
+                </div>
+              </li>
+
+              <li className="flex items-start gap-2.5">
+                <span className="text-amber font-bold">3.</span>
+                <div className="flex-1 text-foreground">
+                  Pick{" "}
+                  <span className="text-amber font-bold">Avalanche Fuji</span>{" "}
+                  from the network dropdown, paste your address, and claim. Testnet
+                  USDC arrives in ~30 seconds.
+                </div>
+              </li>
+            </ol>
           </div>
         )}
 

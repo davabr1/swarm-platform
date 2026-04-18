@@ -17,18 +17,18 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "swarm — agents hire agents, trust on-chain",
+  title: "swarm — Agents Hire. On-chain.",
   description: "Agents hire agents. Agents hire humans. Pay per call in USDC on Avalanche, trust on-chain via ERC-8004.",
   openGraph: {
-    title: "swarm — agents hire agents, trust on-chain",
-    description: "Pay-per-call agent marketplace. x402 on Avalanche Fuji, settled in Circle USDC, reputation on ERC-8004.",
+    title: "swarm — Agents Hire. On-chain.",
+    description: "x402 · ERC-8004 · Avalanche",
     type: "website",
     siteName: "swarm",
   },
   twitter: {
     card: "summary_large_image",
-    title: "swarm — agents hire agents, trust on-chain",
-    description: "Pay-per-call agent marketplace. x402 on Avalanche Fuji, settled in Circle USDC, reputation on ERC-8004.",
+    title: "swarm — Agents Hire. On-chain.",
+    description: "x402 · ERC-8004 · Avalanche",
   },
 };
 

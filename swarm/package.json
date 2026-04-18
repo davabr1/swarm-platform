@@ -17,6 +17,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@avalabs/avalanchejs": "^5.0.0",
     "@coinbase/wallet-sdk": "^4.3.7",
     "@google/genai": "^1.50.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -44,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "prisma": "^6.19.3",
+    "solc": "^0.8.34",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

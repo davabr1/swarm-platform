@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { ethers } from "ethers";
-import { db } from "@/lib/db";
 import { config } from "@/lib/config";
 
 function equalSafe(a: string, b: string): boolean {
@@ -80,12 +79,11 @@ export async function POST(req: NextRequest) {
       ? new ethers.Wallet(config.orchestrator.privateKey).address
       : config.orchestrator.address;
 
-    const [treasury, orchestrator, platformAgent, head, cursor] = await Promise.all([
+    const [treasury, orchestrator, platformAgent, head] = await Promise.all([
       readWallet(provider, usdc, treasuryAddress),
       readWallet(provider, usdc, orchestratorAddress),
       readWallet(provider, usdc, config.platformAgentAddress),
       provider.getBlockNumber(),
-      db.depositScanCursor.findUnique({ where: { id: "usdc" } }),
     ]);
 
     return Response.json({
@@ -93,11 +91,7 @@ export async function POST(req: NextRequest) {
       treasury,
       orchestrator,
       platformAgent,
-      scan: {
-        lastBlock: cursor?.lastBlock ?? null,
-        headBlock: head,
-        gap: cursor ? head - cursor.lastBlock : null,
-      },
+      headBlock: head,
       usdcContract: config.usdcContract,
       rpc: config.rpc,
       chainId: config.chainId,

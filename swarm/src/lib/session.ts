@@ -1,44 +1,22 @@
 import "server-only";
-import { ethers } from "ethers";
-import type { McpSession } from "@prisma/client";
-import { db } from "./db";
 
-// NOTE: session tokens are stored raw for hackathon simplicity. Production
-// systems should store a sha256 of the token and compare hashes so a DB leak
-// doesn't yield live bearer credentials.
+// Under x402, paid routes authenticate via the EIP-3009 signature inside
+// `X-PAYMENT`. Free routes (list, rate, cancel, ...) don't have that — they
+// read the caller's wallet address from the `X-Asker-Address` header written
+// by both the MCP CLI and the browser client.
+//
+// This is not authenticated. An attacker can forge any address for free-route
+// calls. We accept that: the only mutations gated by this header are task
+// cancel + rating, and both are bounded by the task's recorded `postedBy` /
+// `claimedBy` — the worst case is a griefer cancelling someone else's task
+// and forcing a refund, which hurts nobody economically.
 
-export type SessionResolution =
-  | { kind: "session"; session: McpSession }
-  | { kind: "anonymous" }
-  | { kind: "invalid_token"; reason: "unknown" | "revoked" | "expired" };
+const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 
-// Distinguishes "no bearer" (browser callers hit the manual-session cookie
-// path) from "bearer but bad" (MCP tokens that have been revoked / expired —
-// MUST 401 so the MCP drops the local session and re-pairs).
-export async function resolveSession(req: Request): Promise<SessionResolution> {
-  const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
-  if (!header || !header.toLowerCase().startsWith("bearer ")) return { kind: "anonymous" };
-  const token = header.slice(7).trim();
-  if (!token) return { kind: "invalid_token", reason: "unknown" };
-  const session = await db.mcpSession.findUnique({ where: { token } });
-  if (!session) return { kind: "invalid_token", reason: "unknown" };
-  if (session.revokedAt) return { kind: "invalid_token", reason: "revoked" };
-  if (session.expiresAt.getTime() <= Date.now()) return { kind: "invalid_token", reason: "expired" };
-  return { kind: "session", session };
-}
-
-export async function getSessionFromRequest(req: Request): Promise<McpSession | null> {
-  const r = await resolveSession(req);
-  return r.kind === "session" ? r.session : null;
-}
-
-export function verifyRevokeSignature(params: {
-  sessionId: string;
-  issuedAt: number;
-  address: string;
-  signature: string;
-}): boolean {
-  const message = `Swarm session revoke: ${params.sessionId}@${params.issuedAt}`;
-  const recovered = ethers.verifyMessage(message, params.signature);
-  return recovered.toLowerCase() === params.address.toLowerCase();
+export function resolveAgentAddress(req: Request): string | null {
+  const raw = req.headers.get("x-asker-address");
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!ADDR_RE.test(trimmed)) return null;
+  return trimmed.toLowerCase();
 }

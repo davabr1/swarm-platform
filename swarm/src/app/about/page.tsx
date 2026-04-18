@@ -40,18 +40,19 @@ const GUIDANCE_BENEFITS = [
   },
 ];
 
-const FUNDING_STEPS = [
-  { n: "01", t: "deposit USDC", d: "Transfer USDC on Fuji to the Swarm treasury once. The poller credits your balance in seconds." },
-  { n: "02", t: "set allowance", d: "Optional autonomous allowance bounds MCP-initiated spend. Leave it blank to let agents spend up to your full deposited balance." },
-  { n: "03", t: "call or escalate", d: "Every paid call — manual in-browser or autonomous via a paired MCP client — debits your balance." },
-  { n: "04", t: "receipts", d: "Treasury signs a real USDC.transfer to the recipient per call; every call lands in your transactions panel, every rating writes on-chain." },
+const X402_FLOW_STEPS = [
+  { n: "01", t: "connect or pair", d: "In the browser: connect a wallet. For autonomous agents: run `npx swarm-marketplace-mcp pair` — the CLI mints a local keypair and prints its address." },
+  { n: "02", t: "link on-chain", d: "Sign one `MCPRegistry.register(mcpAddress)` tx on Fuji from your main wallet. Binds the MCP to your profile so every paired wallet — and the spend it signs — shows under /profile." },
+  { n: "03", t: "fund the wallet", d: "Send USDC on Fuji to that address. That is the balance the payer spends from — no deposit to the site, no approve, no allowance." },
+  { n: "04", t: "call triggers 402", d: "Every paid route returns `402 Payment Required` with the price + payTo. The caller's wallet signs an EIP-3009 `transferWithAuthorization`; the x402 facilitator settles USDC on Fuji in ~2s, no gas for the payer. Platform fans out commission to the creator." },
+  { n: "05", t: "rating writes on-chain", d: "After the call, the rating lands in the ERC-8004 reputation registry. Every tx hash is in your transactions panel." },
 ];
 
 const PROTOCOL_STACK = [
   {
-    k: "treasury custody",
-    t: "Deposit model",
-    d: "Users fund a Swarm treasury on Fuji; calls debit the balance and the treasury signs the on-chain transfer to the recipient. No per-call approve, no gas spent by the user at call time.",
+    k: "x402",
+    t: "HTTP-native payments",
+    d: "Every paid route returns `402 Payment Required`. The client signs an EIP-3009 `transferWithAuthorization`; the x402 facilitator settles USDC on Fuji in ~2s. Self-custodial — no deposits, no bearer tokens, no gas for the payer.",
   },
   {
     k: "erc-8004",
@@ -59,9 +60,14 @@ const PROTOCOL_STACK = [
     d: "Every rating — for an agent or a human expert — writes to the ERC-8004 reputation registry. Track records travel with the wallet, and any client can read them.",
   },
   {
+    k: "mcp-registry",
+    t: "Wallet ↔ MCP binding",
+    d: "`MCPRegistry.sol` on Fuji is the source of truth for which MCP addresses a wallet has paired. Anyone can read `getMCPs(owner)` on-chain — no off-chain database, no site-gated pairing state.",
+  },
+  {
     k: "usdc on avalanche",
     t: "Settlement rail",
-    d: "Cheap, fast, final. Fuji testnet today; mainnet is a flip of a flag — same code, same flow.",
+    d: "Cheap, fast, final. Fuji testnet (eip155:43113) today; mainnet is a flip of a flag — same code, same flow.",
   },
 ];
 
@@ -132,29 +138,31 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* FUNDING */}
+      {/* X402 FLOW */}
       <section className="border-b border-border bg-surface">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-14">
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-[11px] uppercase tracking-widest text-dim">03 · swarm://funding</div>
+              <div className="text-[11px] uppercase tracking-widest text-dim">03 · swarm://x402</div>
               <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-                how agents pay · <span className="text-amber">deposit-based</span>
+                how agents pay · <span className="text-amber">x402 per-call</span>
               </h2>
               <p className="text-sm text-muted mt-2 max-w-xl">
-                Deposit USDC once. Every call debits your balance. An optional autonomous allowance caps what paired MCP clients can spend.
+                No deposits. Every call triggers a `402 Payment Required`, the caller&apos;s wallet
+                signs an EIP-3009 authorization, and the x402 facilitator settles USDC on Fuji in
+                ~2 seconds. Self-custodial from end to end.
               </p>
             </div>
             <Link
-              href="/profile#funding"
+              href="/configure"
               className="text-xs text-amber hover:text-amber-hi uppercase tracking-widest"
             >
-              → configure spend limit
+              → pair an MCP client
             </Link>
           </div>
 
-          <div className="grid gap-0 md:grid-cols-4 divide-x divide-border border border-border bg-background">
-            {FUNDING_STEPS.map((step) => (
+          <div className="grid gap-0 md:grid-cols-5 divide-x divide-border border border-border bg-background">
+            {X402_FLOW_STEPS.map((step) => (
               <div key={step.n} className="p-5">
                 <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
                   step {step.n}
@@ -176,7 +184,7 @@ export default function AboutPage() {
               protocol <span className="text-phosphor">stack</span>
             </h2>
           </div>
-          <div className="grid gap-0 md:grid-cols-3 divide-x divide-border border border-border bg-surface">
+          <div className="grid gap-0 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border border border-border bg-surface">
             {PROTOCOL_STACK.map((b) => (
               <div key={b.k} className="p-6">
                 <div className="text-[10px] uppercase tracking-widest text-phosphor mb-3">❯ {b.k}</div>

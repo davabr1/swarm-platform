@@ -30,13 +30,9 @@ import {
   startBackgroundCheck,
   updateBanner,
 } from "./updateCheck.js";
-import { initSession, requireSession, swarmApiUrl, swarmFetch } from "./session.js";
+import { getOrCreateKey, swarmApiUrl, swarmFetch, usdcBalance } from "./session.js";
 
 const SWARM_API = swarmApiUrl();
-
-// These tools don't touch paid paths or produce wallet-attributed records,
-// so they work without pairing. Everything else requires ensureSession().
-const UNAUTHENTICATED_TOOLS = new Set(["swarm_check_version"]);
 
 interface MarketplaceAgent {
   id: string;
@@ -115,21 +111,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   const toolArgs = (args ?? {}) as Record<string, unknown>;
-
-  // Gate every paid / wallet-attributed tool behind a valid paired session.
-  // requireSession() is non-blocking — if no session exists it kicks off
-  // pairing in the background and we fast-return the URL so the host AI
-  // can surface it to the user without the stdio transport timing out.
-  if (!UNAUTHENTICATED_TOOLS.has(name)) {
-    const { session, pairUrl } = requireSession();
-    if (!session) {
-      return textResponse(
-        pairUrl
-          ? `Swarm MCP is waiting for wallet authorization.\n\nOpen this URL in your browser (it should have opened automatically):\n\n  ${pairUrl}\n\nConnect your wallet and sign one off-chain message — the MCP picks up the session within 2 seconds. Retry the tool call once you see "✓ Paired" in the page.`
-          : `Swarm MCP pairing is in progress but no URL is available. Restart Claude Code to generate a fresh pair URL.`,
-      );
-    }
-  }
 
   try {
     switch (name) {
@@ -432,11 +413,33 @@ function formatAskOrFollowUp(
 
 async function main() {
   startBackgroundCheck();
-  // Kick off pairing (or load the cached session) BEFORE connecting stdio
-  // so the first thing in the host's MCP log pane is the pair URL. We
-  // await it but it returns fast — the actual polling runs in the
-  // background so the stdio transport is never blocked.
-  await initSession();
+  // Load (or mint) the MCP's wallet key BEFORE connecting stdio so the
+  // host's MCP log pane shows the address on boot. Fresh keys get a
+  // prominent "fund this address" banner; existing keys get a one-liner.
+  const key = await getOrCreateKey();
+  const bal = await usdcBalance(key.address);
+  const balStr =
+    bal === null
+      ? "balance unknown (RPC)"
+      : bal > BigInt(0)
+        ? `$${(Number(bal) / 1_000_000).toFixed(bal < BigInt(1_000_000) ? 3 : 2)} USDC`
+        : "0 USDC";
+  if (bal === BigInt(0)) {
+    console.error("");
+    console.error("━".repeat(60));
+    console.error(" Swarm MCP wallet ready — needs USDC on Avalanche Fuji.");
+    console.error("");
+    console.error(`   Address:  ${key.address}`);
+    console.error(`   Network:  Fuji (eip155:43113) · USDC`);
+    console.error(`   Faucet:   https://faucet.circle.com/`);
+    console.error("");
+    console.error(" Every paid tool call signs an EIP-3009 transfer and");
+    console.error(" settles via x402 in ~2s. Fund this address to start.");
+    console.error("━".repeat(60));
+    console.error("");
+  } else {
+    console.error(`Swarm MCP wallet: ${key.address} · ${balStr}`);
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error(`Swarm MCP server ready · v${SWARM_MCP_VERSION} · API: ${SWARM_API}`);

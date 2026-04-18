@@ -19,7 +19,7 @@ function signer(): ethers.Wallet {
   if (!treasurySigner) {
     if (!config.treasury.privateKey) {
       throw new Error(
-        "TREASURY_PRIVATE_KEY missing — cannot settle from deposited balance",
+        "TREASURY_PRIVATE_KEY missing — required for x402 commission fan-out + bounty payouts",
       );
     }
     treasurySigner = new ethers.Wallet(config.treasury.privateKey, provider());

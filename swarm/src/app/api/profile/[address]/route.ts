@@ -1,21 +1,21 @@
 import { db } from "@/lib/db";
 import { serializeAgent, serializeTask } from "@/lib/serializeAgent";
-import { config } from "@/lib/config";
 import type { NextRequest } from "next/server";
 
 function isAddress(s: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(s);
 }
 
+// x402 model — profiles are pure metadata. Custody/spend live on-chain
+// (wallet USDC balance + MCPRegistry paired wallets). The deprecated
+// `balanceMicroUsd` / `autonomousCapUsd` / `autonomousSpentMicroUsd` /
+// `autoTopup` columns on UserProfile are retained for non-destructive
+// migration but never read or surfaced.
 type ProfileRow = {
   walletAddress: string;
   displayName: string | null;
   bio: string | null;
   email: string | null;
-  balanceMicroUsd: bigint;
-  autonomousCapUsd: string | null;
-  autonomousSpentMicroUsd: bigint;
-  autoTopup: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -69,10 +69,6 @@ async function loadPortfolio(address: string, viewer?: string) {
     displayName: null,
     bio: null,
     email: null,
-    balanceMicroUsd: BigInt(0),
-    autonomousCapUsd: null,
-    autonomousSpentMicroUsd: BigInt(0),
-    autoTopup: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -87,19 +83,11 @@ async function loadPortfolio(address: string, viewer?: string) {
 }
 
 function serializeProfile(p: ProfileRow) {
-  const capMicro = p.autonomousCapUsd
-    ? BigInt(Math.round(Number(p.autonomousCapUsd) * 1_000_000))
-    : config.defaultAutonomousCapMicroUsd;
   return {
     walletAddress: p.walletAddress,
     displayName: p.displayName ?? undefined,
     bio: p.bio ?? undefined,
     email: p.email ?? undefined,
-    balanceMicroUsd: p.balanceMicroUsd.toString(),
-    autonomousCapUsd: p.autonomousCapUsd ?? undefined,
-    autonomousCapMicroUsd: capMicro.toString(),
-    autonomousSpentMicroUsd: p.autonomousSpentMicroUsd.toString(),
-    autoTopup: p.autoTopup,
     createdAt: p.createdAt.getTime(),
     updatedAt: p.updatedAt.getTime(),
   };
@@ -128,14 +116,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/profile/[a
     return Response.json({ error: "Viewer must match profile address" }, { status: 403 });
   }
 
-  // Profile metadata only. Autonomous cap mutation goes through the
-  // signature-gated /api/balance/cap endpoint.
+  // Profile metadata only — displayName / bio / email. Spend + balance live
+  // on-chain under x402; nothing custodial to configure here.
   const body = await req.json().catch(() => ({}));
   const data: Record<string, string | boolean | null> = {};
   if (typeof body.displayName === "string") data.displayName = body.displayName.slice(0, 80) || null;
   if (typeof body.bio === "string") data.bio = body.bio.slice(0, 500) || null;
   if (typeof body.email === "string") data.email = body.email.slice(0, 200) || null;
-  if (typeof body.autoTopup === "boolean") data.autoTopup = body.autoTopup;
 
   const addrLower = address.toLowerCase();
   const profile = await db.userProfile.upsert({

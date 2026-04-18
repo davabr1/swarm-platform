@@ -156,7 +156,7 @@ export default function Header() {
                 : "border-border-hi text-foreground hover:border-amber/40 hover:bg-amber/5 hover:text-amber group-hover:border-amber/40 group-hover:bg-amber/5 group-hover:text-amber"
             }`}
           >
-            fuji
+            x402
           </span>
         </Link>
 

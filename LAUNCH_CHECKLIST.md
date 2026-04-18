@@ -2,11 +2,19 @@
 
 Everything that has to happen before the hackathon demo, sorted by blast radius. Top items are hard blockers — nothing real works without them. Bottom items are polish or can wait until after the demo.
 
+Under x402 there are **no deposits, no DB-held balances, no autonomous caps, no session cookies** — every paid call is a wallet-signed EIP-3009 `transferWithAuthorization` that settles USDC peer-to-peer on Fuji in ~2 seconds.
+
 ---
 
 ## 1. Provision the treasury wallet — HARD BLOCKER
 
-Without this, every paid call crashes. The treasury is the EOA that custodies user deposits and signs outgoing USDC payouts. It doesn't exist yet — no `TREASURY_ADDRESS` / `TREASURY_PRIVATE_KEY` in `.env`.
+The treasury is **outbound-only**. It has three jobs:
+
+1. Sign the in-process x402 facilitator settle (`@x402/evm`'s `ExactEvmScheme`) when a paid route verifies a payment.
+2. Sign commission fan-out to agent creators after each paid call (`postSettleFanout.ts`).
+3. Sign platform → claimer bounty payouts when a human task is submitted (`taskEscrow.ts::payoutBounty`) and platform → poster refunds on cancel (`refundBounty`).
+
+It **never receives USDC from users** — x402 pays agent wallets directly. The treasury only needs Fuji AVAX for gas.
 
 ### Steps
 
@@ -15,17 +23,15 @@ Without this, every paid call crashes. The treasury is the EOA that custodies us
    - `node -e "console.log(require('ethers').Wallet.createRandom())"` in the `swarm/` dir
    - Any wallet app that can export a private key
 
-   Save the private key somewhere secure. Save the public address.
+   Save the private key + address somewhere secure.
 
-2. **Fund it with AVAX on Fuji** for gas. Use an Avalanche Fuji AVAX faucet (search "Fuji AVAX faucet" — Core, Chainlink, and a few others all work). Aim for ≥0.5 AVAX so you're not topping up mid-demo.
+2. **Fund with Fuji AVAX for gas.** Grab from the
+   [Avalanche faucet](https://build.avax.network/console/primary-network/faucet).
+   Aim for ≥0.5 AVAX so you're not topping up mid-demo.
 
-3. **Fund it with test USDC on Fuji.** Either:
-   - Use a Fuji USDC faucet, or
-   - Send test USDC from a wallet you already have
+   No USDC float needed under x402 — the treasury never holds user balances.
 
-   Even 10 USDC is fine for the demo.
-
-4. **Add env vars** to `swarm/.env` (local) **and** Vercel project settings (prod):
+3. **Add env vars** to `swarm/.env` (local) **and** Vercel project settings (prod):
    ```
    TREASURY_ADDRESS=0x…
    TREASURY_PRIVATE_KEY=0x…
@@ -34,14 +40,14 @@ Without this, every paid call crashes. The treasury is the EOA that custodies us
 
 ### Verify
 
-- Open `/` in the browser, triple-click the SWARM logo, enter `ADMIN_PASSWORD` (see step 3 below). The treasury block should show your new address + positive USDC + positive AVAX. If it says "not configured," the env vars didn't load.
-- Send 1 USDC to the treasury from a separate wallet. Open `/profile` while connected to that wallet — balance should credit within a few seconds.
+- Triple-click the SWARM logo → `/admin` → enter `ADMIN_PASSWORD` (see step 2). The treasury row shows the address + positive AVAX + current block. If it says "not configured," the env vars didn't load.
+- Hit any paid route without an `X-PAYMENT` header (e.g. `curl -i https://<your-domain>/api/guidance -X POST -d '{"agent_id":"linguaBot","question":"hi"}' -H 'content-type: application/json'`) and confirm the response is `402 Payment Required` with a valid `accepts[].payTo` pointing at the treasury (or `PLATFORM_PAYOUT_ADDRESS` if you set one).
 
 ---
 
 ## 2. Set `ADMIN_PASSWORD`
 
-The `/admin` treasury-health page is gated on this. Without it, `/admin` returns `503 admin disabled`.
+Gates `/admin` (fan-out health + x402 settlement feed + treasury balance + retry button). Without it, `/admin` returns `503 admin disabled`.
 
 ```bash
 # pick anything — it's just for you
@@ -52,100 +58,99 @@ Add the same value to Vercel env vars for prod.
 
 ### Verify
 
-- Triple-click the SWARM logo anywhere in the site → `/admin` → enter the password → data loads.
+- Triple-click the SWARM logo anywhere in the site → `/admin` → enter the password → data loads (x402 settlements + fan-outs, treasury balance, env sanity).
 - Reload `/admin` → password prompt comes back (no session is kept, by design).
 
 ---
 
-## 3. Set `CRON_SECRET` + wire the Supabase pg_cron
+## 3. Deploy `MCPRegistry.sol` to Fuji
 
-This is the free alternative to Vercel Pro. Fires `/api/cron/deposit-scan` every minute from inside Supabase, so deposits credit even if the user never opens the site.
+On-chain contract that binds MCP addresses to their owner's main wallet. Without it the `/pair` page and the `PairedMcpsPanel` on `/profile` fall back to a graceful "registry not deployed" state — the site still works end-to-end, but the sponsor-surface contract isn't live.
 
-### 3a. Generate the secret
+### Steps
 
-```bash
-openssl rand -hex 32
+1. Make sure your treasury wallet has Fuji AVAX (the deploy script uses `TREASURY_PRIVATE_KEY`).
+2. `cd swarm && npx tsx scripts/deploy-mcp-registry.ts` — one-shot deploy. Prints the deployed address.
+3. Set in `swarm/.env` **and** Vercel env vars:
+   ```
+   NEXT_PUBLIC_MCP_REGISTRY_ADDRESS=0x…
+   ```
+4. **Verify the source on Snowtrace** → paste the solidity at https://testnet.snowtrace.io/verifyContract — this is the sponsor-visible signal that we shipped a real Fuji contract.
+
+### Verify
+
+- Open `/pair?mcpAddress=0xDEAD…BEEF` with a wallet connected → the "link MCP to my wallet" button renders. (You don't need a real MCP address to sanity-check the page.)
+- Run `npx -y swarm-marketplace-mcp pair` on any machine → CLI prints a link that opens `/pair?mcpAddress=<real>` → click "link" → wagmi prompts to sign `MCPRegistry.register(mcpAddress)` → tx confirms → reload `/profile/<your-wallet>` → PairedMcpsPanel shows the MCP with its live USDC balance.
+
+---
+
+## 4. Set `PLATFORM_AGENT_ADDRESS`
+
+Shared wallet that receives USDC on behalf of platform-made agents (LinguaBot, Solmantis, MEV Scope, RegulaNet, and every image agent). Custom user-listed agents receive to their creator's own wallet. This EOA never signs — it just receives.
+
+Can be the same address as the treasury if you want, or any fresh EOA. Never needs to hold AVAX (it never sends anything).
+
+Add to `.env` and Vercel:
 ```
-
-Add it to `swarm/.env` and Vercel env vars as `CRON_SECRET=…`. The endpoint returns `503 cron disabled` until this is set.
-
-### 3b. Schedule the job in Supabase
-
-Open the Supabase dashboard → SQL editor → paste and run (replace the two placeholders):
-
-```sql
-create extension if not exists pg_cron;
-create extension if not exists pg_net;
-
--- The scheduled SQL reads the secret from a DB-level setting. Store it once:
-alter database postgres set app.cron_secret = '<PASTE SAME VALUE AS CRON_SECRET>';
-
-select cron.schedule(
-  'swarm-deposit-scan',
-  '* * * * *',
-  $$
-    select net.http_get(
-      url := 'https://<YOUR-VERCEL-DOMAIN>/api/cron/deposit-scan',
-      headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || current_setting('app.cron_secret')
-      )
-    );
-  $$
-);
+PLATFORM_AGENT_ADDRESS=0x…
 ```
 
 ### Verify
 
-Wait ~90 seconds after scheduling, then in the Supabase SQL editor:
-
-```sql
-select jobid, status, return_message, start_time
-  from cron.job_run_details
- where jobname = 'swarm-deposit-scan'
- order by start_time desc limit 5;
-```
-
-- `status = 'succeeded'` → good.
-- `status = 'failed'` → check `return_message`. Usually it's a wrong URL or a mismatched secret.
-
-To remove later: `select cron.unschedule('swarm-deposit-scan');`
+- Open `/admin` — env-sanity block shows the address.
+- Run one paid `swarm_ask_agent` call against a platform agent → Snowtrace shows the `transferWithAuthorization` pays this address.
 
 ---
 
-## 4. End-to-end Fuji dry run
+## 5. Wallet connect + Vertex + database
 
-Once the three steps above are done, do this once start-to-finish. It catches the wiring mistakes type checks can't see.
+These are quick but non-negotiable.
 
-1. Fresh wallet (MetaMask "create account") with a little Fuji AVAX for gas.
-2. Transfer 5 USDC from it → `TREASURY_ADDRESS`.
-3. Open `/profile` on that wallet → balance shows 5 USDC within seconds.
-4. On the profile page, set autonomous cap to 1 USDC.
-5. In `/marketplace`, pay a manual call to any agent → receipt shows a Snowtrace link, balance drops.
-6. Pair the MCP (`/configure` → print code → browser claims) → call an autonomous tool → works.
-7. Hit an autonomous tool enough times to bust the 1-USDC cap → expect `402` with a "cap exceeded" body.
-8. Raise cap on `/profile` → retry → works again.
-9. On a separate creator wallet, confirm commission earnings landed (Snowtrace + `/profile` transaction list).
-10. Post a task with a bounty → claim from a second wallet → submit → treasury pays the claimer (Snowtrace proof).
-11. Post another task → cancel before anyone claims → bounty refunds to the poster.
+- **WalletConnect project id** → free at https://cloud.reown.com → set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`. Required for non-injected wallets (Rainbow, Coinbase, mobile QR). Without it, the browser marketplace can still sign via MetaMask but mobile users can't connect.
+- **Vertex AI (Gemini 3.1 Pro + Nano Banana 2 Flash)** → service-account-bound API key. Set `GOOGLE_API_KEY`, `GCP_PROJECT_ID`, `GCP_LOCATION`.
+- **Supabase Postgres** → set `DATABASE_URL` (pooled, port 6543) and `DIRECT_URL` (session, port 5432). Run `npm run db:migrate:deploy` then `npm run db:seed`.
+
+---
+
+## 6. End-to-end Fuji dry run
+
+Once steps 1–5 are done, do this once start-to-finish. It catches wiring mistakes type checks can't see.
+
+1. Fresh MCP keypair: `npx -y swarm-marketplace-mcp pair` → note the printed MCP address + `/pair` URL.
+2. Open the `/pair` URL in a browser, connect your main wallet, click "link MCP to my wallet," sign the `MCPRegistry.register` tx.
+3. From a funded wallet send ~5 USDC on Fuji to the MCP address (Circle faucet: https://faucet.circle.com/). CLI prints `✓ Balance: $5.00 USDC`.
+4. Wire the MCP into Claude Desktop / Cursor / Codex — copy the config from `/connect`.
+5. In your client: `swarm_list_agents` (free, works without payment).
+6. `swarm_ask_agent` against a platform agent (e.g. LinguaBot) → server returns `402` → MCP signs EIP-3009 → x402 settles → answer comes back. Verify on Snowtrace: (a) `transferWithAuthorization` MCP → platform, (b) commission fan-out platform → creator wallet (only for user-created agents).
+7. `swarm_follow_up` five times against the same conversation — each should produce a separate on-chain settle.
+8. `swarm_generate_image` against `lumen` → image returned, `breakdown` populated, two on-chain txs visible.
+9. `swarm_post_human_task` with a 0.10 USDC bounty → note the task id → visit `/tasks` in a browser → claim from a second wallet → submit → treasury payout to claimer (Snowtrace). Rate via `swarm_rate_human_task` → ERC-8004 feedback tx fires.
+10. Post a second task → click cancel on the tasks board → wallet signs the cancel message → treasury refunds the poster (Snowtrace).
+11. `/profile/<owner-wallet>` shows the paired MCP, the MCP's live USDC balance, and a unified transaction feed including spend from the MCP address.
 
 If any step fails, **do not demo** — file a bug in a scratchpad and fix it first.
 
 ---
 
-## 5. Harden the manual-session cookie
+## 7. Publish the MCP package
 
-Current state: 24-hour httpOnly cookie with `SameSite=Strict`, signed with `MANUAL_SESSION_SECRET`. Fine for a hackathon, loose for production.
+Once the site is confirmed working end-to-end, publish so `npx -y swarm-marketplace-mcp` resolves to the latest:
 
-Pick the hardening moves that make sense; they stack:
+```bash
+cd mcp
+npm publish
+```
 
-- **Add `Secure` flag** — cookie only travels over HTTPS. Always on in prod; gate on `process.env.NODE_ENV === "production"` so local dev over HTTP still works.
-- **Shorten TTL** to 2–4 hours. 24h is generous. Re-signing once a morning is not painful.
-- **Rotate on use** — every authenticated response re-issues a fresh cookie with a new `iat` timestamp. Stolen cookie ages out fast.
-- **Bind to user-agent** — store a SHA256 of the UA string in the cookie payload, refuse mismatched UAs. Catches naive cookie theft.
+Version is already `0.10.0` in `mcp/package.json`. Requires npm login.
 
-Do this AFTER the treasury-info verification step lands — you explicitly flagged it as "after treasury."
+---
 
-File to edit: `swarm/src/lib/manualSession.ts`. No schema changes.
+## Optional: Avalanche-native infra upgrades
+
+These swap the out-of-box RPC + indexer for dedicated Avalanche services. Good for sponsor signal; not blockers.
+
+- **AvaCloud RPC** (highly recommended) → set `FUJI_RPC_URL=<your-avacloud-endpoint>`. The public Fuji RPC rate-limits hard under demo load.
+- **UltraVioleta x402 facilitator** → set `X402_FACILITATOR=uv` + `FACILITATOR_URL=https://facilitator.ultravioletadao.xyz`. Default is `self` (in-process via `@x402/evm`) which has no external dependency and is easier to demo.
 
 ---
 
@@ -153,19 +158,40 @@ File to edit: `swarm/src/lib/manualSession.ts`. No schema changes.
 
 Ack'd already — do NOT let scope creep pull these in before the demo:
 
-- **Withdraw flow.** Deposits are one-way today. Fine.
-- **Batch commission payouts.** Today every paid call does two `USDC.transfer`s (commission + creator). Cheap on Fuji, expensive at scale. A batch settlement job is the eventual fix, not today.
-- **Treasury → multisig or vault.** A single env-held key secures user funds today. Untenable in production, fine for a hackathon judged on functionality.
+- **Batch commission payouts.** Each paid call currently does two on-chain txs (x402 settle + commission fan-out). Cheap on Fuji, expensive at scale. Batching is the eventual fix.
+- **Treasury → multisig or vault.** A single env-held key secures the facilitator signer today. Fine for hackathon, not for prod.
+- **Destructive schema migration** — the deprecated columns (`UserProfile.{balanceMicroUsd, autonomousCapUsd, autonomousSpentMicroUsd, autoTopup}`, `Deposit`, `DepositScanCursor`) and legacy tables are retained unread for a clean post-demo cleanup.
+- **Retry queue for ERC-8004 rating writes.** Today they silent-fail if Fuji RPC hiccups; logged but not re-queued.
 
 ---
 
 ## Quick reference — env vars that must be set
 
+Grouped by concern. See `swarm/.env.example` for the full annotated list.
+
+**Required — x402 + admin**
 | Var | Where | Purpose |
 |---|---|---|
-| `TREASURY_ADDRESS` | `.env` + Vercel | Public address receiving user deposits |
-| `TREASURY_PRIVATE_KEY` | `.env` + Vercel | Signs outgoing USDC payouts |
-| `ADMIN_PASSWORD` | `.env` + Vercel | Gates `/admin` treasury-health page |
-| `CRON_SECRET` | `.env` + Vercel + Supabase setting | Bearer for `/api/cron/deposit-scan` |
+| `TREASURY_ADDRESS` | `.env` + Vercel | Treasury EOA (facilitator signer + outbound fan-out) |
+| `TREASURY_PRIVATE_KEY` | `.env` + Vercel | Signs x402 settle + fan-out + task payouts |
+| `ADMIN_PASSWORD` | `.env` + Vercel | Gates `/admin` dashboard |
+| `PLATFORM_AGENT_ADDRESS` | `.env` + Vercel | Receives USDC for platform-made agents |
+| `NEXT_PUBLIC_MCP_REGISTRY_ADDRESS` | `.env` + Vercel | On-chain MCP ↔ wallet binding (after step 3) |
 
-Existing (should already be set — sanity check them): `ORCHESTRATOR_PRIVATE_KEY`, `ORCHESTRATOR_ADDRESS`, `MANUAL_SESSION_SECRET`, `DATABASE_URL`, `DIRECT_URL`, `GOOGLE_API_KEY`, `GCP_PROJECT_ID`.
+**Required — infra**
+| Var | Where | Purpose |
+|---|---|---|
+| `ORCHESTRATOR_PRIVATE_KEY` / `ORCHESTRATOR_ADDRESS` | `.env` + Vercel | Conductor signer when the site hires agents |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | `.env` + Vercel | Non-injected wallets |
+| `GOOGLE_API_KEY`, `GCP_PROJECT_ID`, `GCP_LOCATION` | `.env` + Vercel | Vertex AI / Gemini |
+| `DATABASE_URL`, `DIRECT_URL` | `.env` + Vercel | Supabase pooled + session |
+| `FUJI_RPC_URL` | `.env` + Vercel | Dedicated Fuji RPC (AvaCloud recommended) |
+
+**Optional**
+| Var | Default | Purpose |
+|---|---|---|
+| `X402_FACILITATOR` | `self` | `uv` to use UltraVioleta's HTTP facilitator |
+| `FACILITATOR_URL` | n/a | Only used when `X402_FACILITATOR=uv` |
+| `PLATFORM_PAYOUT_ADDRESS` | `TREASURY_ADDRESS` | x402 `payTo` override |
+| `X402_ENFORCE` | `true` | Set to `false` to simulate settles locally |
+| `X402_DEBUG` | unset | Set to `1` to log verify/settle payloads |

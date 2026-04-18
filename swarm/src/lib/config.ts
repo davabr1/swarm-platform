@@ -1,6 +1,8 @@
 // Next.js loads .env* files automatically in dev; Vercel injects env vars at runtime.
 // No manual .env parsing needed here.
 
+import { FUJI_CAIP2, FUJI_CHAIN_ID, fujiRpcUrl } from "./avalanche";
+
 // All platform-made agents share ONE receiving wallet. Custom user-listed
 // agents keep their creator's wallet (see /api/agents/create). This keeps
 // the platform-side revenue concentrated and reduces the number of wallets
@@ -9,10 +11,11 @@ const PLATFORM_AGENT_ADDRESS =
   process.env.PLATFORM_AGENT_ADDRESS || "0x5758ef79224e51745a8921f1dc5BC1524eB8C53C";
 
 export const config = {
-  // Avalanche Fuji
-  rpc: process.env.AVALANCHE_FUJI_RPC || "https://api.avax-test.network/ext/bc/C/rpc",
-  chainId: 43113,
-  caip2: "eip155:43113",
+  // Avalanche Fuji — chain constants + RPC funnel through src/lib/avalanche.ts
+  // so there's exactly one file that mentions 43113 / the RPC host.
+  rpc: fujiRpcUrl(),
+  chainId: FUJI_CHAIN_ID,
+  caip2: FUJI_CAIP2,
   usdcContract: process.env.USDC_CONTRACT || "0x5425890298aed601595a70AB815c96711a31Bc65",
 
   // x402
@@ -41,41 +44,20 @@ export const config = {
     address: process.env.ORCHESTRATOR_ADDRESS || "",
   },
 
-  // Treasury EOA: custody wallet for the deposited-balance model.
+  // Treasury EOA — outbound-only under x402.
   //
-  // Users USDC.transfer(treasury, amount) to fund their on-site balance. The
-  // deposit scanner polls Fuji for incoming transfers and credits the DB. At
-  // settlement time the treasury signs USDC.transfer(treasury -> recipient)
-  // — both autonomous (MCP) and manual (marketplace) paths share this single
-  // settlement surface.
-  //
-  // Must hold a small AVAX float for gas. USDC float equals the sum of all
-  // users' deposited balances (invariant).
+  // Three jobs: (1) signs post-settle commission fan-out to agent creators,
+  // (2) signs platform→claimer bounty payouts on human-task submit, (3) acts
+  // as the in-process x402 facilitator signer — `selfFacilitator.ts` wraps
+  // this key with `@x402/evm`'s ExactEvmScheme to submit EIP-3009
+  // `transferWithAuthorization` txs on paid routes. Needs a small Fuji AVAX
+  // float for gas; never receives USDC inbound (users pay agent wallets
+  // directly via x402).
   treasury: {
     privateKey: process.env.TREASURY_PRIVATE_KEY || "",
     address: process.env.TREASURY_ADDRESS || "",
   },
 
-  // Default autonomous-spend cap applied when a profile hasn't set one
-  // (micro-USDC). Default is 0 — no cap means no autonomous spend is allowed
-  // until the user explicitly sets one on /profile. Prevents a freshly-paired
-  // MCP from spending before the user has consciously picked a ceiling.
-  defaultAutonomousCapMicroUsd: BigInt(
-    process.env.DEFAULT_AUTONOMOUS_CAP_MICRO_USDC || "0",
-  ),
-  // Max Fuji blocks scanned per deposit-poll window. Fuji's public RPC
-  // rejects eth_getLogs over very wide ranges; 500 blocks ≈ 15-17 minutes
-  // of chain time keeps us well within limits.
-  depositScanWindow: Number(process.env.DEPOSIT_SCAN_WINDOW || 500),
-  // Confirmations before a deposit is credited. Fuji finalizes in ~1s, so
-  // 2 blocks is a conservative-but-cheap safety margin against reorgs.
-  depositConfirmations: Number(process.env.DEPOSIT_CONFIRMATIONS || 2),
-  // Secret used to sign the manual-session cookie. Arbitrary string; any
-  // rotation invalidates all outstanding browser sessions (users re-sign
-  // once on their next agent call).
-  manualSessionSecret: process.env.MANUAL_SESSION_SECRET || "",
-  // Cookie lifetime for a manual (browser) session, in seconds. 24 h.
-  manualSessionTtlSeconds: Number(process.env.MANUAL_SESSION_TTL_SECONDS || 86400),
   agents: {
     linguaBot: {
       privateKey: process.env.LINGUABOT_PRIVATE_KEY || "",

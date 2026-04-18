@@ -51,11 +51,6 @@ export interface UserProfile {
   displayName?: string;
   bio?: string;
   email?: string;
-  balanceMicroUsd: string;
-  autonomousCapUsd?: string;
-  autonomousCapMicroUsd: string;
-  autonomousSpentMicroUsd: string;
-  autoTopup: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -154,18 +149,19 @@ async function throwIfPaymentRequired(res: Response): Promise<Response> {
 export async function askAgent(
   agentId: string,
   question: string,
-  opts?: { askerAddress?: string; conversationId?: string },
+  opts?: { askerAddress?: string; conversationId?: string; fetchImpl?: typeof fetch },
 ): Promise<GuidanceRequest> {
-  const res = await fetch(`/api/guidance`, {
+  const fetchImpl = opts?.fetchImpl ?? fetch;
+  const headers: Record<string, string> = { ...jsonHeaders() as Record<string, string> };
+  if (opts?.askerAddress) headers["X-Asker-Address"] = opts.askerAddress;
+  const res = await fetchImpl(`/api/guidance`, {
     method: "POST",
-    headers: jsonHeaders(),
+    headers,
     credentials: "same-origin",
     body: JSON.stringify({
       agentId,
       question,
       askerAddress: opts?.askerAddress,
-      // When set, the route loads the prior chain and bills this as a
-      // follow-up turn (same envelope shape, up to the 5-turn cap).
       conversationId: opts?.conversationId,
     }),
   });
@@ -198,10 +194,14 @@ export interface ImageResult {
 export async function callImage(
   agentId: string,
   prompt: string,
+  opts?: { askerAddress?: string; fetchImpl?: typeof fetch },
 ): Promise<ImageResult> {
-  const res = await fetch(`/api/image`, {
+  const fetchImpl = opts?.fetchImpl ?? fetch;
+  const headers: Record<string, string> = { ...jsonHeaders() as Record<string, string> };
+  if (opts?.askerAddress) headers["X-Asker-Address"] = opts.askerAddress;
+  const res = await fetchImpl(`/api/image`, {
     method: "POST",
-    headers: jsonHeaders(),
+    headers,
     credentials: "same-origin",
     body: JSON.stringify({ agentId, prompt }),
   });
@@ -242,22 +242,30 @@ export async function fetchInbox(viewer: string): Promise<Task[]> {
   return res.json();
 }
 
-export async function postTask(data: {
-  description: string;
-  bounty: string;
-  skill: string;
-  postedBy: string;
-  payload?: string;
-  assignedTo?: string;
-  requiredSkill?: string;
-  minReputation?: number;
-  visibility?: "public" | "private";
-}): Promise<Task> {
-  const res = await fetch(`/api/tasks`, {
+export async function postTask(
+  data: {
+    description: string;
+    bounty: string;
+    skill: string;
+    postedBy: string;
+    payload?: string;
+    assignedTo?: string;
+    requiredSkill?: string;
+    minReputation?: number;
+    visibility?: "public" | "private";
+  },
+  opts?: { fetchImpl?: typeof fetch },
+): Promise<Task> {
+  const fetchImpl = opts?.fetchImpl ?? fetch;
+  const res = await fetchImpl(`/api/tasks`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Asker-Address": data.postedBy,
+    },
     body: JSON.stringify(data),
   });
+  await throwIfPaymentRequired(res);
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));
     throw new Error(p.error || "failed to post task");
@@ -291,13 +299,20 @@ export async function submitTask(id: string, result: string): Promise<Task> {
   return res.json();
 }
 
-export async function cancelTask(id: string): Promise<Task> {
-  const res = await fetch(`/api/tasks/${id}/cancel`, { method: "POST" });
+export async function cancelTask(id: string, signature: string): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}/cancel`, {
+    method: "POST",
+    headers: { "X-Cancel-Signature": signature },
+  });
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));
     throw new Error(p.message || p.error || "failed to cancel task");
   }
   return res.json();
+}
+
+export function cancelTaskMessage(id: string): string {
+  return `cancel-task:${id}`;
 }
 
 export async function updateTaskVisibility(
@@ -324,7 +339,7 @@ export async function rateTask(
 ): Promise<Task> {
   const res = await fetch(`/api/tasks/${id}/rate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Asker-Address": viewer },
     body: JSON.stringify({ viewer, score }),
   });
   if (!res.ok) {
@@ -351,7 +366,6 @@ export async function updateProfile(
     displayName: string;
     bio: string;
     email: string;
-    autoTopup: boolean;
   }>,
 ): Promise<UserProfile> {
   const res = await fetch(`/api/profile/${address}?viewer=${encodeURIComponent(viewer)}`, {
@@ -436,17 +450,13 @@ export async function pingMcp(): Promise<{ ok: boolean; latencyMs: number; agent
   return res.json();
 }
 
+// Chain-sourced USDC balance for a wallet. Under x402 the site no longer
+// holds a per-user DB balance — this hits `/api/balance` which just reads
+// the address's on-chain USDC on Fuji.
 export interface Balance {
   address: string;
   balanceMicroUsd: string;
   balanceUsd: string;
-  autonomousCapMicroUsd: string;
-  autonomousCapUsd: string;
-  autonomousCapSet: boolean;
-  autonomousSpentMicroUsd: string;
-  autonomousSpentUsd: string;
-  autonomousRemainingUsd: string;
-  usingDefaultCap: boolean;
 }
 
 export async function fetchBalance(address: string): Promise<Balance> {
@@ -457,44 +467,19 @@ export async function fetchBalance(address: string): Promise<Balance> {
   return res.json();
 }
 
-export async function setAutonomousCap(params: {
-  address: string;
-  autonomousCapUsd: number;
-  issuedAt: number;
-  signature: string;
-}): Promise<{ success: boolean; autonomousCapUsd: string }> {
-  const res = await fetch(`/api/balance/cap`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "failed to set cap");
-  }
-  return res.json();
-}
-
-export async function resetAutonomousCap(params: {
-  address: string;
-  issuedAt: number;
-  signature: string;
-}): Promise<{ success: boolean }> {
-  const res = await fetch(`/api/balance/cap/reset`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "failed to reset cap");
-  }
-  return res.json();
-}
-
 export interface TransactionEntry {
   id: string;
-  kind: "deposit" | "autonomous_spend" | "manual_spend" | "earning" | "refund";
+  // Active kinds under x402: `x402_settle` (inbound x402 payments — the user
+  // paid an agent), `earning` (commission + task payouts fanned out to the
+  // row's wallet), `refund` (task refund). Legacy kinds (`deposit`,
+  // `autonomous_spend`, `manual_spend`) appear only on historical rows.
+  kind:
+    | "x402_settle"
+    | "earning"
+    | "refund"
+    | "deposit"
+    | "autonomous_spend"
+    | "manual_spend";
   deltaMicroUsd: string;
   grossMicroUsd: string;
   usd: string;
@@ -522,65 +507,3 @@ export async function fetchTransactions(
   return res.json();
 }
 
-export interface DepositConfig {
-  treasury: string;
-  usdc: string;
-  chainId: number;
-}
-
-export async function fetchDepositConfig(): Promise<DepositConfig> {
-  const res = await fetch(`/api/deposit/config`);
-  if (!res.ok) throw new Error("failed to load deposit config");
-  return res.json();
-}
-
-export async function announceDeposit(params: {
-  address: string;
-  txHash: string;
-}): Promise<{ status: string; creditedMicroUsd?: string }> {
-  const res = await fetch(`/api/deposit/announce`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "announce failed");
-  }
-  return res.json();
-}
-
-export async function pollDeposits(address: string): Promise<{ creditedMicroUsd: string }> {
-  const res = await fetch(`/api/deposit/poll`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    body: JSON.stringify({ address }),
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "poll failed");
-  }
-  return res.json();
-}
-
-export async function mintManualSession(params: {
-  address: string;
-  issuedAt: number;
-  signature: string;
-}): Promise<{ success: boolean; address: string; expiresAt: number }> {
-  const res = await fetch(`/api/manual-session`, {
-    method: "POST",
-    headers: jsonHeaders(),
-    credentials: "same-origin",
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "manual session mint failed");
-  }
-  return res.json();
-}
-
-export async function clearManualSession(): Promise<void> {
-  await fetch(`/api/manual-session`, { method: "DELETE", credentials: "same-origin" });
-}

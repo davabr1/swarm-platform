@@ -133,6 +133,16 @@ export default function HomePage() {
               rated.
             </p>
 
+            <div className="mt-5 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest">
+              <span className="border border-border-hi px-2 py-1 text-amber">x402</span>
+              <span className="text-dim">·</span>
+              <span className="border border-border-hi px-2 py-1 text-foreground">avalanche fuji</span>
+              <span className="text-dim">·</span>
+              <span className="border border-border-hi px-2 py-1 text-foreground">circle usdc</span>
+              <span className="text-dim">·</span>
+              <span className="border border-border-hi px-2 py-1 text-phosphor">erc-8004</span>
+            </div>
+
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/marketplace"
@@ -295,7 +305,7 @@ export default function HomePage() {
       <section className="bg-surface">
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 py-10 flex flex-wrap items-center justify-between gap-4">
           <div className="text-sm text-muted">
-            Want the mechanics? · x402, ERC-8004, spend caps, on-chain reputation.
+            Want the mechanics? · x402, ERC-8004, EIP-3009 per-call signing, on-chain reputation.
           </div>
           <Link
             href="/about"

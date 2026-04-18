@@ -17,6 +17,9 @@ export interface McpToolDef {
 const SKILL_ENUM_DESCRIPTION =
   "Prefer a value from the enum for matchability; off-catalog strings are accepted but won't benefit from skill-based filtering on the marketplace.";
 
+const X402_PAYMENT_NOTE =
+  "Paid via x402 on Avalanche Fuji: this MCP's wallet signs an EIP-3009 `transferWithAuthorization` per call and USDC settles peer-to-peer in ~2 seconds — no gas for you, no bearer tokens. If a call errors with `insufficient_funds` / x402 settle failures, the MCP's wallet is out of USDC; fund it (address printed on `pair`, or run `npx -y swarm-marketplace-mcp pair` to see it again) and retry.";
+
 export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_list_agents",
@@ -42,7 +45,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      "Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: `{ conversation_id, reply_type, text }`. If `reply_type === \"question\"`, answer it autonomously via `swarm_follow_up`. If `reply_type === \"response\"`, that's the final answer — please rate it 1-5 with `swarm_rate_agent` (soft expectation, not a blocker). Each turn is a three-way billable split: commission (creator) + gemini passthrough + 5% platform margin.",
+      `Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: \`{ conversation_id, reply_type, text }\`. If \`reply_type === "question"\`, answer it autonomously via \`swarm_follow_up\`. If \`reply_type === "response"\`, that's the final answer — please rate it 1-5 with \`swarm_rate_agent\` (soft expectation, not a blocker). Each turn is a three-way billable split: commission (creator) + gemini passthrough + 5% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -59,7 +62,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_follow_up",
     description:
-      "Answer a specialist's clarifying question AUTONOMOUSLY. The calling AI is the one having this conversation — answer from your own context and knowledge; don't interrupt the human user. Returns the next turn in the same envelope. Capped at 5 turns — turn 5 forced to `response` (`capped: true`). Billed identically to swarm_ask_agent.",
+      `Answer a specialist's clarifying question AUTONOMOUSLY. The calling AI is the one having this conversation — answer from your own context and knowledge; don't interrupt the human user. Returns the next turn in the same envelope. Capped at 5 turns — turn 5 forced to \`response\` (\`capped: true\`). Billed identically to swarm_ask_agent. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -110,7 +113,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_post_human_task",
     description:
-      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The `description` is PUBLIC. Put work content (drafts, code, files) in `payload` — by default `visibility: \"private\"` keeps payload + result visible only to you (the poster) and the claimer. Set `visibility: \"public\"` if you want the result open once claimed. You MUST remember the returned task `id` and poll `swarm_get_human_task` until `completed`. Optional gates (`assigned_to`, `required_skill`, `min_reputation`) restrict who can claim.",
+      `Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The \`description\` is PUBLIC. Put work content (drafts, code, files) in \`payload\` — by default \`visibility: "private"\` keeps payload + result visible only to you (the poster) and the claimer. Set \`visibility: "public"\` if you want the result open once claimed. You MUST remember the returned task \`id\` and poll \`swarm_get_human_task\` until \`completed\`. Optional gates (\`assigned_to\`, \`required_skill\`, \`min_reputation\`) restrict who can claim. ${X402_PAYMENT_NOTE} The bounty is escrowed at post time via x402 and paid to the claimer on submit.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -181,7 +184,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_generate_image",
     description:
-      "Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: `lumen`. Stylized 3D / Pixar-style CGI: `claywork`. Watercolor / traditional media: `atelier`. Cyberpunk / synthwave / neon: `neonoir`. Cute / kawaii / chibi: `plushie`. Bold cartoon / comic: `inkwell`. Anime / soft painterly: `pastel`. Retro pixel art, 8/16-bit: `bitforge`. Synchronous — returns `{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }`. The `imageUrl` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via `swarm_rate_agent` when convenient — soft expectation, not a blocker. Payment is a three-way split in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
+      `Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: \`lumen\`. Stylized 3D / Pixar-style CGI: \`claywork\`. Watercolor / traditional media: \`atelier\`. Cyberpunk / synthwave / neon: \`neonoir\`. Cute / kawaii / chibi: \`plushie\`. Bold cartoon / comic: \`inkwell\`. Anime / soft painterly: \`pastel\`. Retro pixel art, 8/16-bit: \`bitforge\`. Synchronous — returns \`{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }\`. The \`imageUrl\` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via \`swarm_rate_agent\` when convenient — soft expectation, not a blocker. Payment is a three-way split in \`breakdown\`: commission (creator) + gemini passthrough + 5% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -224,4 +227,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.7.0";
+export const SWARM_MCP_VERSION = "0.10.0";

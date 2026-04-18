@@ -1,25 +1,28 @@
 /**
- * Interactive unpair CLI.
+ * Interactive unpair CLI. Deletes ~/.swarm-mcp/session.json so the next
+ * `pair` run mints a fresh keypair.
  *
- * Invoked as `npx -y swarm-marketplace-mcp unpair`. Deletes
- * ~/.swarm-mcp/session.json so the next tool call triggers fresh pairing.
- *
- * This is client-side only — the bearer token stays valid on the server
- * until it expires or is revoked from /profile. For a full revoke the
- * user needs to sign a message in the browser (we can't do that here:
- * the CLI has no access to the wallet's private key).
+ * The private key was the only thing holding custody of this MCP's USDC,
+ * so losing the file without first sweeping the balance means those funds
+ * are unreachable. We print the current balance and a sweep reminder
+ * before nuking the file.
  */
 
-import { clearSession, peekSavedSession } from "./session.js";
+import { clearKey, peekSavedKey, usdcBalance } from "./session.js";
 
 const BAR = "━".repeat(64);
+
+function formatUsd(micro: bigint): string {
+  const whole = Number(micro) / 1_000_000;
+  return whole < 1 ? whole.toFixed(3) : whole.toFixed(2);
+}
 
 function formatAddress(addr: string): string {
   return `${addr.slice(0, 8)}…${addr.slice(-4)}`;
 }
 
 export async function runInteractiveUnpair(): Promise<number> {
-  const saved = await peekSavedSession();
+  const saved = await peekSavedKey();
 
   console.log("");
   console.log(BAR);
@@ -28,32 +31,47 @@ export async function runInteractiveUnpair(): Promise<number> {
   console.log("");
 
   if (!saved) {
-    console.log("  No paired session found. Nothing to unpair.");
+    console.log("  No paired wallet found. Nothing to unpair.");
     console.log("");
-    console.log("  To pair a wallet:");
+    console.log("  Mint a new MCP wallet with:");
     console.log("    npx -y swarm-marketplace-mcp pair");
     console.log("");
     return 0;
   }
 
-  await clearSession();
+  const bal = await usdcBalance(saved.address);
 
-  console.log(`  ✓ Unpaired ${formatAddress(saved.address)}`);
+  console.log(`  Wallet:   ${saved.address}`);
+  if (bal !== null && bal > BigInt(0)) {
+    console.log(`  Balance:  $${formatUsd(bal)} USDC`);
+    console.log("");
+    console.log("  ⚠  This address still holds USDC. To recover it, import the");
+    console.log("     private key below into a wallet app (MetaMask, Core,");
+    console.log("     Rabby) BEFORE continuing, then send USDC out.");
+    console.log("");
+    console.log(`     Private key: ${saved.privateKey}`);
+    console.log("");
+    console.log("  Deleting session.json now anyway — re-run this command");
+    console.log("  if you want to keep the key. Ctrl+C to cancel.");
+    console.log("");
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+
+  await clearKey();
+
+  console.log(`  ✓ Unpaired ${formatAddress(saved.address)} — session.json deleted.`);
   console.log("");
-  console.log("  The local session file was deleted.");
+  console.log("  Note: deleting the local key does NOT revoke the on-chain");
+  console.log("  MCPRegistry link. If you want the MCP off your /profile,");
+  console.log("  visit the Swarm site and click [ unlink ] next to it.");
+  console.log("  Leftover USDC at the address is still yours — sweep it by");
+  console.log("  importing the private key shown above into any wallet.");
   console.log("");
-  console.log("  To pair a wallet again, run:");
+  console.log("  Mint a new MCP wallet with:");
   console.log("    npx -y swarm-marketplace-mcp pair");
   console.log("");
-  console.log("  If Claude Code / Cursor / Codex is already open, fully quit");
-  console.log("  and relaunch it after you pair — these clients pick up the");
-  console.log("  new session only on startup.");
-  console.log("");
-  console.log("  Note: this does NOT revoke the bearer token on the server —");
-  console.log("  it will expire on its own at its scheduled time. For a full");
-  console.log("  server-side revoke (e.g. a lost laptop), open /profile in a");
-  console.log("  browser, connect the same wallet, and click [ revoke ] next");
-  console.log("  to the MCP session.");
+  console.log("  If Claude Code / Cursor / Codex is open, fully quit and");
+  console.log("  relaunch after pairing — these clients load the key on startup.");
   console.log("");
   return 0;
 }

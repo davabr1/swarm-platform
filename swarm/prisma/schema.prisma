@@ -87,15 +87,20 @@ model UserProfile {
   displayName             String?
   bio                     String?
   email                   String?
-  // Authoritative deposited balance in micro-USDC. Funded by USDC.Transfer
-  // to the treasury EOA; debited by every paid call (autonomous or manual).
+  // DEPRECATED (x402 migration): pre-x402 deposited balance. No longer
+  // read or written. Column retained for non-destructive migration;
+  // drop after the hackathon.
   balanceMicroUsd         BigInt   @default(0)
-  // Global cap on autonomous (MCP-initiated) spend. Decimal USDC string —
-  // null means "use config.defaultAutonomousCapMicroUsd".
+  // DEPRECATED (x402 migration): pre-x402 autonomous-spend cap. No
+  // longer read or written. Column retained for non-destructive
+  // migration.
   autonomousCapUsd        String?
-  // Running total of autonomous spend since last cap reset. The preflight
-  // check in /api/guidance + /api/image enforces `spent + estimate <= cap`.
+  // DEPRECATED (x402 migration): pre-x402 running spend counter. No
+  // longer read or written. Column retained for non-destructive
+  // migration.
   autonomousSpentMicroUsd BigInt   @default(0)
+  // DEPRECATED (x402 migration): pre-x402 auto-topup flag. No longer
+  // read or written. Column retained for non-destructive migration.
   autoTopup               Boolean  @default(false)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -131,8 +136,9 @@ model Transaction {
   @@unique([txHash, kind], map: "Transaction_txHash_kind_key")
 }
 
-// One row per observed USDC.Transfer(_, treasury). Lets the deposit
-// scanner dedupe credits idempotently — txHash is the primary key.
+// DEPRECATED (x402 migration): pre-x402 deposit ledger. No reads or
+// writes remain. Table retained for non-destructive migration; drop
+// after the hackathon.
 model Deposit {
   txHash        String   @id
   fromAddress   String
@@ -144,8 +150,8 @@ model Deposit {
   @@index([fromAddress, creditedAt(sort: Desc)])
 }
 
-// Singleton (id="usdc") tracking how far the deposit scanner has walked
-// the chain. Updated after each scan window completes.
+// DEPRECATED (x402 migration): pre-x402 deposit-scanner cursor. No
+// reads or writes remain. Table retained for non-destructive migration.
 model DepositScanCursor {
   id        String   @id
   lastBlock Int
@@ -180,20 +186,20 @@ model GuidanceRequest {
   @@index([rootId])
 }
 
-// MCP session pairing. The MCP boots, prints a pair URL, user connects
-// wallet and signs an authorization message, and the browser claims the
-// code to mint a session token. There is no per-session on-chain budget
-// anymore — spending draws from the wallet's deposited balance, capped
-// globally by UserProfile.autonomousCapUsd.
+// DEPRECATED (x402 migration): pre-x402 pair-code handshake. The MCP
+// now mints a local secp256k1 keypair and signs x402 per call — no
+// server-side pair-code or session-token state exists. Tables retained
+// for non-destructive migration; drop after the hackathon.
 model PairCode {
   code       String   @id
-  status     String   // "pending" | "claimed" | "consumed" | "expired"
+  status     String
   sessionId  String?
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
 }
 
+// DEPRECATED (x402 migration): see PairCode comment.
 model McpSession {
   id         String    @id @default(uuid())
   token      String    @unique

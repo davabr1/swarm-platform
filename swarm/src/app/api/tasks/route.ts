@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
-import { readManualSession } from "@/lib/manualSession";
-import { resolveSession } from "@/lib/session";
-import { escrowBounty } from "@/lib/taskEscrow";
 import { parsePrice } from "@/lib/geminiPricing";
-import type { NextRequest } from "next/server";
+import { requireX402Payment } from "@/lib/x402Middleware";
+import { recordX402Settlement } from "@/lib/postSettleFanout";
+import { NextResponse, type NextRequest } from "next/server";
+
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const viewer = req.nextUrl.searchParams.get("viewer") ?? undefined;
@@ -39,12 +40,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const {
     description,
     bounty,
     skill,
-    postedBy,
     payload,
     assignedTo,
     requiredSkill,
@@ -55,62 +55,45 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Posting a task escrows the bounty from the poster's deposited balance.
-  // Accept either the marketplace manual-session cookie OR an MCP Bearer
-  // token, so `swarm_post_human_task` works from any paired client.
-  const bearer = await resolveSession(req);
-  if (bearer.kind === "invalid_token") {
-    return Response.json(
-      {
-        error: "invalid_session",
-        reason: bearer.reason,
-        message: "Session token invalid or revoked — re-pair.",
-      },
-      { status: 401 },
-    );
-  }
-  let poster: string | null = null;
-  if (bearer.kind === "session") {
-    poster = bearer.session.address.toLowerCase();
-  } else {
-    const manual = await readManualSession();
-    if (manual) poster = manual.address.toLowerCase();
-  }
-  if (!poster) {
-    return Response.json(
-      { error: "not_authenticated", message: "Sign in with your wallet or pair an MCP client to post tasks." },
-      { status: 401 }
-    );
-  }
-  if (typeof postedBy === "string" && postedBy.length && postedBy.toLowerCase() !== poster) {
-    return Response.json(
-      { error: "address_mismatch", message: "postedBy does not match the authenticated wallet." },
-      { status: 403 }
-    );
-  }
-
   const bountyUsd = parsePrice(String(bounty));
   if (!(bountyUsd > 0)) {
     return Response.json({ error: "invalid_bounty" }, { status: 400 });
   }
   const bountyMicroUsd = BigInt(Math.round(bountyUsd * 1_000_000));
 
-  const id = `task_${Date.now()}`;
-  const escrow = await escrowBounty({
-    taskId: id,
-    bountyMicroUsd,
-    posterAddress: poster,
-    description: `Task escrow: ${String(description).slice(0, 80)}`,
+  // x402 escrow: the poster's wallet signs EIP-3009 to move the bounty into
+  // platform custody. Released to the claimer on submit via treasuryTransfer
+  // (platform → user is outbound, x402 is inbound-only).
+  const gate = await requireX402Payment(req, {
+    priceResolver: () => bountyMicroUsd,
+    description: `task escrow · ${String(description).slice(0, 40)}`,
+    resource: "/api/tasks",
   });
-  if (!escrow.ok) {
+  if (gate.kind === "challenge") return gate.response;
+
+  const poster = gate.payer;
+
+  let settled;
+  try {
+    settled = await gate.settle();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return Response.json(
-      {
-        error: escrow.kind,
-        message: escrow.message,
-      },
-      { status: 402 }
+      { error: "x402_settle_failed", message },
+      { status: 502 },
     );
   }
+  const settleTxHash = settled.response.transaction ?? "";
+
+  const id = `task_${Date.now()}`;
+  const { transactionId } = await recordX402Settlement({
+    payer: poster,
+    totalMicroUsd: bountyMicroUsd,
+    settlementTxHash: settleTxHash,
+    refType: "task",
+    refId: id,
+    description: `task escrow · ${String(description).slice(0, 40)}`,
+  });
 
   const vis = visibility === "public" ? "public" : "private";
   const task = await db.task.create({
@@ -119,7 +102,7 @@ export async function POST(req: NextRequest) {
       description,
       bounty,
       bountyMicroUsd,
-      escrowTransactionId: escrow.transactionId,
+      escrowTransactionId: transactionId,
       skill,
       payload: typeof payload === "string" && payload.length ? payload : null,
       status: "open",
@@ -133,7 +116,12 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await logActivity("task", `New task posted: "${String(description).slice(0, 50)}..." — ${bounty} USDC bounty`);
+  await logActivity(
+    "task",
+    `New task posted: "${String(description).slice(0, 50)}..." — ${bounty} USDC bounty · x402 ${settleTxHash.slice(0, 10)}…`,
+  );
 
-  return Response.json(serializeTask(task, { viewerAddress: poster }));
+  return NextResponse.json(serializeTask(task, { viewerAddress: poster }), {
+    headers: { "X-PAYMENT-RESPONSE": settled.paymentResponseHeader },
+  });
 }

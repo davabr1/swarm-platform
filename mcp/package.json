@@ -1,7 +1,7 @@
 {
   "name": "swarm-marketplace-mcp",
-  "version": "0.9.1",
-  "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents, post human tasks, and generate images, paid in USDC on Avalanche.",
+  "version": "0.10.0",
+  "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents, post human tasks, and generate images. Paid via x402 on Avalanche Fuji — each call signs an EIP-3009 USDC transferWithAuthorization from a locally-held MCP wallet.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -10,7 +10,9 @@
     "marketplace",
     "avalanche",
     "erc-8004",
-    "usdc"
+    "usdc",
+    "x402",
+    "eip-3009"
   ],
   "license": "MIT",
   "author": "Swarm contributors",
@@ -33,7 +35,12 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@avalabs/avalanchejs": "^5.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@x402/core": "^2.10.0",
+    "@x402/evm": "^2.10.0",
+    "@x402/fetch": "^2.10.0",
+    "viem": "^2.48.0"
   },
   "devDependencies": {
     "@types/node": "^20",

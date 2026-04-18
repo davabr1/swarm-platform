@@ -2,53 +2,21 @@ import { db } from "@/lib/db";
 import { callAgentStructured } from "@/lib/llm";
 import { computeGeminiCost, formatUsd, parsePrice } from "@/lib/geminiPricing";
 import { logActivity } from "@/lib/activity";
-import { resolveSession } from "@/lib/session";
-import { readManualSession } from "@/lib/manualSession";
-import { config } from "@/lib/config";
-import { settleFromBalance } from "@/lib/ledger";
+import { requireX402Payment } from "@/lib/x402Middleware";
+import { fanoutSplit, recordX402Settlement } from "@/lib/postSettleFanout";
 import { randomUUID } from "node:crypto";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 export const maxDuration = 60;
 
 const TURN_CAP = 5;
-// Pre-flight cap estimate: commission + Gemini ceiling + 5% cushion. Only
-// used on the autonomous path to short-circuit runaway loops before we
-// call the LLM. The authoritative cap enforcement lives in settleFromBalance.
-const PREFLIGHT_GEMINI_CEILING_USD = 0.05;
-const PREFLIGHT_OVERHEAD_RATIO = 1.05;
-
-type Payer =
-  | { kind: "autonomous"; address: string; sessionId: string }
-  | { kind: "manual"; address: string };
-
-async function resolvePayer(req: NextRequest): Promise<Payer | Response> {
-  const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
-  if (header && header.toLowerCase().startsWith("bearer ")) {
-    const r = await resolveSession(req);
-    if (r.kind === "invalid_token") {
-      return Response.json(
-        { error: "invalid_session", reason: r.reason, message: "Session token invalid or revoked — re-pair." },
-        { status: 401 },
-      );
-    }
-    if (r.kind === "session") {
-      return { kind: "autonomous", address: r.session.address.toLowerCase(), sessionId: r.session.id };
-    }
-  }
-
-  const manual = await readManualSession();
-  if (manual) return { kind: "manual", address: manual.address.toLowerCase() };
-
-  return Response.json(
-    {
-      error: "authorization_required",
-      message: "Sign in with your wallet to call this agent.",
-      hint: "POST /api/manual-session with a signed handshake, or pair an MCP client.",
-    },
-    { status: 401 },
-  );
-}
+// Upfront ceiling used to build the 402 challenge. x402 requires a fixed
+// amount in PaymentRequirements; we don't know actual Gemini token usage
+// until after the model runs, so we charge commission + a modest Gemini
+// ceiling + 5% margin. Actual cost is still recorded on the GuidanceRequest
+// row; user may overpay by a few cents on short replies.
+const PRICE_GEMINI_CEILING_USD = 0.05;
+const PRICE_OVERHEAD_RATIO = 1.05;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -56,10 +24,6 @@ export async function POST(req: NextRequest) {
   const question: string | undefined = body.question;
   const conversationId: string | undefined =
     typeof body.conversationId === "string" && body.conversationId ? body.conversationId : undefined;
-
-  const payer = await resolvePayer(req);
-  if (payer instanceof Response) return payer;
-  const askerAddress = payer.address;
 
   if (!agentId || !question) {
     return Response.json({ error: "Missing 'agentId' or 'question'" }, { status: 400 });
@@ -114,38 +78,19 @@ export async function POST(req: NextRequest) {
     rootId = "";
   }
 
-  // Cheap preflight on the autonomous path: fail fast on clearly-exhausted
-  // caps before we pay Gemini. settleFromBalance is authoritative.
-  if (payer.kind === "autonomous") {
-    const commissionEstimate = agent.userCreated ? parsePrice(agent.price) : 0;
-    const preflightMicro = BigInt(
-      Math.ceil(
-        (commissionEstimate + PREFLIGHT_GEMINI_CEILING_USD) *
-          PREFLIGHT_OVERHEAD_RATIO *
-          1_000_000,
-      ),
-    );
-    const profile = await db.userProfile.findUnique({
-      where: { walletAddress: askerAddress },
-    });
-    const capStored = profile?.autonomousCapUsd;
-    const capMicro =
-      capStored && Number(capStored) >= 0
-        ? BigInt(Math.round(Number(capStored) * 1_000_000))
-        : null;
-    const spent = profile?.autonomousSpentMicroUsd ?? BigInt(0);
-    if (capMicro !== null && spent + preflightMicro > capMicro) {
-      return Response.json(
-        {
-          error: "autonomous_cap_exhausted",
-          message: "Autonomous allowance exhausted — raise it or reset usage on /profile.",
-          spentMicroUsd: spent.toString(),
-          capMicroUsd: capMicro.toString(),
-        },
-        { status: 402 },
-      );
-    }
-  }
+  const commission = agent.userCreated ? parsePrice(agent.price) : 0;
+  const ceilingUsd =
+    (commission + PRICE_GEMINI_CEILING_USD) * PRICE_OVERHEAD_RATIO;
+  const totalMicroUsd = BigInt(Math.ceil(ceilingUsd * 1_000_000));
+
+  const gate = await requireX402Payment(req, {
+    priceResolver: () => totalMicroUsd,
+    description: `guidance · ${agent.name}`,
+    resource: "/api/guidance",
+  });
+  if (gate.kind === "challenge") return gate.response;
+
+  const askerAddress = gate.payer;
 
   const id = randomUUID();
   if (!conversationId) rootId = id;
@@ -181,137 +126,9 @@ export async function POST(req: NextRequest) {
     : "";
   const systemPrompt = `${agent.systemPrompt ?? ""}${capDirective}`;
 
+  let reply;
   try {
-    const reply = await callAgentStructured(systemPrompt, userText);
-    let replyType: "question" | "response" = reply.type;
-    if (isFinalTurn) replyType = "response";
-    const usage = reply.usage;
-    const text = reply.text;
-
-    const geminiCost = computeGeminiCost({
-      prompt: usage.promptTokens,
-      output: usage.outputTokens,
-      thoughts: usage.thoughtsTokens,
-    });
-    // Platform-owned agents don't charge commission. Only user-created
-    // agents pass their `price` through to their creator.
-    const commission = agent.userCreated ? parsePrice(agent.price) : 0;
-    const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
-    const total = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
-
-    const commissionUsd = formatUsd(commission);
-    const geminiCostUsd = formatUsd(geminiCost);
-    const platformFeeUsd = formatUsd(platformFee);
-    const totalUsd = formatUsd(total);
-
-    const totalMicroUsd = BigInt(Math.round(total * 1_000_000));
-    const commissionMicroUsd = agent.userCreated
-      ? BigInt(Math.round(commission * 1_000_000))
-      : BigInt(0);
-
-    const creator = agent.creatorAddress ?? agent.walletAddress;
-    // Primary transfer: `total - commission` (gemini cost + platform fee)
-    // to the platform-agent wallet. If the agent is user-created, a second
-    // transfer inside settleFromBalance routes `commission` to the creator.
-    const settlement = await settleFromBalance({
-      payerAddress: askerAddress,
-      recipientAddress: config.platformAgentAddress,
-      totalMicroUsd,
-      commissionMicroUsd: agent.userCreated ? commissionMicroUsd : BigInt(0),
-      commissionAddress: agent.userCreated ? creator : null,
-      isAutonomous: payer.kind === "autonomous",
-      refType: "guidance",
-      refId: id,
-      description: `guidance · ${agent.name}`,
-    });
-
-    if (!settlement.ok) {
-      await db.guidanceRequest.update({
-        where: { id },
-        data: {
-          status: "failed_settlement",
-          response: text,
-          replyType,
-          commissionUsd,
-          geminiCostUsd,
-          platformFeeUsd,
-          totalUsd,
-          promptTokens: usage.promptTokens,
-          outputTokens: usage.outputTokens,
-          thoughtsTokens: usage.thoughtsTokens,
-          settlementStatus: settlement.kind,
-          errorMessage: settlement.message,
-        },
-      });
-      const status =
-        settlement.kind === "chain_error" ? 502 : 402;
-      return Response.json(
-        {
-          id,
-          conversationId: rootId,
-          status: "failed_settlement",
-          error: settlement.kind,
-          message: settlement.message,
-        },
-        { status },
-      );
-    }
-
-    const updated = await db.guidanceRequest.update({
-      where: { id },
-      data: {
-        status: "ready",
-        response: text,
-        replyType,
-        readyAt: new Date(),
-        commissionUsd,
-        geminiCostUsd,
-        platformFeeUsd,
-        totalUsd,
-        promptTokens: usage.promptTokens,
-        outputTokens: usage.outputTokens,
-        thoughtsTokens: usage.thoughtsTokens,
-        settlementTxHash: settlement.txHash,
-        settlementStatus: settlement.status,
-      },
-    });
-
-    await db.agent.update({
-      where: { id: agentId },
-      data: { totalCalls: { increment: 1 } },
-    });
-
-    const kindLabel = replyType === "question" ? "clarify" : "guidance";
-    const txTag =
-      settlement.status === "confirmed" ? ` · tx ${settlement.txHash.slice(0, 10)}…` : "";
-    await logActivity(
-      "payment",
-      `${kindLabel} · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, platform ${geminiCostUsd}+${platformFeeUsd} USDC${txTag}`,
-    );
-
-    return Response.json({
-      id,
-      conversationId: rootId,
-      status: "ready",
-      replyType,
-      response: text,
-      turn: turnNumber,
-      capped: isFinalTurn,
-      breakdown: { commissionUsd, geminiCostUsd, platformFeeUsd, totalUsd },
-      settlement: {
-        status: settlement.status,
-        txHash: settlement.txHash,
-        blockNumber: settlement.blockNumber,
-      },
-      tokens: {
-        prompt: usage.promptTokens,
-        output: usage.outputTokens,
-        thoughts: usage.thoughtsTokens,
-      },
-      agent: { id: agent.id, name: agent.name, creatorAddress: creator },
-      createdAt: updated.createdAt,
-      readyAt: updated.readyAt,
-    });
+    reply = await callAgentStructured(systemPrompt, userText);
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     await db.guidanceRequest.update({
@@ -323,4 +140,150 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     );
   }
+
+  let replyType: "question" | "response" = reply.type;
+  if (isFinalTurn) replyType = "response";
+  const usage = reply.usage;
+  const text = reply.text;
+
+  const geminiCost = computeGeminiCost({
+    prompt: usage.promptTokens,
+    output: usage.outputTokens,
+    thoughts: usage.thoughtsTokens,
+  });
+  const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
+  const actualTotal = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
+
+  const commissionUsd = formatUsd(commission);
+  const geminiCostUsd = formatUsd(geminiCost);
+  const platformFeeUsd = formatUsd(platformFee);
+  const totalUsd = formatUsd(actualTotal);
+
+  const commissionMicroUsd = agent.userCreated
+    ? BigInt(Math.round(commission * 1_000_000))
+    : BigInt(0);
+  const creator = agent.creatorAddress ?? agent.walletAddress;
+
+  let settled;
+  try {
+    settled = await gate.settle();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await db.guidanceRequest.update({
+      where: { id },
+      data: {
+        status: "failed_settlement",
+        response: text,
+        replyType,
+        commissionUsd,
+        geminiCostUsd,
+        platformFeeUsd,
+        totalUsd,
+        promptTokens: usage.promptTokens,
+        outputTokens: usage.outputTokens,
+        thoughtsTokens: usage.thoughtsTokens,
+        settlementStatus: "chain_error",
+        errorMessage: message,
+      },
+    });
+    return Response.json(
+      {
+        id,
+        conversationId: rootId,
+        status: "failed_settlement",
+        error: "x402_settle_failed",
+        message,
+      },
+      { status: 502 }
+    );
+  }
+
+  const settleTxHash = settled.response.transaction ?? "";
+
+  const updated = await db.guidanceRequest.update({
+    where: { id },
+    data: {
+      status: "ready",
+      response: text,
+      replyType,
+      readyAt: new Date(),
+      commissionUsd,
+      geminiCostUsd,
+      platformFeeUsd,
+      totalUsd,
+      promptTokens: usage.promptTokens,
+      outputTokens: usage.outputTokens,
+      thoughtsTokens: usage.thoughtsTokens,
+      settlementTxHash: settleTxHash,
+      settlementStatus: "confirmed",
+    },
+  });
+
+  await db.agent.update({
+    where: { id: agentId },
+    data: { totalCalls: { increment: 1 } },
+  });
+
+  await recordX402Settlement({
+    payer: askerAddress,
+    totalMicroUsd,
+    settlementTxHash: settleTxHash,
+    refType: "guidance",
+    refId: id,
+    description: `guidance · ${agent.name}`,
+  });
+
+  const fanout = agent.userCreated
+    ? await fanoutSplit({
+        creatorAddress: creator,
+        commissionMicroUsd,
+        settlementTxHash: settleTxHash,
+        refType: "guidance",
+        refId: id,
+        description: `guidance · ${agent.name}`,
+        payer: askerAddress,
+      })
+    : { ok: true as const, status: "skipped" as const };
+
+  const kindLabel = replyType === "question" ? "clarify" : "guidance";
+  const txTag = settleTxHash ? ` · x402 ${settleTxHash.slice(0, 10)}…` : "";
+  await logActivity(
+    "payment",
+    `${kindLabel} · ${agent.name} · ${totalUsd} USDC — creator ${creator.slice(0, 8)}... gets ${commissionUsd} USDC, platform ${geminiCostUsd}+${platformFeeUsd} USDC${txTag}`,
+  );
+
+  return NextResponse.json(
+    {
+      id,
+      conversationId: rootId,
+      status: "ready",
+      replyType,
+      response: text,
+      turn: turnNumber,
+      capped: isFinalTurn,
+      breakdown: { commissionUsd, geminiCostUsd, platformFeeUsd, totalUsd },
+      settlement: {
+        status: "confirmed",
+        txHash: settleTxHash,
+        network: settled.response.network,
+        fanout:
+          fanout.ok
+            ? { status: fanout.status, txHash: fanout.status === "confirmed" ? fanout.txHash : undefined }
+            : { status: "failed", message: fanout.message },
+      },
+      tokens: {
+        prompt: usage.promptTokens,
+        output: usage.outputTokens,
+        thoughts: usage.thoughtsTokens,
+      },
+      agent: { id: agent.id, name: agent.name, creatorAddress: creator },
+      createdAt: updated.createdAt,
+      readyAt: updated.readyAt,
+    },
+    {
+      headers: {
+        "X-PAYMENT-RESPONSE": settled.paymentResponseHeader,
+      },
+    },
+  );
 }

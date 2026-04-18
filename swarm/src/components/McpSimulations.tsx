@@ -15,25 +15,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
  *   3. Callee ponders, responds with a clarifying question
  *   4. MCP client answers the clarifier
  *   5. Callee ponders again, gives final answer
- *   6. settle — treasury signs a USDC.transfer on Fuji to the recipient,
- *      call debits the user's on-site deposited balance.
+ *   6. pay — x402 lifecycle. Paid route returns 402 Payment
+ *      Required; caller wallet signs an EIP-3009
+ *      transferWithAuthorization; the x402 facilitator settles
+ *      on Fuji in ~2s. Commission fans out post-settle via a
+ *      platform-signed transfer.
  *
  *   msg   natural-language chat turn
  *   tool  MCP tool invocation (name plus JSON args)
  *   resp  MCP tool response
- *   pay   settlement event (treasury-signed USDC.transfer on Fuji)
+ *   pay   x402 settlement block (402 → sign → settle → fanout)
  *   think brief pondering status line
  *   done  terminal confirmation
  *
  * Payment facts:
- *   chain    avalanche fuji (43113)
- *   asset    USDC (native Circle)
- *   custody  treasury-held deposits. Each call debits the user's on-site
- *            balance and the treasury signs a USDC.transfer on Fuji to
- *            the recipient (agent creator, platform). No user approve,
- *            no per-call signature.
- *   ceiling  optional per-profile autonomous allowance on MCP-initiated
- *            spend; absent = spend up to full deposited balance.
+ *   protocol x402 (HTTP-native micropayments)
+ *   chain    avalanche fuji · eip155:43113
+ *   asset    USDC (native Circle, EIP-3009 transferWithAuthorization)
+ *   custody  self-custodial. The caller wallet signs per call;
+ *            the x402 facilitator settles USDC peer-to-peer. No
+ *            deposits, no bearer tokens, no gas for the payer.
  * ----------------------------------------- */
 
 type Event =
@@ -130,11 +131,13 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → auditorAgent · 0.42 USDC`,
-          `USDC.transfer · tx 0x9b72…0401 · block 48,218,332`,
-          `balance debited · rep +1 → 4.91★ (1,428 calls)`,
+          `402 Payment Required · eip155:43113 · USDC · max $0.42`,
+          `EIP-3009 transferWithAuthorization signed by caller wallet`,
+          `x402 facilitator · settled in 2.1s · tx 0x9b72…0401`,
+          `fanout · platform → auditorAgent · $0.40 · tx 0xef21…18ac`,
+          `rep +1 → 4.91★ (1,428 calls) · no gas for payer`,
         ],
-        delay: 800,
+        delay: 900,
       },
       { kind: "done", note: "deploy halted · patch opened as PR #318", delay: 700 },
     ],
@@ -211,11 +214,11 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → @juriscoder · 0.40 USDC`,
-          `USDC.transfer · tx 0x3e21…b2aa · avalanche fuji`,
-          `balance debited · rep +1 → 4.92★`,
+          `402 Payment Required · eip155:43113 · USDC · max $0.40`,
+          `EIP-3009 signed · x402 facilitator settled · tx 0x3e21…b2aa`,
+          `fanout · platform → @juriscoder · $0.38 · rep +1 → 4.92★`,
         ],
-        delay: 700,
+        delay: 800,
       },
       { kind: "done", note: "retention policy updated · DPIA filed", delay: 700 },
     ],
@@ -286,11 +289,12 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → @vulnHunter · 2.50 USDC`,
-          `USDC.transfer · tx 0xb7cd…0e19 · block 48,218,441`,
-          `balance debited · rep +1 → 5.00★ · urgency bonus applied`,
+          `402 Payment Required · eip155:43113 · USDC · max $2.50 · urgency critical`,
+          `EIP-3009 signed by caller wallet · nonce 0x4f21…a7d2`,
+          `x402 facilitator · settled in 1.8s · tx 0xb7cd…0e19`,
+          `fanout · platform → @vulnHunter · $2.40 · rep +1 → 5.00★`,
         ],
-        delay: 700,
+        delay: 800,
       },
       { kind: "done", note: "vault paused · remaining 1.2M USDC preserved", delay: 700 },
     ],
@@ -353,10 +357,11 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → linguaBot · 0.05 USDC`,
-          `USDC.transfer · tx 0xf412…9e01 · balance debited`,
+          `402 Payment Required · eip155:43113 · USDC · max $0.05`,
+          `EIP-3009 signed · x402 facilitator settled · tx 0xf412…9e01`,
+          `fanout · platform → linguaBot · $0.048`,
         ],
-        delay: 600,
+        delay: 700,
       },
       { kind: "done", note: "notification pushed", delay: 600 },
     ],
@@ -426,11 +431,11 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → @defiWonk · 0.65 USDC`,
-          `USDC.transfer · tx 0x22aa…7abc · avalanche fuji`,
-          `balance debited · rep +1 → 4.93★`,
+          `402 Payment Required · eip155:43113 · USDC · max $0.65`,
+          `EIP-3009 signed · x402 facilitator · tx 0x22aa…7abc · ~2s`,
+          `fanout · platform → @defiWonk · $0.62 · rep +1 → 4.93★`,
         ],
-        delay: 700,
+        delay: 800,
       },
       { kind: "done", note: "curve redesigned · launch unblocked", delay: 700 },
     ],
@@ -498,10 +503,11 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `treasury → queryFox · 0.07 USDC`,
-          `USDC.transfer · tx 0xde61…18ac · avalanche fuji`,
+          `402 Payment Required · eip155:43113 · USDC · max $0.07`,
+          `EIP-3009 signed · x402 facilitator settled · tx 0xde61…18ac`,
+          `fanout · platform → queryFox · $0.067`,
         ],
-        delay: 600,
+        delay: 700,
       },
       { kind: "done", note: "p95 -97% · migration unblocked", delay: 700 },
     ],
@@ -578,13 +584,15 @@ export default function McpSimulations() {
 
 /* ----------------- rendering ----------------- */
 
-// Auto-highlight crypto-native tokens only. We color USDC-denominated
-// amounts, chain names, tx hashes, and reputation stars. @handles are
-// intentionally NOT highlighted — they're already distinguished as
-// message senders, and over-coloring inside body text gets noisy.
+// Auto-highlight crypto-native tokens only. Covers x402 protocol
+// vocabulary (x402, 402, EIP-3009, transferWithAuthorization,
+// facilitator, eip155:43113), USD-denominated amounts, tx hashes,
+// chain names, and reputation stars. @handles are intentionally NOT
+// highlighted — they're already distinguished as message senders,
+// and over-coloring inside body text gets noisy.
 function colorize(s: string): React.ReactNode {
   const re =
-    /(\d+(?:\.\d+)?\s+USDC|USDC|0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?|\d+(?:\.\d+)?★|avalanche(?: fuji)?|fuji)/gi;
+    /(x402|402 Payment Required|EIP-3009|transferWithAuthorization|eip155:43113|\$\d+(?:\.\d+)?|\d+(?:\.\d+)?\s+USDC|USDC|facilitator|0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?|\d+(?:\.\d+)?★|avalanche(?: fuji)?|fuji|\b402\b)/gi;
   const out: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -662,9 +670,9 @@ function EventRow({ ev }: { ev: Event }) {
       <div className="animate-fade-soft">
         <div className="flex items-baseline gap-2">
           <span className="text-amber-hi font-bold uppercase tracking-widest text-[11px]">
-            settle
+            x402 pay
           </span>
-          <span className="text-dim italic text-[11px]">treasury · USDC.transfer · fuji</span>
+          <span className="text-dim italic text-[11px]">HTTP 402 · EIP-3009 · eip155:43113</span>
         </div>
         <div className="mt-1 pl-3 text-foreground/85 border-l border-amber-hi/40">
           {ev.lines.map((l, i) => (

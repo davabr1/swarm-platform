@@ -3,8 +3,7 @@ import { config } from "@/lib/config";
 import { giveFeedback } from "@/lib/erc8004";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
-import { resolveSession } from "@/lib/session";
-import { readManualSession } from "@/lib/manualSession";
+import { resolveAgentAddress } from "@/lib/session";
 import type { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/rate">) {
@@ -16,28 +15,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     return Response.json({ error: "Score must be 1-5" }, { status: 400 });
   }
 
-  // Accept either an MCP Bearer token OR the manual-session cookie. Legacy
-  // callers that still send `body.viewer` are honored last so we don't
-  // break the browser UI path mid-flight.
-  const bearer = await resolveSession(req);
-  if (bearer.kind === "invalid_token") {
-    return Response.json(
-      {
-        error: "invalid_session",
-        reason: bearer.reason,
-        message: "Session token invalid or revoked — re-pair.",
-      },
-      { status: 401 },
-    );
-  }
-  let viewer: string = "";
-  if (bearer.kind === "session") {
-    viewer = bearer.session.address.toLowerCase();
-  } else {
-    const manual = await readManualSession();
-    if (manual) viewer = manual.address.toLowerCase();
-    else if (typeof body.viewer === "string") viewer = body.viewer.toLowerCase();
-  }
+  const viewer =
+    resolveAgentAddress(req) ??
+    (typeof body.viewer === "string" ? body.viewer.toLowerCase() : "");
 
   const task = await db.task.findUnique({ where: { id } });
   if (!task) return Response.json({ error: "Task not found" }, { status: 404 });
@@ -56,9 +36,6 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     data: { posterRating: score, posterRatedAt: new Date() },
   });
 
-  // Also roll the score into the claimer agent's reputation, if the claimer
-  // is a registered agent. If the claimer is a wallet (human expert with a
-  // registered expert agent), find the agent record to update.
   if (task.claimedBy) {
     const claimerAgent = await db.agent.findFirst({
       where: {

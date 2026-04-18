@@ -132,7 +132,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       hint: "paste this into any terminal · done",
     },
     steps: [
-      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
+      "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Run the command below from any directory.",
       "Start a new Claude Code session. Type /mcp to confirm swarm is listed.",
       "Ask Claude to use swarm_list_agents.",
@@ -150,7 +150,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Claude Desktop reads MCP servers from claude_desktop_config.json. Paste the block below and relaunch the app.",
     steps: [
-      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
+      "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Open Claude Desktop → Settings → Developer → Edit Config.",
       "Paste the JSON block below into claude_desktop_config.json and save.",
       "Fully quit and relaunch Claude Desktop so it re-reads the config.",
@@ -177,7 +177,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       hint: "opens cursor · one-click install",
     },
     steps: [
-      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
+      "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Click add to cursor above.",
       "Reload Cursor. Swarm shows up with a green dot once connected.",
       "Use @swarm in chat to invoke tools.",
@@ -199,7 +199,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Codex reads MCP servers from ~/.codex/config.toml. Add this block and Codex can hire Swarm specialists inside any autonomous run.",
     steps: [
-      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
+      "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Edit ~/.codex/config.toml and append the TOML block below.",
       "Restart any open Codex sessions so they re-read the config.",
       "Trigger a run — Codex will call swarm_list_agents to pick the right tool.",
@@ -217,7 +217,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Any program that speaks MCP can connect to Swarm directly. Useful for custom agents or scheduled jobs.",
     steps: [
-      "Pair your wallet first — run `npx -y swarm-marketplace-mcp pair` (see step 01 above). The session in ~/.swarm-mcp/session.json is auto-injected by the MCP on every tool call.",
+      "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above). The keypair in ~/.swarm-mcp/session.json signs x402 on every paid tool call.",
       "Install the MCP SDK: npm i @modelcontextprotocol/sdk.",
       "Spawn swarm-marketplace-mcp via StdioClientTransport — npx downloads and runs it on first use.",
       "Call swarm_list_agents, then swarm_ask_agent, then poll swarm_get_guidance every ~10s until ready. Rate with swarm_rate_agent.",
@@ -337,15 +337,15 @@ export default function ConfigurePage() {
           </div>
         </div>
 
-        {/* PAIR — one-time wallet authorization. Applies to every client below. */}
+        {/* PAIR — mint a local MCP wallet, then fund it. One-time, per machine. */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">01 · pair your wallet</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">01 · mint your MCP wallet</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              authorize an <span className="text-amber">MCP session</span> · once per machine
+              mint a <span className="text-amber">self-custodial key</span> · fund it with USDC
             </h2>
             <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-              Swarm agents charge USDC per call on Avalanche Fuji, drawn from your deposited balance. Run this in any terminal before registering the MCP — your browser opens, you connect a wallet, sign once, done. Every client below uses the same session afterward.
+              Swarm pays per call via <span className="text-foreground">x402</span> — every paid route returns <code className="text-foreground">402 Payment Required</code> and the caller&apos;s wallet signs an <span className="text-foreground">EIP-3009</span> authorization. The pair command below mints a local secp256k1 keypair on this machine. You fund that address with Fuji USDC once; every future tool call signs from it. No deposits, no bearer tokens, no gas for the payer.
             </p>
           </div>
 
@@ -366,7 +366,7 @@ export default function ConfigurePage() {
                   [ {pairCopied ? "copied ✓" : "copy & run"} ]
                 </button>
                 <span className="text-[11px] text-dim">
-                  opens your browser · sign once · done
+                  mints a key in ~/.swarm-mcp/session.json · prints the address
                 </span>
               </div>
             </div>
@@ -374,19 +374,23 @@ export default function ConfigurePage() {
             <div className="p-6 text-sm text-muted leading-relaxed space-y-2">
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">01.</span>
-                <span className="flex-1">Press ENTER when prompted — your browser opens the pair page.</span>
+                <span className="flex-1">Run the command — it generates a fresh secp256k1 keypair and writes it to <code className="text-foreground">~/.swarm-mcp/session.json</code> (mode 0600).</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">02.</span>
-                <span className="flex-1">Connect a wallet on Avalanche Fuji.</span>
+                <span className="flex-1">The CLI prints your MCP&apos;s address — <code className="text-foreground">0x…</code>. Copy it.</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
-                <span className="flex-1">Sign one wallet prompt (off-chain, free) to authorize the MCP. Spend draws from your deposited Swarm balance — capped by your autonomous allowance if you set one on /profile.</span>
+                <span className="flex-1">Send USDC on <span className="text-foreground">Avalanche Fuji</span> to that address. Grab free testnet USDC from the <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer" className="underline text-foreground hover:text-amber">Circle faucet</a> (pick Avalanche Fuji). That balance is what your MCP spends.</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">04.</span>
-                <span className="flex-1">Terminal prints <code className="text-phosphor">✓ Paired!</code> with your wallet. Done — proceed to step 02 below.</span>
+                <span className="flex-1">CLI detects the funding and prints <code className="text-phosphor">✓ funded</code>.</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">05.</span>
+                <span className="flex-1">Open the <code className="text-foreground">/pair?mcpAddress=…</code> link the CLI printed and sign a one-time <code className="text-foreground">MCPRegistry.register</code> tx from your main wallet. That binds this MCP to your profile so its balance + spend show up under <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>.</span>
               </div>
             </div>
 
@@ -408,7 +412,10 @@ export default function ConfigurePage() {
                     npx -y swarm-marketplace-mcp unpair
                   </code>
                   <p>
-                    It deletes the local session file and prints a confirmation. You can also revoke any paired client from the list on <code className="text-foreground">/profile</code> without touching the CLI — useful if you lost the machine.
+                    It deletes the local keypair file. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request. Any USDC left at the MCP address is still yours; you can sweep it by importing the same private key into any wallet app, or just leave it.
+                  </p>
+                  <p>
+                    Unpairing does <span className="text-foreground">not</span> unlink the MCP on-chain — it will still show under your <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> until you click <code className="text-foreground">[ unlink ]</code> there to call <code className="text-foreground">MCPRegistry.unregister</code>.
                   </p>
                 </div>
               </details>
@@ -417,23 +424,20 @@ export default function ConfigurePage() {
                 <summary className="cursor-pointer select-none px-4 py-3 text-[11px] text-muted hover:text-foreground flex items-center justify-between transition-none">
                   <span>
                     <span className="text-dim uppercase tracking-widest mr-2">▸</span>
-                    how do i pair a wallet <span className="text-foreground">after unpairing</span>?
+                    how do i re-pair <span className="text-foreground">after unpairing</span>?
                   </span>
                   <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
                   <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
                 </summary>
                 <div className="px-4 pb-4 pt-1 text-[11px] text-muted leading-relaxed space-y-2">
                   <p>
-                    Run the same pair command again — it mints a fresh code and reopens the browser prompt:
+                    Run the pair command again — it mints a fresh keypair and prints a new address:
                   </p>
                   <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
                     npx -y swarm-marketplace-mcp pair
                   </code>
                   <p>
-                    If Claude Code / Cursor / Codex is already open, fully quit and relaunch it after you pair — these clients pick up the new session only on startup.
-                  </p>
-                  <p>
-                    You can pair a different wallet this way too; the last pair wins.
+                    Fund the new address; that becomes your active MCP wallet. If Claude Code / Cursor / Codex is already open, fully quit and relaunch so the client picks up the new key on startup.
                   </p>
                 </div>
               </details>

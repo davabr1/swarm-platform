@@ -1,62 +1,81 @@
 /**
- * MCP session pairing.
+ * MCP wallet + x402 client.
  *
- * On boot we load any cached session and, if none, kick off pairing in the
- * background: print the pair URL to stderr, try to open it in the user's
- * default browser, and poll /api/pair/claim until the browser claims the
- * code. Tool calls fast-return a "please pair" message whenever the
- * session isn't ready yet — they never block the stdio response.
+ * Holds a single locally-minted secp256k1 keypair that IS the MCP's wallet.
+ * The user funds this address directly with USDC on Fuji; every paid tool
+ * call signs an EIP-3009 `transferWithAuthorization` with this key and
+ * settles via x402 in ~2 seconds — no bearer tokens, no cookies, no
+ * treasury custody.
  *
- * Spend draws from the user's deposited Swarm balance (treasury custody).
- * An optional per-profile autonomous allowance on the site caps how much
- * paired clients can spend; there is no on-chain USDC approve anymore.
+ * Session file: ~/.swarm-mcp/session.json (mode 0600).
+ * Shape: { privateKey: "0x...", address: "0x...", createdAt: ISO }.
+ * Sweep residual USDC by importing the private key into any wallet app.
  */
 
-import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises";
-import { homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import { createPublicClient, http } from "viem";
+import { avalancheFuji } from "viem/chains";
+import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
+import { wrapFetchWithPayment } from "@x402/fetch";
+import { x402Client } from "@x402/core/client";
+import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
+import { networkIDs } from "@avalabs/avalanchejs";
 
 const SWARM_API = process.env.SWARM_API_URL || "https://swarm-psi.vercel.app";
+// Fuji C-Chain RPC. `FUJI_RPC_URL` points at AvaCloud in prod; dev falls
+// back to the public RPC. `avalanchejs` gives us the human-readable
+// network tag we show in diagnostics.
+const FUJI_RPC = process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc";
+export const FUJI_NETWORK_TAG = networkIDs.FujiHRP; // "fuji"
 const CONFIG_DIR = join(homedir(), ".swarm-mcp");
 const SESSION_FILE = join(CONFIG_DIR, "session.json");
-const POLL_INTERVAL_MS = 2_000;
-const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-export interface Session {
-  token: string;
-  address: string;
-  expiresAt: string;
+const USDC_FUJI = "0x5425890298aed601595a70AB815c96711a31Bc65" as const;
+const USDC_ABI = [
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+export interface McpKey {
+  privateKey: `0x${string}`;
+  address: `0x${string}`;
+  createdAt: string;
 }
 
-let currentSession: Session | null = null;
-let pairingActive = false;
-let lastPairUrl: string | null = null;
+let cachedKey: McpKey | null = null;
+let cachedFetch: ((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) | null = null;
 
-export function pairUrl(code: string): string {
-  return `${SWARM_API}/pair?code=${code}`;
-}
-
-export function generatePairCode(): string {
-  return `pair_${randomBytes(16).toString("base64url")}`;
-}
-
-async function loadSession(): Promise<Session | null> {
+async function loadKey(): Promise<McpKey | null> {
   try {
     const raw = await readFile(SESSION_FILE, "utf8");
-    const parsed = JSON.parse(raw) as Session;
-    if (!parsed.token || !parsed.address || !parsed.expiresAt) return null;
-    if (new Date(parsed.expiresAt).getTime() <= Date.now()) return null;
-    return parsed;
+    const parsed = JSON.parse(raw) as Partial<McpKey>;
+    if (
+      typeof parsed.privateKey !== "string" ||
+      !parsed.privateKey.startsWith("0x") ||
+      typeof parsed.address !== "string"
+    ) {
+      return null;
+    }
+    return {
+      privateKey: parsed.privateKey as `0x${string}`,
+      address: parsed.address as `0x${string}`,
+      createdAt: parsed.createdAt ?? new Date().toISOString(),
+    };
   } catch {
     return null;
   }
 }
 
-export async function saveSession(session: Session): Promise<void> {
+export async function saveKey(key: McpKey): Promise<void> {
   await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  await writeFile(SESSION_FILE, JSON.stringify(session, null, 2), { mode: 0o600 });
+  await writeFile(SESSION_FILE, JSON.stringify(key, null, 2), { mode: 0o600 });
   try {
     await chmod(SESSION_FILE, 0o600);
   } catch {
@@ -64,8 +83,9 @@ export async function saveSession(session: Session): Promise<void> {
   }
 }
 
-export async function clearSession(): Promise<void> {
-  currentSession = null;
+export async function clearKey(): Promise<void> {
+  cachedKey = null;
+  cachedFetch = null;
   try {
     await rm(SESSION_FILE, { force: true });
   } catch {
@@ -73,156 +93,82 @@ export async function clearSession(): Promise<void> {
   }
 }
 
-export async function peekSavedSession(): Promise<Session | null> {
-  return loadSession();
+export async function peekSavedKey(): Promise<McpKey | null> {
+  return loadKey();
 }
 
-// Fire-and-forget browser opener. Opt out via SWARM_MCP_NO_OPEN=1 for
-// headless envs (CI, remote SSH) where spawning `open` would error.
-export function tryOpenBrowser(url: string): void {
-  if (process.env.SWARM_MCP_NO_OPEN === "1") return;
-  try {
-    const p = platform();
-    const [cmd, args] =
-      p === "darwin"
-        ? ["open", [url]]
-        : p === "win32"
-          ? ["cmd", ["/c", "start", "", url]]
-          : ["xdg-open", [url]];
-    const proc = spawn(cmd as string, args as string[], {
-      stdio: "ignore",
-      detached: true,
-    });
-    proc.on("error", () => {
-      // Most common cause: xdg-open not installed on a minimal Linux.
-      // Harmless — the URL still printed to stderr.
-    });
-    proc.unref();
-  } catch {
-    // best-effort
+export async function getOrCreateKey(): Promise<McpKey> {
+  if (cachedKey) return cachedKey;
+  const existing = await loadKey();
+  if (existing) {
+    cachedKey = existing;
+    return existing;
   }
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
+  const key: McpKey = {
+    privateKey,
+    address: account.address,
+    createdAt: new Date().toISOString(),
+  };
+  await saveKey(key);
+  cachedKey = key;
+  return key;
 }
 
-export async function pollForClaim(code: string): Promise<Session | null> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`${SWARM_API}/api/pair/claim?code=${encodeURIComponent(code)}`);
-      if (res.ok) {
-        const data = (await res.json()) as Partial<Session> & {
-          claimed?: boolean;
-          sessionToken?: string;
-        };
-        if (data.claimed && data.sessionToken && data.address && data.expiresAt) {
-          return {
-            token: data.sessionToken,
-            address: data.address,
-            expiresAt: data.expiresAt,
-          };
-        }
-      } else if (res.status === 410) {
-        return null;
-      }
-    } catch {
-      // transient — keep polling
-    }
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
-  return null;
-}
-
-function startPairingInBackground(): void {
-  if (pairingActive || currentSession) return;
-  pairingActive = true;
-  const code = generatePairCode();
-  const url = pairUrl(code);
-  lastPairUrl = url;
-
-  // Print prominently to stderr — Claude Code's MCP log pane shows this.
-  console.error("");
-  console.error("━".repeat(60));
-  console.error(" Swarm MCP needs wallet authorization (one-time).");
-  console.error("");
-  console.error(`   ${url}`);
-  console.error("");
-  console.error(" Opening this URL in your browser now. If it doesn't open,");
-  console.error(" copy the link above. Connect your wallet and sign one");
-  console.error(" off-chain message — the MCP picks up the session within 2s.");
-  console.error("━".repeat(60));
-  console.error("");
-
-  tryOpenBrowser(url);
-
-  void (async () => {
-    try {
-      const session = await pollForClaim(code);
-      if (session) {
-        currentSession = session;
-        await saveSession(session);
-        console.error(
-          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · expires ${new Date(session.expiresAt).toISOString()}\n`,
-        );
-      } else {
-        // Timed out — drop the URL so the next tool call can generate a
-        // fresh code instead of trying to claim a stale one.
-        lastPairUrl = null;
-      }
-    } finally {
-      pairingActive = false;
-    }
-  })();
-}
-
-/**
- * Called once at server boot. Loads a cached session if one exists; else
- * kicks off the pairing flow in the background. Returns immediately so the
- * stdio transport can come up without delay.
- */
-export async function initSession(): Promise<void> {
-  const cached = await loadSession();
-  if (cached) {
-    currentSession = cached;
-    console.error(
-      `Swarm MCP paired as ${cached.address.slice(0, 8)}...`,
-    );
-    return;
-  }
-  startPairingInBackground();
-}
-
-/**
- * Non-blocking session check for tool handlers. If there is no active
- * session and no pairing flow in-flight, re-kick pairing so a fresh URL
- * appears in logs. Always returns fast.
- */
-export function requireSession(): { session: Session | null; pairUrl: string | null } {
-  if (!currentSession && !pairingActive) {
-    startPairingInBackground();
-  }
-  return { session: currentSession, pairUrl: lastPairUrl };
-}
-
-export function getCurrentSession(): Session | null {
-  return currentSession;
+export function getCachedKey(): McpKey | null {
+  return cachedKey;
 }
 
 export function swarmApiUrl(): string {
   return SWARM_API;
 }
 
+function buildWrappedFetch(key: McpKey) {
+  const account = privateKeyToAccount(key.privateKey);
+  const publicClient = createPublicClient({
+    chain: avalancheFuji,
+    transport: http(FUJI_RPC),
+  });
+  const scheme = new ExactEvmScheme(
+    toClientEvmSigner(account, publicClient),
+  );
+  const client = new x402Client().register("eip155:43113", scheme);
+  return wrapFetchWithPayment(fetch, client);
+}
+
 /**
- * Prepends SWARM_API, injects the bearer token if paired. A 401 from the
- * server means the token was revoked or expired server-side — drop the
- * local copy and kick off re-pairing so the next tool call can recover.
+ * Reads the on-chain USDC balance of the MCP's address. Returns null on RPC
+ * error — callers treat null as "unknown" and don't block the user.
+ */
+export async function usdcBalance(address: `0x${string}`): Promise<bigint | null> {
+  try {
+    const pc = createPublicClient({
+      chain: avalancheFuji,
+      transport: http(FUJI_RPC),
+    });
+    const bal = (await pc.readContract({
+      address: USDC_FUJI,
+      abi: USDC_ABI,
+      functionName: "balanceOf",
+      args: [address],
+    })) as bigint;
+    return bal;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches a URL on swarm's API, auto-handling 402 via x402. Paid routes
+ * get their `X-PAYMENT` header signed with the MCP's key; free routes
+ * pass through without payment. `X-Asker-Address` is attached so the site
+ * can attribute activity back to this MCP's wallet on free endpoints too.
  */
 export async function swarmFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const key = await getOrCreateKey();
+  if (!cachedFetch) cachedFetch = buildWrappedFetch(key);
   const headers = new Headers(init.headers ?? {});
-  if (currentSession) headers.set("authorization", `Bearer ${currentSession.token}`);
-  const res = await fetch(`${SWARM_API}${path}`, { ...init, headers });
-  if (res.status === 401) {
-    currentSession = null;
-    await clearSession();
-    startPairingInBackground();
-  }
-  return res;
+  headers.set("X-Asker-Address", key.address);
+  return cachedFetch(`${SWARM_API}${path}`, { ...init, headers });
 }

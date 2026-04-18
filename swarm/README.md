@@ -15,13 +15,16 @@ settle per call in USDC via `x402`. Reputation writes on-chain to `ERC-8004`.
 ## Prerequisites
 
 - Node 20+ and npm 10+
-- A Gemini API key (free at https://aistudio.google.com/apikey)
+- A Vertex AI / Gemini API key (service-account-bound — see `.env.example`)
 - A WalletConnect project id (free at https://cloud.reown.com)
 - A Supabase Postgres project (free at https://supabase.com) — you'll need
   both the pooled (port 6543) and session (port 5432) connection strings
-- A funded Avalanche Fuji wallet · AVAX for gas + testnet USDC for payments.
-  Grab both from the
-  [Fuji faucet](https://build.avax.network/console/primary-network/faucet).
+- A Fuji-funded **treasury EOA** · this wallet is outbound-only under x402:
+  it signs the in-process x402 facilitator settle, the commission fan-out to
+  agent creators, and platform → claimer bounty payouts. Needs Fuji AVAX for
+  gas; no USDC float required. Grab AVAX from the
+  [Fuji faucet](https://build.avax.network/console/primary-network/faucet) and
+  USDC from the [Circle faucet](https://faucet.circle.com/).
 
 ## Quick start
 
@@ -63,19 +66,45 @@ it into Claude, Cursor, or Codex from `/connect` in the web app.
 
 ## Environment
 
-See `.env.example` for the full annotated list. The required keys are:
+See `.env.example` for the full annotated list. The required keys, grouped
+by concern:
 
-- `GEMINI_API_KEY`
-- `DATABASE_URL`, `DIRECT_URL` (Supabase pooled + session connection strings)
-- `AVALANCHE_FUJI_RPC`, `CHAIN_ID`, `USDC_CONTRACT`
-- `FACILITATOR_URL`
-- `IDENTITY_REGISTRY`, `REPUTATION_REGISTRY`
-- `ORCHESTRATOR_PRIVATE_KEY`, `ORCHESTRATOR_ADDRESS`
+**LLM (Vertex AI / Gemini 3.1 Pro)**
+- `GOOGLE_API_KEY`, `GCP_PROJECT_ID`, `GCP_LOCATION`
+
+**Database (Supabase Postgres)**
+- `DATABASE_URL`, `DIRECT_URL`
+
+**Avalanche Fuji**
+- `FUJI_RPC_URL` — dedicated RPC (AvaCloud recommended; public RPC rate-limits)
+- `USDC_CONTRACT`, `NEXT_PUBLIC_USDC_CONTRACT`
+
+**x402 payments**
+- `X402_FACILITATOR` — `self` (default, in-process) or `uv` (UltraViolet HTTP)
+- `FACILITATOR_URL` — only needed when `X402_FACILITATOR=uv`
+- `TREASURY_PRIVATE_KEY`, `TREASURY_ADDRESS` — facilitator signer + outbound
+  fan-out + task payouts
+- `PLATFORM_PAYOUT_ADDRESS` — optional; defaults to `TREASURY_ADDRESS`
+
+**Agents**
+- `PLATFORM_AGENT_ADDRESS` — shared receiver for platform-made agents
+- `ORCHESTRATOR_PRIVATE_KEY`, `ORCHESTRATOR_ADDRESS` — conductor signer
+
+**On-chain registries**
+- `IDENTITY_REGISTRY`, `REPUTATION_REGISTRY` (ERC-8004 — already deployed)
+- `NEXT_PUBLIC_MCP_REGISTRY_ADDRESS` — MCPRegistry.sol (Phase 6; deploy with
+  `scripts/deploy-mcp-registry.ts`). `/pair` + `/profile` fall back to a
+  "registry not deployed" state when unset.
+
+**Browser wallet**
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
 
-Agent receiver wallets (`LINGUABOT_*`, `CODE_REVIEWER_*`, etc.) can stay
-empty for local development · the server falls back to derived test wallets
-so the end-to-end demo flow still works without funding every receiver.
+**Admin dashboard**
+- `ADMIN_PASSWORD` — gates `/admin` (fan-out health + x402 settlement feed)
+
+Agent receiver/signer private keys (`LINGUABOT_*`, `CODE_REVIEWER_*`, etc.)
+are only used to co-sign ERC-8004 reputation writes; no funding needed. All
+receiving wallets collapse to `PLATFORM_AGENT_ADDRESS` at runtime.
 
 Never commit your `.env`. It is git-ignored by default.
 
@@ -101,11 +130,12 @@ Claude / Cursor / Codex ─► stdio MCP (server/mcp.ts)
                                 ▼
                    Next.js route handlers (/api/*)
                                 │
-         ┌──────────┬───────────┼──────────────────┐
-         ▼          ▼           ▼                  ▼
-      Gemini   Supabase    x402 facilitator  ERC-8004 registries
-      (LLM)    (Postgres)  (USDC settle)    (on-chain identity
-                                             + reputation)
+         ┌──────────┬───────────┼──────────────────┬────────────────┐
+         ▼          ▼           ▼                  ▼                ▼
+      Gemini   Supabase    x402 facilitator  ERC-8004 registries  MCPRegistry.sol
+      (LLM)    (Postgres)  (self or UV,      (on-chain identity   (on-chain wallet ↔
+                           EIP-3009 settle    + reputation)        MCP binding)
+                           on Fuji)
 ```
 
 The web app, the MCP server, and every hosted `/api/*` route all hit the same
@@ -140,4 +170,5 @@ The project is built to deploy as a single Next.js app on Vercel.
 - Chain · Avalanche Fuji
 - Chain ID · `43113`
 - CAIP-2 · `eip155:43113`
-- RPC · `https://api.avax-test.network/ext/bc/C/rpc`
+- RPC · `FUJI_RPC_URL` env var · fallback `https://api.avax-test.network/ext/bc/C/rpc`
+- USDC · `0x5425890298aed601595a70AB815c96711a31Bc65` (Circle FiatTokenV2, EIP-3009)

@@ -19,8 +19,8 @@ import {
   type GuidanceBreakdown,
 } from "@/lib/api";
 import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT } from "@/lib/agentCategory";
-import { useSession } from "@/components/SessionProvider";
 import { useAccount } from "wagmi";
+import { useX402Fetch } from "@/lib/useX402Fetch";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
@@ -30,8 +30,8 @@ export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { ensureSession, clearSession } = useSession();
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const x402Fetch = useX402Fetch();
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [input, setInput] = useState("");
@@ -77,7 +77,7 @@ export default function AgentDetailPage() {
     const message = input.trim();
     if (!message || loading) return;
 
-    if (!isConnected) {
+    if (!isConnected || !address || !x402Fetch) {
       setLog((prev) => [
         ...prev,
         { kind: "error", text: "! connect a wallet first — agents charge USDC per call" },
@@ -87,26 +87,6 @@ export default function AgentDetailPage() {
 
     setLoading(true);
     ratingInFlight.current = false;
-
-    // Ensure the user has a manual-session cookie. First paid call prompts
-    // for a single wallet signature; subsequent calls ride silently on the
-    // httpOnly cookie.
-    let ok = false;
-    try {
-      ok = await ensureSession();
-    } catch (e) {
-      setLoading(false);
-      setLog((prev) => [...prev, { kind: "error", text: `! ${getErrorMessage(e)}` }]);
-      return;
-    }
-    if (!ok) {
-      setLoading(false);
-      setLog((prev) => [
-        ...prev,
-        { kind: "error", text: "! signature cancelled — agents can't charge until you authorize this browser" },
-      ]);
-      return;
-    }
 
     // If the specialist's last reply was a clarifying question, we thread
     // onto the same conversation instead of starting a new one. Otherwise
@@ -139,7 +119,10 @@ export default function AgentDetailPage() {
         // PNG on disk. Never run through the guidance envelope (which
         // would turn them into a text model asking clarifying
         // questions with no way for the UI to follow up).
-        const data = await callImage(id, message);
+        const data = await callImage(id, message, {
+          askerAddress: address.toLowerCase(),
+          fetchImpl: x402Fetch,
+        });
         setThinking(false);
         if (data.status !== "ready" || !data.imageUrl) {
           setLog((prev) => [
@@ -166,7 +149,9 @@ export default function AgentDetailPage() {
       }
 
       const result = await askAgent(id, message, {
+        askerAddress: address.toLowerCase(),
         conversationId: isFollowUp ? conversationId! : undefined,
+        fetchImpl: x402Fetch,
       });
       setThinking(false);
       if (result.status !== "ready" || !result.response) {
@@ -212,34 +197,13 @@ export default function AgentDetailPage() {
     } catch (err) {
       setThinking(false);
       if (err instanceof PaymentRequiredError) {
-        if (err.status === 401 || err.reason === "authorization_required") {
-          clearSession();
-          setLog((prev) => [
-            ...prev,
-            { kind: "error", text: "! session expired — retry to sign a fresh one" },
-          ]);
-        } else if (err.reason === "autonomous_cap_exhausted") {
-          setLog((prev) => [
-            ...prev,
-            {
-              kind: "error",
-              text: "! autonomous allowance hit — raise it or reset usage on your profile page",
-            },
-          ]);
-        } else if (err.reason === "insufficient_balance") {
-          setLog((prev) => [
-            ...prev,
-            {
-              kind: "error",
-              text: "! deposited balance too low — top up from your profile page",
-            },
-          ]);
-        } else {
-          setLog((prev) => [
-            ...prev,
-            { kind: "error", text: `! payment required: ${err.reason}` },
-          ]);
-        }
+        setLog((prev) => [
+          ...prev,
+          {
+            kind: "error",
+            text: `! x402 payment failed: ${err.reason} — check your wallet has enough USDC on Fuji and try again`,
+          },
+        ]);
       } else {
         setLog((prev) => [...prev, { kind: "error", text: `! error: ${getErrorMessage(err)}` }]);
       }

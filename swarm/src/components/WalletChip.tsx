@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchBalance } from "@/lib/api";
 
-// Shows the wallet's *deposited* (on-site) balance, not the on-chain USDC
-// balance. That's the number every paid call actually debits, so surfacing
-// it here lets users see when a top-up landed without opening /profile.
+// Shows the wallet's on-chain USDC balance on Fuji (sourced via the
+// /api/balance chain-reader). Under x402 the wallet itself is the budget
+// — surfacing it here lets the user see funding land without opening
+// /profile.
 function BalanceInline({ address }: { address: `0x${string}` }) {
   const [formatted, setFormatted] = useState("—");
 

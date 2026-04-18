@@ -4,14 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import TerminalWindow from "./TerminalWindow";
 import { fetchTransactions, type TransactionEntry } from "@/lib/api";
 
-type FilterKind = "all" | "autonomous_spend" | "manual_spend" | "earning" | "deposit";
+type FilterKind = "all" | "x402_settle" | "earning" | "refund";
 
 const FILTERS: Array<{ key: FilterKind; label: string }> = [
   { key: "all", label: "all" },
-  { key: "deposit", label: "deposits" },
-  { key: "autonomous_spend", label: "autonomous" },
-  { key: "manual_spend", label: "manual" },
+  { key: "x402_settle", label: "x402 spends" },
   { key: "earning", label: "earnings" },
+  { key: "refund", label: "refunds" },
 ];
 
 function openTx(hash: string) {
@@ -36,37 +35,37 @@ function relativeTime(ts: number): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
-// Per-kind visual treatment. `deposit`/`earning` are positive (phosphor),
-// the two `_spend` kinds are negative (amber / muted amber). `refund` is
-// always positive (danger on the original row, dim credit here).
+// Per-kind visual treatment. `earning` is positive (phosphor), `x402_settle`
+// is negative (amber — payer paid out). `refund` credits back. Legacy kinds
+// (`deposit`/`autonomous_spend`/`manual_spend`) mirror their original styling.
 function kindStyle(kind: TransactionEntry["kind"]) {
   switch (kind) {
-    case "deposit":
-      return { color: "text-phosphor", badge: "deposit ↓", sign: "+" };
+    case "x402_settle":
+      return { color: "text-amber", badge: "x402 ◆", sign: "−" };
     case "earning":
       return { color: "text-phosphor", badge: "earning ★", sign: "+" };
-    case "autonomous_spend":
-      return { color: "text-amber", badge: "autonomous ◆", sign: "−" };
-    case "manual_spend":
-      return { color: "text-amber/70", badge: "manual ●", sign: "−" };
     case "refund":
       return { color: "text-dim", badge: "refund ↺", sign: "+" };
+    case "deposit":
+      return { color: "text-phosphor", badge: "legacy ↓", sign: "+" };
+    case "autonomous_spend":
+      return { color: "text-amber", badge: "legacy ◆", sign: "−" };
+    case "manual_spend":
+      return { color: "text-amber/70", badge: "legacy ●", sign: "−" };
   }
 }
 
 function filterBlurb(filter: FilterKind): string {
   switch (filter) {
-    case "deposit":
-      return "Incoming USDC transfers to the treasury, credited to your on-site balance once the scanner sees a confirmed block. Newest first, Snowtrace-linked.";
-    case "autonomous_spend":
-      return "Agent calls spent by a paired MCP client — bounded by your autonomous allowance (if set) and your deposited balance. Newest first, confirmed settlements link to Snowtrace.";
-    case "manual_spend":
-      return "Agent calls you made from the marketplace UI — not subject to the autonomous allowance. Newest first, confirmed settlements link to Snowtrace.";
+    case "x402_settle":
+      return "Inbound x402 payments — every paid agent call settled peer-to-peer on Fuji via EIP-3009. Snowtrace-linked.";
     case "earning":
-      return "Commissions paid to your wallet when someone called an agent or task you listed. Newest first, confirmed transfers link to Snowtrace.";
+      return "Commissions fanned out from the platform to your wallet after an x402 settle on an agent or task you listed. Snowtrace-linked.";
+    case "refund":
+      return "Bounties refunded when a posted task was cancelled before anyone claimed it.";
     case "all":
     default:
-      return "Deposits, autonomous MCP spend, manual marketplace spend, creator earnings, and refunds — unified ledger, newest first. Confirmed settlements link to Snowtrace.";
+      return "x402 settlements, creator commissions, task refunds, and legacy pre-x402 rows — unified ledger, newest first. Snowtrace-linked.";
   }
 }
 

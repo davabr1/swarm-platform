@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
@@ -17,13 +17,14 @@ import {
   submitTask,
   postTask,
   cancelTask,
+  cancelTaskMessage,
   updateTaskVisibility,
   rateTask,
   fetchBalance,
   type Task,
   type Balance,
 } from "@/lib/api";
-import { useSession } from "@/components/SessionProvider";
+import { useX402Fetch } from "@/lib/useX402Fetch";
 import { parsePrice } from "@/lib/geminiPricing";
 
 function openSnowtrace(hash: string) {
@@ -78,7 +79,8 @@ function Stars({
 
 export default function TaskBoardPage() {
   const { address, isConnected } = useAccount();
-  const { ensureSession, clearSession } = useSession();
+  const { signMessageAsync } = useSignMessage();
+  const x402Fetch = useX402Fetch();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed" | "cancelled">(
@@ -225,39 +227,32 @@ export default function TaskBoardPage() {
       setPostingErr("bounty must be a positive USDC amount");
       return;
     }
-    const balanceUsd = balance ? Number(balance.balanceUsd) : 0;
-    if (balance && bountyUsd > balanceUsd) {
-      setPostingErr(
-        `bounty ${bountyUsd.toFixed(2)} USDC exceeds your deposited balance ${balanceUsd.toFixed(2)} USDC — top up on your profile first`,
-      );
+    if (!x402Fetch) {
+      setPostingErr("wallet not ready — reconnect and try again");
       return;
     }
     setPosting(true);
     setPostingErr("");
     try {
-      // Escrow debits the user's deposited balance — first post requires a
-      // one-time wallet signature to mint a browser manual-session cookie.
-      const ok = await ensureSession();
-      if (!ok) {
-        setPostingErr("signature cancelled — can't escrow bounty without an authorized session");
-        return;
-      }
-      await postTask({
-        description: postForm.description.trim(),
-        bounty: (() => {
-          const raw = postForm.bounty.trim().replace(/^\$/, "").trim();
-          return /\busdc\b/i.test(raw) ? raw : `${raw} USDC`;
-        })(),
-        skill: postForm.skill.trim(),
-        postedBy: address,
-        payload: postForm.payload.trim() || undefined,
-        assignedTo: postForm.assignedTo.trim() || undefined,
-        requiredSkill: postForm.requiredSkill.trim() || undefined,
-        minReputation: postForm.minReputation.trim()
-          ? Number(postForm.minReputation)
-          : undefined,
-        visibility: postForm.visibility,
-      });
+      await postTask(
+        {
+          description: postForm.description.trim(),
+          bounty: (() => {
+            const raw = postForm.bounty.trim().replace(/^\$/, "").trim();
+            return /\busdc\b/i.test(raw) ? raw : `${raw} USDC`;
+          })(),
+          skill: postForm.skill.trim(),
+          postedBy: address,
+          payload: postForm.payload.trim() || undefined,
+          assignedTo: postForm.assignedTo.trim() || undefined,
+          requiredSkill: postForm.requiredSkill.trim() || undefined,
+          minReputation: postForm.minReputation.trim()
+            ? Number(postForm.minReputation)
+            : undefined,
+          visibility: postForm.visibility,
+        },
+        { fetchImpl: x402Fetch },
+      );
       setPostForm({
         description: "",
         bounty: "",
@@ -273,7 +268,6 @@ export default function TaskBoardPage() {
       loadBalance();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "post failed";
-      if (/not_authenticated|401/i.test(msg)) clearSession();
       setPostingErr(msg);
     } finally {
       setPosting(false);
@@ -284,15 +278,12 @@ export default function TaskBoardPage() {
     if (!address || cancellingId) return;
     setCancellingId(id);
     try {
-      const ok = await ensureSession();
-      if (!ok) return;
-      await cancelTask(id);
+      const signature = await signMessageAsync({ message: cancelTaskMessage(id) });
+      await cancelTask(id, signature);
       load();
       loadBalance();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "cancel failed";
-      if (/not_authenticated|401/i.test(msg)) clearSession();
-      // Surface the error near the task — reuse claimError for the banner.
       setClaimError((p) => ({ ...p, [id]: msg }));
     } finally {
       setCancellingId(null);
@@ -452,20 +443,25 @@ export default function TaskBoardPage() {
               <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-3 text-[11px] flex-wrap">
                 <div className="text-dim">
                   <span className="text-[10px] uppercase tracking-widest text-phosphor mr-2">
-                    ❯ bounty is escrowed at post time
+                    ❯ bounty is escrowed via x402 at post time
                   </span>
-                  debits your Swarm deposited balance and refunds on cancel.
+                  your wallet signs EIP-3009 for the bounty amount; refunded on cancel.
                 </div>
                 <div className="text-muted tabular-nums">
-                  deposited: {balance ? (
+                  wallet: {balance ? (
                     <span className="text-phosphor">{Number(balance.balanceUsd).toFixed(2)} USDC</span>
                   ) : (
                     <span className="text-dim">—</span>
                   )}
                   {" · "}
-                  <Link href={`/profile/${address ?? ""}`} className="text-amber hover:text-amber-hi">
-                    top up
-                  </Link>
+                  <a
+                    href="https://faucet.circle.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber hover:text-amber-hi"
+                  >
+                    faucet ↗
+                  </a>
                 </div>
               </div>
               <div className="p-5 grid gap-5 lg:grid-cols-2">

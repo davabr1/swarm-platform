@@ -11,7 +11,8 @@ import DataTable, { type Column } from "@/components/DataTable";
 import CopyChip from "@/components/CopyChip";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SubmittingLabel from "@/components/SubmittingLabel";
-import BalanceAutonomousAccessPanel from "@/components/BalanceAutonomousAccessPanel";
+import WalletPanel from "@/components/WalletPanel";
+import PairedMcpsPanel from "@/components/PairedMcpsPanel";
 import TransactionsPanel from "@/components/TransactionsPanel";
 import {
   fetchProfile,
@@ -148,7 +149,9 @@ export default function PublicProfilePage() {
 
           <IdentityCard address={address} portfolio={portfolio} />
 
-          <BalanceAutonomousAccessPanel address={address} isSelf={isSelf} />
+          <WalletPanel address={address} isSelf={isSelf} />
+
+          <PairedMcpsPanel address={address} isSelf={isSelf} />
 
           {isSelf && portfolio.inbox.length > 0 && <InboxPanel inbox={portfolio.inbox} />}
 
@@ -161,90 +164,10 @@ export default function PublicProfilePage() {
 
           {isSelf && <TransactionsPanel address={address} />}
 
-          {isSelf && <FaucetPanel address={address} />}
-
           {isSelf && <DisconnectPanel />}
         </div>
       </div>
     </div>
-  );
-}
-
-function FaucetPanel({ address }: { address: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      /* clipboard denied */
-    }
-  };
-  return (
-    <TerminalWindow title="swarm://profile/faucet" subtitle="fuji USDC · testnet" dots={false}>
-      <div className="p-5 text-xs text-muted leading-relaxed">
-        <p className="mb-5">
-          Need testnet USDC to top up your deposited balance? The{" "}
-          <span className="text-foreground">Circle faucet</span> drops 20 USDC per request. Three steps:
-        </p>
-
-        <ol className="space-y-4">
-          <li className="flex gap-3">
-            <span className="text-amber font-mono text-[11px] w-6 flex-shrink-0 pt-1">01.</span>
-            <div className="flex-1 space-y-2">
-              <div className="text-foreground">Open the Circle faucet.</div>
-              <a
-                href="https://faucet.circle.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex border border-amber text-amber text-[11px] px-3 py-1.5 hover:bg-amber hover:text-background transition-none"
-              >
-                [ open faucet ↗ ]
-              </a>
-            </div>
-          </li>
-
-          <li className="flex gap-3">
-            <span className="text-amber font-mono text-[11px] w-6 flex-shrink-0 pt-1">02.</span>
-            <div className="flex-1 space-y-1">
-              <div className="text-foreground">
-                In the network dropdown, pick{" "}
-                <span className="text-amber">Avalanche Fuji</span>.
-              </div>
-              <div className="text-dim">
-                Wrong network is the #1 reason the drop doesn&apos;t appear on Swarm.
-              </div>
-            </div>
-          </li>
-
-          <li className="flex gap-3">
-            <span className="text-amber font-mono text-[11px] w-6 flex-shrink-0 pt-1">03.</span>
-            <div className="flex-1 space-y-2">
-              <div className="text-foreground">
-                Paste your wallet address and submit.
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <code className="font-mono bg-surface-1 border border-border px-2 py-1 text-[11px] text-foreground truncate max-w-full">
-                  {address}
-                </code>
-                <button
-                  onClick={copy}
-                  className={`border border-amber text-amber text-[11px] px-2.5 py-1.5 hover:bg-amber hover:text-background transition-none ${
-                    copied ? "bg-amber text-background" : ""
-                  }`}
-                >
-                  {copied ? "[ copied ✓ ]" : "[ copy address ]"}
-                </button>
-              </div>
-              <div className="text-dim">
-                Once the drop lands, use the <span className="text-foreground">[ deposit ]</span> button above to move it into your Swarm balance.
-              </div>
-            </div>
-          </li>
-        </ol>
-      </div>
-    </TerminalWindow>
   );
 }
 

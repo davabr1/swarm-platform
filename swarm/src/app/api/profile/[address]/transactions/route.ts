@@ -1,17 +1,21 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { listMcps } from "@/lib/mcpRegistry";
 
 const VALID_KINDS = new Set([
+  "x402_settle",
+  "earning",
+  "refund",
+  // Legacy — still readable for historical rows.
   "autonomous_spend",
   "manual_spend",
-  "earning",
   "deposit",
-  "refund",
 ]);
 
 // Unified ledger reader powering the Transactions panel. Single source of
-// truth: the Transaction table. Earnings, spends, deposits, and refunds
-// all live here with a `kind` discriminator — no cross-table joins.
+// truth: the Transaction table — unions the profile's main wallet with any
+// MCP addresses registered to it under MCPRegistry.sol so spend initiated by
+// a paired MCP shows up on the owner's profile.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ address: string }> },
@@ -28,7 +32,15 @@ export async function GET(
   const limit = Math.max(1, Math.min(200, Number.isFinite(limitRaw) ? limitRaw : 50));
   const cursor = url.searchParams.get("cursor");
 
-  const where: Record<string, unknown> = { walletAddress: wallet };
+  const pairedMcps = await listMcps(wallet);
+  const wallets = Array.from(
+    new Set([wallet, ...pairedMcps.map((m) => m.address.toLowerCase())]),
+  );
+
+  const where: Record<string, unknown> =
+    wallets.length === 1
+      ? { walletAddress: wallets[0] }
+      : { walletAddress: { in: wallets } };
   if (kindParam && VALID_KINDS.has(kindParam)) {
     where.kind = kindParam;
   }

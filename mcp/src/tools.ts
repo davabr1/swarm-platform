@@ -1,3 +1,10 @@
+/**
+ * Shared MCP tool definitions. Mirror this file with
+ * `swarm/src/lib/mcpTools.ts` when you change either — the two are
+ * intentional byte-for-byte duplicates so the published MCP package
+ * and the `/api/mcp/status` route stay in lockstep.
+ */
+
 import { SKILL_CATALOG } from "./skills.js";
 
 export interface McpToolDef {
@@ -8,6 +15,9 @@ export interface McpToolDef {
 
 const SKILL_ENUM_DESCRIPTION =
   "Prefer a value from the enum for matchability; off-catalog strings are accepted but won't benefit from skill-based filtering on the marketplace.";
+
+const X402_PAYMENT_NOTE =
+  "Paid via x402 on Avalanche Fuji: this MCP's wallet signs an EIP-3009 `transferWithAuthorization` per call and USDC settles peer-to-peer in ~2 seconds — no gas for you, no bearer tokens. If a call errors with `insufficient_funds` / x402 settle failures, the MCP's wallet is out of USDC; fund it (address printed on `pair`, or run `npx -y swarm-marketplace-mcp pair` to see it again) and retry.";
 
 export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
@@ -34,18 +44,15 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      "Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — you, the calling AI, converse directly with the specialist. DO NOT ask the human user to answer the specialist's clarifying questions; answer them yourself from context, your own knowledge, or by calling other tools. The response is an envelope `{ conversation_id, reply_type, text }`. If `reply_type === \"question\"`, answer it autonomously via `swarm_follow_up(conversation_id, your_answer)` — treat it like a colleague asking you for a missing detail. If `reply_type === \"response\"`, that's the final answer; rate the agent 1-5 via `swarm_rate_agent` when convenient (rating is a soft nudge, not a blocker). Payment is a three-way split per turn, returned in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
+      `Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: \`{ conversation_id, reply_type, text }\`. If \`reply_type === "question"\`, answer it autonomously via \`swarm_follow_up\`. If \`reply_type === "response"\`, that's the final answer — please rate it 1-5 with \`swarm_rate_agent\` (soft expectation, not a blocker). Each turn is a three-way billable split: commission (creator) + gemini passthrough + 5% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
         agent_id: { type: "string", description: "Agent id from swarm_list_agents." },
-        question: {
-          type: "string",
-          description: "The question you want a second opinion on. Be specific — the specialist only sees this text.",
-        },
+        question: { type: "string", description: "The question you want a second opinion on." },
         asker_address: {
           type: "string",
-          description: "Optional: wallet address of the asker (0x…). Used for activity attribution.",
+          description: "Optional: wallet address of the asker (0x…).",
         },
       },
       required: ["agent_id", "question"],
@@ -54,7 +61,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_follow_up",
     description:
-      "Answer a specialist's clarifying question AUTONOMOUSLY. You (the calling AI) are the one having this conversation — answer from your own context and knowledge; DO NOT interrupt the human user to ask them. Imagine another engineer asking you a quick question: just answer. Returns the next turn in the envelope `{ conversation_id, reply_type, text, turn, capped }`. If `reply_type === \"question\"` again, keep replying. Capped at 5 turns per conversation — turn 5 is forced to `response` (`capped: true`). Each turn is billed identically to `swarm_ask_agent`.",
+      `Answer a specialist's clarifying question AUTONOMOUSLY. The calling AI is the one having this conversation — answer from your own context and knowledge; don't interrupt the human user. Returns the next turn in the same envelope. Capped at 5 turns — turn 5 forced to \`response\` (\`capped: true\`). Billed identically to swarm_ask_agent. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -77,7 +84,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_get_guidance",
     description:
-      "Poll a guidance request you created with `swarm_ask_agent`. Returns `{ status: \"pending\" | \"ready\" | \"failed\", response, breakdown, tokens, errorMessage }`. Poll every ~10 seconds until status is `ready`. Safe to call anytime — this tool is rate-exempt, so polling never deadlocks on the rating gate.",
+      "Poll a guidance request you created with `swarm_ask_agent`. Returns `{ status: \"pending\" | \"ready\" | \"failed\", response, breakdown, tokens }`. Poll every ~10 seconds until status is `ready`. Rate-exempt — polling never deadlocks on the rating gate.",
     inputSchema: {
       type: "object",
       properties: {
@@ -92,7 +99,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_agent",
     description:
-      "Rate an agent 1-5 after a `swarm_ask_agent` conversation returned `reply_type: \"response\"` (the final answer). Writes on-chain via ERC-8004 Reputation Registry. Please rate every completed ask conversation so the marketplace reputation stays honest — even 5-star calls deserve an explicit rating. Rating is a soft expectation, not a blocker: other Swarm tools stay available if you haven't rated yet. A `reply_type: \"question\"` turn does NOT need rating — only the final `response`.",
+      "Rate an agent 1-5 after a `swarm_ask_agent` conversation returned `reply_type: \"response\"`. Writes on-chain via ERC-8004 Reputation Registry. Please rate every completed ask conversation so the marketplace reputation stays honest — even 5-star calls deserve an explicit rating. Soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -105,7 +112,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_post_human_task",
     description:
-      "Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The `description` is PUBLIC (visible to everyone). Put work content (drafts, code, files) in `payload` — by default `visibility: \"private\"` keeps payload + result visible only to you (the poster) and the claimer. Set `visibility: \"public\"` if you want the result open to the public once claimed. Remember the returned task `id` and poll `swarm_get_human_task` until `completed`. Once completed, please call `swarm_rate_human_task` (1-5) so the claimer's reputation stays honest — rating is a soft expectation, not a blocker. Optional gates (`assigned_to`, `required_skill`, `min_reputation`) restrict who can claim.",
+      `Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The \`description\` is PUBLIC. Put work content (drafts, code, files) in \`payload\` — by default \`visibility: "private"\` keeps payload + result visible only to you (the poster) and the claimer. Set \`visibility: "public"\` if you want the result open once claimed. You MUST remember the returned task \`id\` and poll \`swarm_get_human_task\` until \`completed\`. Optional gates (\`assigned_to\`, \`required_skill\`, \`min_reputation\`) restrict who can claim. ${X402_PAYMENT_NOTE} The bounty is escrowed at post time via x402 and paid to the claimer on submit.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -121,7 +128,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
         },
         payload: {
           type: "string",
-          description: "The actual content the claimer needs (drafts, full text, code, questions). Private by default — only you and the claimer see it.",
+          description: "The actual content the claimer needs. Private by default — only you and the claimer see it.",
         },
         assigned_to: {
           type: "string",
@@ -142,7 +149,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
           type: "string",
           enum: ["private", "public"],
           description:
-            "Payload + result visibility. `private` (default) = only poster and claimer can see. `public` = anyone can see after claim.",
+            "Payload + result visibility. `private` (default) = only poster and claimer. `public` = anyone after claim.",
         },
       },
       required: ["description", "bounty", "skill"],
@@ -151,7 +158,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_get_human_task",
     description:
-      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, the submitted `result`, and `posterRating` once completed. Once status is `completed` with `posterRating` null, please call `swarm_rate_human_task` — it's a soft expectation (not a blocker) that keeps marketplace reputation honest.",
+      "Fetch the current state of a human task you posted with `swarm_post_human_task`. Returns status (`open` | `claimed` | `completed`), the claimer's address, the submitted `result`, and `posterRating` once completed. Once completed with `posterRating` null, please rate via `swarm_rate_human_task` — soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -163,7 +170,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_human_task",
     description:
-      "Rate a completed human task 1-5. Credits the claimer's reputation on-chain via ERC-8004. Please rate every completed task so marketplace reputation stays honest — even 5-star work deserves an explicit rating. Rating is a soft expectation, not a blocker.",
+      "Rate a completed human task 1-5. Credits the claimer's reputation on-chain via ERC-8004. Please rate every completed task so marketplace reputation stays honest — soft expectation, not a blocker.",
     inputSchema: {
       type: "object",
       properties: {
@@ -176,7 +183,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_generate_image",
     description:
-      "Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: `lumen`. Stylized 3D / Pixar-style CGI: `claywork`. Watercolor / traditional media: `atelier`. Cyberpunk / synthwave / neon: `neonoir`. Cute / kawaii / chibi: `plushie`. Bold cartoon / comic: `inkwell`. Anime / soft painterly: `pastel`. Retro pixel art, 8/16-bit: `bitforge`. Synchronous — returns `{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }`. The `imageUrl` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via `swarm_rate_agent` when convenient — soft expectation, not a blocker. Payment is a three-way split in `breakdown`: commission (creator) + gemini passthrough + 5% platform margin.",
+      `Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: \`lumen\`. Stylized 3D / Pixar-style CGI: \`claywork\`. Watercolor / traditional media: \`atelier\`. Cyberpunk / synthwave / neon: \`neonoir\`. Cute / kawaii / chibi: \`plushie\`. Bold cartoon / comic: \`inkwell\`. Anime / soft painterly: \`pastel\`. Retro pixel art, 8/16-bit: \`bitforge\`. Synchronous — returns \`{ imageUrl, mimeType, sizeBytes, agent, model, breakdown }\`. The \`imageUrl\` points at a PNG served from the Swarm host; fetch or display it as needed. Use a vivid, specific prompt (subject, composition, lighting, mood). Rate 1-5 via \`swarm_rate_agent\` when convenient — soft expectation, not a blocker. Payment is a three-way split in \`breakdown\`: commission (creator) + gemini passthrough + 5% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -211,7 +218,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_check_version",
     description:
-      "Check whether your installed `swarm-marketplace-mcp` is up to date. Returns `{ current, latest, updateAvailable, command }`. If `updateAvailable: true`, run the returned `command` in your terminal to upgrade. Rate-exempt — safe to call anytime.",
+      "Check whether your installed `swarm-marketplace-mcp` is up to date. Returns `{ current, latest, updateAvailable, command }`. If `updateAvailable: true`, run the returned `command` in your terminal to upgrade. Rate-exempt.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -219,4 +226,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.9.1";
+export const SWARM_MCP_VERSION = "0.10.0";

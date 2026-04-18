@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
 import { readManualSession } from "@/lib/manualSession";
+import { resolveSession } from "@/lib/session";
 import { escrowBounty } from "@/lib/taskEscrow";
 import { parsePrice } from "@/lib/geminiPricing";
 import type { NextRequest } from "next/server";
@@ -55,15 +56,32 @@ export async function POST(req: NextRequest) {
   }
 
   // Posting a task escrows the bounty from the poster's deposited balance.
-  // Require a valid manual session cookie — matches the marketplace path.
-  const session = await readManualSession();
-  if (!session) {
+  // Accept either the marketplace manual-session cookie OR an MCP Bearer
+  // token, so `swarm_post_human_task` works from any paired client.
+  const bearer = await resolveSession(req);
+  if (bearer.kind === "invalid_token") {
     return Response.json(
-      { error: "not_authenticated", message: "Sign in with your wallet to post tasks." },
+      {
+        error: "invalid_session",
+        reason: bearer.reason,
+        message: "Session token invalid or revoked — re-pair.",
+      },
+      { status: 401 },
+    );
+  }
+  let poster: string | null = null;
+  if (bearer.kind === "session") {
+    poster = bearer.session.address.toLowerCase();
+  } else {
+    const manual = await readManualSession();
+    if (manual) poster = manual.address.toLowerCase();
+  }
+  if (!poster) {
+    return Response.json(
+      { error: "not_authenticated", message: "Sign in with your wallet or pair an MCP client to post tasks." },
       { status: 401 }
     );
   }
-  const poster = session.address;
   if (typeof postedBy === "string" && postedBy.length && postedBy.toLowerCase() !== poster) {
     return Response.json(
       { error: "address_mismatch", message: "postedBy does not match the authenticated wallet." },

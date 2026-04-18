@@ -125,7 +125,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (!session) {
       return textResponse(
         pairUrl
-          ? `Swarm MCP is waiting for wallet authorization.\n\nOpen this URL in your browser (it should have opened automatically):\n\n  ${pairUrl}\n\nConnect your wallet, pick a USDC budget, sign — the MCP picks up the session within 2 seconds. Retry the tool call once you see "✓ Paired" in the page.`
+          ? `Swarm MCP is waiting for wallet authorization.\n\nOpen this URL in your browser (it should have opened automatically):\n\n  ${pairUrl}\n\nConnect your wallet and sign one off-chain message — the MCP picks up the session within 2 seconds. Retry the tool call once you see "✓ Paired" in the page.`
           : `Swarm MCP pairing is in progress but no URL is available. Restart Claude Code to generate a fresh pair URL.`,
       );
     }

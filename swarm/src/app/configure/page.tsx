@@ -389,6 +389,55 @@ export default function ConfigurePage() {
                 <span className="flex-1">Terminal prints <code className="text-phosphor">✓ Paired!</code> with your wallet. Done — proceed to step 02 below.</span>
               </div>
             </div>
+
+            <div className="px-6 pb-6 pt-0 space-y-2">
+              <details className="group border border-border/60 bg-surface">
+                <summary className="cursor-pointer select-none px-4 py-3 text-[11px] text-muted hover:text-foreground flex items-center justify-between transition-none">
+                  <span>
+                    <span className="text-dim uppercase tracking-widest mr-2">▸</span>
+                    how do i <span className="text-foreground">unpair</span> this machine?
+                  </span>
+                  <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                  <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 text-[11px] text-muted leading-relaxed space-y-2">
+                  <p>
+                    From this machine&apos;s shell, run:
+                  </p>
+                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
+                    npx -y swarm-marketplace-mcp unpair
+                  </code>
+                  <p>
+                    It deletes the local session file and prints a confirmation. You can also revoke any paired client from the list on <code className="text-foreground">/profile</code> without touching the CLI — useful if you lost the machine.
+                  </p>
+                </div>
+              </details>
+
+              <details className="group border border-border/60 bg-surface">
+                <summary className="cursor-pointer select-none px-4 py-3 text-[11px] text-muted hover:text-foreground flex items-center justify-between transition-none">
+                  <span>
+                    <span className="text-dim uppercase tracking-widest mr-2">▸</span>
+                    how do i pair a wallet <span className="text-foreground">after unpairing</span>?
+                  </span>
+                  <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                  <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 text-[11px] text-muted leading-relaxed space-y-2">
+                  <p>
+                    Run the same pair command again — it mints a fresh code and reopens the browser prompt:
+                  </p>
+                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
+                    npx -y swarm-marketplace-mcp pair
+                  </code>
+                  <p className="text-amber">
+                    ⓘ Run this in your terminal <span className="text-foreground">before</span> your MCP client starts the server. If Claude Code / Cursor / Codex is already running, fully quit and relaunch it after pairing — it only reads the session file at startup.
+                  </p>
+                  <p>
+                    You can pair a different wallet this way too; the last pair wins.
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
         </section>
 

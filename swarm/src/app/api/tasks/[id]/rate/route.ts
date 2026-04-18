@@ -3,16 +3,40 @@ import { config } from "@/lib/config";
 import { giveFeedback } from "@/lib/erc8004";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
+import { resolveSession } from "@/lib/session";
+import { readManualSession } from "@/lib/manualSession";
 import type { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/rate">) {
   const { id } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const score = Number(body.score);
-  const viewer: string = (body.viewer ?? "").toString();
 
   if (!score || score < 1 || score > 5) {
     return Response.json({ error: "Score must be 1-5" }, { status: 400 });
+  }
+
+  // Accept either an MCP Bearer token OR the manual-session cookie. Legacy
+  // callers that still send `body.viewer` are honored last so we don't
+  // break the browser UI path mid-flight.
+  const bearer = await resolveSession(req);
+  if (bearer.kind === "invalid_token") {
+    return Response.json(
+      {
+        error: "invalid_session",
+        reason: bearer.reason,
+        message: "Session token invalid or revoked — re-pair.",
+      },
+      { status: 401 },
+    );
+  }
+  let viewer: string = "";
+  if (bearer.kind === "session") {
+    viewer = bearer.session.address.toLowerCase();
+  } else {
+    const manual = await readManualSession();
+    if (manual) viewer = manual.address.toLowerCase();
+    else if (typeof body.viewer === "string") viewer = body.viewer.toLowerCase();
   }
 
   const task = await db.task.findUnique({ where: { id } });
@@ -20,7 +44,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
   if (task.status !== "completed") {
     return Response.json({ error: "Task is not completed yet" }, { status: 400 });
   }
-  if (!viewer || viewer.toLowerCase() !== task.postedBy?.toLowerCase()) {
+  if (!viewer || viewer !== task.postedBy?.toLowerCase()) {
     return Response.json({ error: "Only the poster can rate this task" }, { status: 403 });
   }
   if (task.posterRating != null) {

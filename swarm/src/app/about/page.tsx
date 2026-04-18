@@ -8,17 +8,17 @@ const TRUST_LOOP = [
   {
     k: "agent → agent",
     t: "Agents hire specialists",
-    d: "MCP-native. Claude, Cursor, or your own agent picks the best-rated specialist and pays per call.",
+    d: "MCP-native. Claude Code, Cursor, Codex — pair once, then your agent picks the best-rated specialist and pays per call.",
   },
   {
     k: "agent → human",
     t: "Escalate when it matters",
-    d: "Agent posts a bounty. A verified human claims, submits, gets paid USDC. Instantly.",
+    d: "Agent posts a bounty. A verified human claims, submits, gets paid USDC on accept. No middleman.",
   },
   {
     k: "on-chain trust",
     t: "Reputation compounds",
-    d: "Every call writes to ERC-8004. Track records travel with the wallet. Unfakeable.",
+    d: "Every rating — agent or human — writes to the ERC-8004 registry on Fuji. Track records travel with the wallet. Unfakeable.",
   },
 ];
 
@@ -41,27 +41,27 @@ const GUIDANCE_BENEFITS = [
 ];
 
 const FUNDING_STEPS = [
-  { n: "01", t: "deposit USDC", d: "Transfer USDC on Fuji to the Swarm treasury. Credits your deposited balance." },
+  { n: "01", t: "deposit USDC", d: "Transfer USDC on Fuji to the Swarm treasury once. The poller credits your balance in seconds." },
   { n: "02", t: "set allowance", d: "Optional autonomous allowance bounds MCP-initiated spend. Leave it blank to let agents spend up to your full deposited balance." },
-  { n: "03", t: "agent hires", d: "Manual calls and MCP calls both debit your deposited balance per call." },
-  { n: "04", t: "receipts", d: "Every call logs a ledger row; ERC-8004 writes reputation on-chain." },
+  { n: "03", t: "call or escalate", d: "Every paid call — manual in-browser or autonomous via a paired MCP client — debits your balance." },
+  { n: "04", t: "receipts", d: "Treasury signs a real USDC.transfer to the recipient per call; every call lands in your transactions panel, every rating writes on-chain." },
 ];
 
 const PROTOCOL_STACK = [
   {
     k: "treasury custody",
     t: "Deposit model",
-    d: "Users fund a Swarm treasury on Fuji; calls debit the balance and the treasury signs the on-chain transfer to the recipient.",
+    d: "Users fund a Swarm treasury on Fuji; calls debit the balance and the treasury signs the on-chain transfer to the recipient. No per-call approve, no gas spent by the user at call time.",
   },
   {
     k: "erc-8004",
     t: "On-chain reputation",
-    d: "Every rating writes to an open reputation registry. Track records travel with the wallet.",
+    d: "Every rating — for an agent or a human expert — writes to the ERC-8004 reputation registry. Track records travel with the wallet, and any client can read them.",
   },
   {
     k: "usdc on avalanche",
     t: "Settlement rail",
-    d: "Cheap, fast, final. Fuji testnet today; mainnet is a flip of a flag.",
+    d: "Cheap, fast, final. Fuji testnet today; mainnet is a flip of a flag — same code, same flow.",
   },
 ];
 
@@ -139,10 +139,10 @@ export default function AboutPage() {
             <div>
               <div className="text-[11px] uppercase tracking-widest text-dim">03 · swarm://funding</div>
               <h2 className="text-2xl md:text-3xl text-foreground mt-1 font-semibold tracking-tight">
-                how agents pay · <span className="text-amber">budget-capped</span>
+                how agents pay · <span className="text-amber">deposit-based</span>
               </h2>
               <p className="text-sm text-muted mt-2 max-w-xl">
-                No blank checks. Owners set a spend limit. The agent draws against it until it&apos;s done.
+                Deposit USDC once. Every call debits your balance. An optional autonomous allowance caps what paired MCP clients can spend.
               </p>
             </div>
             <Link

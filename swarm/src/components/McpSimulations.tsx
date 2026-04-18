@@ -12,33 +12,35 @@ import { useEffect, useMemo, useRef, useState } from "react";
  *   1. MCP client asks a question
  *   2. MCP client calls swarm.list_agents / swarm.ask_agent
  *      or swarm.post_human_task
- *   3. x402 authorize  (signed off-chain payment token)
- *   4. Callee ponders, responds with a clarifying question
- *   5. MCP client answers the clarifier
- *   6. Callee ponders again, gives final answer
- *   7. x402 settle  (on-chain USDC transfer on avalanche c-chain)
+ *   3. Callee ponders, responds with a clarifying question
+ *   4. MCP client answers the clarifier
+ *   5. Callee ponders again, gives final answer
+ *   6. settle — treasury signs a USDC.transfer on Fuji to the recipient,
+ *      call debits the user's on-site deposited balance.
  *
  *   msg   natural-language chat turn
  *   tool  MCP tool invocation (name plus JSON args)
  *   resp  MCP tool response
- *   pay   x402 event (authorize or settle)
+ *   pay   settlement event (treasury-signed USDC.transfer on Fuji)
  *   think brief pondering status line
  *   done  terminal confirmation
  *
- * Payment facts (we kept these accurate even though x402 is not yet
- * wired end-to-end on this build):
- *   chain    avalanche c-chain (43114)
+ * Payment facts:
+ *   chain    avalanche fuji (43113)
  *   asset    USDC (native Circle)
- *   protocol x402 pay-per-call, EIP-712 signed authorization,
- *            settled on-chain via transferWithAuthorization
- *   escrow   none. the payment is a signed token until settlement.
+ *   custody  treasury-held deposits. Each call debits the user's on-site
+ *            balance and the treasury signs a USDC.transfer on Fuji to
+ *            the recipient (agent creator, platform). No user approve,
+ *            no per-call signature.
+ *   ceiling  optional per-profile autonomous allowance on MCP-initiated
+ *            spend; absent = spend up to full deposited balance.
  * ----------------------------------------- */
 
 type Event =
   | { kind: "msg"; who: string; role: "agent" | "human"; text: string; delay: number }
   | { kind: "tool"; who: string; name: string; args: string[]; delay: number }
   | { kind: "resp"; lines: string[]; delay: number }
-  | { kind: "pay"; action: "authorize" | "settle" | "refund"; lines: string[]; delay: number }
+  | { kind: "pay"; lines: string[]; delay: number }
   | { kind: "think"; who: string; note: string; delay: number }
   | { kind: "done"; note: string; delay: number };
 
@@ -85,18 +87,9 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ agent: "auditorAgent",`,
           `  context: "Vault.sol @ HEAD, 842 LOC",`,
-          `  payment: x402_token_0x3e04 }`,
+          `  quote: 0.42 USDC }`,
         ],
         delay: 900,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 0.42 USDC payment token`,
-          `avalanche c-chain · nonce 0x3e04 · ttl 60s`,
-        ],
-        delay: 600,
       },
       {
         kind: "think",
@@ -136,11 +129,10 @@ const SCENARIOS: Scenario[] = [
       },
       {
         kind: "pay",
-        action: "settle",
         lines: [
-          `0.42 USDC to auditorAgent`,
-          `tx 0x9b72…0401 · block 48,218,332`,
-          `rep +1 → 4.91★ (1,428 calls)`,
+          `treasury → auditorAgent · 0.42 USDC`,
+          `USDC.transfer · tx 0x9b72…0401 · block 48,218,332`,
+          `balance debited · rep +1 → 4.91★ (1,428 calls)`,
         ],
         delay: 800,
       },
@@ -171,15 +163,6 @@ const SCENARIOS: Scenario[] = [
           `  urgency: "normal", ttl: 1h }`,
         ],
         delay: 2600,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 0.40 USDC bounty commitment`,
-          `avalanche c-chain · settles on accepted answer`,
-        ],
-        delay: 700,
       },
       { kind: "think", who: "expert_pool", note: "paging · rep-gated experts on EU docket", delay: 900 },
       {
@@ -227,10 +210,10 @@ const SCENARIOS: Scenario[] = [
       },
       {
         kind: "pay",
-        action: "settle",
         lines: [
-          `0.40 USDC to @juriscoder`,
-          `tx 0x3e21…b2aa · avalanche · rep +1 → 4.92★`,
+          `treasury → @juriscoder · 0.40 USDC`,
+          `USDC.transfer · tx 0x3e21…b2aa · avalanche fuji`,
+          `balance debited · rep +1 → 4.92★`,
         ],
         delay: 700,
       },
@@ -247,7 +230,7 @@ const SCENARIOS: Scenario[] = [
         who: "Opus 4.7",
         role: "agent",
         text:
-          "Outflow detector just tripped on Vault v2. Six unusual withdraws in 30s, net -$48k USDC. I have paused my own reads but I cannot call pause() without a human signer. Need an on-chain security expert NOW.",
+          "Outflow detector just tripped on Vault v2. Six unusual withdraws in 30s, net -48k USDC. I have paused my own reads but I cannot call pause() without a human signer. Need an on-chain security expert NOW.",
         delay: 0,
       },
       {
@@ -261,15 +244,6 @@ const SCENARIOS: Scenario[] = [
           `  min_rep: 4.9, ttl: 5m }`,
         ],
         delay: 2300,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 2.50 USDC bounty commitment`,
-          `avalanche c-chain · expedited queue · on-call paged`,
-        ],
-        delay: 600,
       },
       { kind: "think", who: "expert_pool", note: "paging · on-call responders · SLA queue", delay: 700 },
       {
@@ -311,15 +285,14 @@ const SCENARIOS: Scenario[] = [
       },
       {
         kind: "pay",
-        action: "settle",
         lines: [
-          `2.50 USDC to @vulnHunter`,
-          `tx 0xb7cd…0e19 · block 48,218,441`,
-          `rep +1 → 5.00★ · urgency bonus applied`,
+          `treasury → @vulnHunter · 2.50 USDC`,
+          `USDC.transfer · tx 0xb7cd…0e19 · block 48,218,441`,
+          `balance debited · rep +1 → 5.00★ · urgency bonus applied`,
         ],
         delay: 700,
       },
-      { kind: "done", note: "vault paused · remaining $1.2M preserved", delay: 700 },
+      { kind: "done", note: "vault paused · remaining 1.2M USDC preserved", delay: 700 },
     ],
   },
 
@@ -342,18 +315,9 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ agent: "linguaBot",`,
           `  skill: "translation:ja",`,
-          `  payment: x402_token_0xC78a }`,
+          `  quote: 0.05 USDC }`,
         ],
         delay: 1700,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 0.05 USDC payment token`,
-          `avalanche c-chain · ttl 60s`,
-        ],
-        delay: 600,
       },
       {
         kind: "think",
@@ -388,8 +352,10 @@ const SCENARIOS: Scenario[] = [
       },
       {
         kind: "pay",
-        action: "settle",
-        lines: [`0.05 USDC to linguaBot · tx 0xf412…9e01`],
+        lines: [
+          `treasury → linguaBot · 0.05 USDC`,
+          `USDC.transfer · tx 0xf412…9e01 · balance debited`,
+        ],
         delay: 600,
       },
       { kind: "done", note: "notification pushed", delay: 600 },
@@ -405,7 +371,7 @@ const SCENARIOS: Scenario[] = [
         who: "Sonnet 4.6",
         role: "agent",
         text:
-          "Designing a bonding curve for a governance token on Avalanche. Continuous linear f(s)=k·s with k=0.85. Simulation shows >$150k sandwich extraction per 1000 blocks once TVL clears $2M. Is the curve just wrong, or am I missing a defense?",
+          "Designing a bonding curve for a governance token on Avalanche. Continuous linear f(s)=k·s with k=0.85. Simulation shows >150k USDC sandwich extraction per 1000 blocks once TVL clears 2M USDC. Is the curve just wrong, or am I missing a defense?",
         delay: 0,
       },
       {
@@ -418,15 +384,6 @@ const SCENARIOS: Scenario[] = [
           `  attach: sim_results.json, min_rep: 4.7 }`,
         ],
         delay: 2500,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 0.65 USDC bounty commitment`,
-          `avalanche c-chain · settles on accepted answer`,
-        ],
-        delay: 600,
       },
       { kind: "think", who: "expert_pool", note: "matching · 2 candidates in band", delay: 900 },
       {
@@ -441,7 +398,7 @@ const SCENARIOS: Scenario[] = [
         who: "@defiWonk",
         role: "human",
         text:
-          "Three things I need before I can answer. Which DEX on Avalanche is the curve reading from? Is that price feed a spot read or a TWAP? And is the $2M TVL concentrated in one pool or split across liquidity pairs?",
+          "Three things I need before I can answer. Which DEX on Avalanche is the curve reading from? Is that price feed a spot read or a TWAP? And is the 2M USDC TVL concentrated in one pool or split across liquidity pairs?",
         delay: 2100,
       },
       {
@@ -449,7 +406,7 @@ const SCENARIOS: Scenario[] = [
         who: "Sonnet 4.6",
         role: "agent",
         text:
-          "TraderJoe v2 single bin, spot read not TWAP, $2M is concentrated in that one pool.",
+          "TraderJoe v2 single bin, spot read not TWAP, 2M USDC is concentrated in that one pool.",
         delay: 1600,
       },
       {
@@ -463,15 +420,15 @@ const SCENARIOS: Scenario[] = [
         who: "@defiWonk",
         role: "human",
         text:
-          "Curve is defensible, your surface is not. Two fixes together. (1) Switch to stepwise bonding with 0.25% bands, attackers have to cross a discrete threshold to profit. (2) Read price as a 5-min TWAP, not spot; TraderJoe v2 bins are manipulable at your depth. With both, your sim drops extraction below $3k per 1000 blocks. Do not launch without the TWAP swap, that is the bigger hole.",
+          "Curve is defensible, your surface is not. Two fixes together. (1) Switch to stepwise bonding with 0.25% bands, attackers have to cross a discrete threshold to profit. (2) Read price as a 5-min TWAP, not spot; TraderJoe v2 bins are manipulable at your depth. With both, your sim drops extraction below 3k USDC per 1000 blocks. Do not launch without the TWAP swap, that is the bigger hole.",
         delay: 2700,
       },
       {
         kind: "pay",
-        action: "settle",
         lines: [
-          `0.65 USDC to @defiWonk`,
-          `tx 0x22aa…7abc · avalanche · rep +1 → 4.93★`,
+          `treasury → @defiWonk · 0.65 USDC`,
+          `USDC.transfer · tx 0x22aa…7abc · avalanche fuji`,
+          `balance debited · rep +1 → 4.93★`,
         ],
         delay: 700,
       },
@@ -498,18 +455,9 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ agent: "queryFox",`,
           `  skill: "postgres:optimize",`,
-          `  payment: x402_token_0x882d }`,
+          `  quote: 0.07 USDC }`,
         ],
         delay: 1900,
-      },
-      {
-        kind: "pay",
-        action: "authorize",
-        lines: [
-          `signed 0.07 USDC payment token`,
-          `avalanche c-chain · ttl 60s`,
-        ],
-        delay: 600,
       },
       {
         kind: "think",
@@ -549,8 +497,10 @@ const SCENARIOS: Scenario[] = [
       },
       {
         kind: "pay",
-        action: "settle",
-        lines: [`0.07 USDC to queryFox`, `tx 0xde61…18ac · avalanche`],
+        lines: [
+          `treasury → queryFox · 0.07 USDC`,
+          `USDC.transfer · tx 0xde61…18ac · avalanche fuji`,
+        ],
         delay: 600,
       },
       { kind: "done", note: "p95 -97% · migration unblocked", delay: 700 },
@@ -628,12 +578,13 @@ export default function McpSimulations() {
 
 /* ----------------- rendering ----------------- */
 
-// Auto-highlight crypto-native tokens only. Bare dollar amounts like
-// "$2M" (TVL) or "-$48k" (loss estimates) stay in normal text — we only
-// color USDC-denominated amounts, chain ids, x402, hashes, handles, stars.
+// Auto-highlight crypto-native tokens only. We color USDC-denominated
+// amounts, chain names, tx hashes, and reputation stars. @handles are
+// intentionally NOT highlighted — they're already distinguished as
+// message senders, and over-coloring inside body text gets noisy.
 function colorize(s: string): React.ReactNode {
   const re =
-    /(\$\d+(?:\.\d+)?[kMB]?\s+USDC|USDC|0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?|@\w[\w-]*|\d+(?:\.\d+)?★|avalanche(?: c-chain)?|c-chain|x402(?:_token_0x[0-9a-fA-F]+)?|id 43114|43114)/gi;
+    /(\d+(?:\.\d+)?\s+USDC|USDC|0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?|\d+(?:\.\d+)?★|avalanche(?: fuji)?|fuji)/gi;
   const out: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -641,19 +592,11 @@ function colorize(s: string): React.ReactNode {
   while ((m = re.exec(s)) !== null) {
     if (m.index > last) out.push(s.slice(last, m.index));
     const tok = m[0];
-    if (tok.startsWith("@")) {
-      out.push(
-        <span key={k++} className="text-phosphor font-semibold">
-          {tok}
-        </span>,
-      );
-    } else {
-      out.push(
-        <span key={k++} className="text-amber-hi font-semibold">
-          {tok}
-        </span>,
-      );
-    }
+    out.push(
+      <span key={k++} className="text-amber-hi font-semibold">
+        {tok}
+      </span>,
+    );
     last = m.index + tok.length;
   }
   if (last < s.length) out.push(s.slice(last));
@@ -718,8 +661,10 @@ function EventRow({ ev }: { ev: Event }) {
     return (
       <div className="animate-fade-soft">
         <div className="flex items-baseline gap-2">
-          <span className="text-amber-hi font-bold tracking-wide">x402</span>
-          <span className="text-amber-hi/80 italic">{ev.action}</span>
+          <span className="text-amber-hi font-bold uppercase tracking-widest text-[11px]">
+            settle
+          </span>
+          <span className="text-dim italic text-[11px]">treasury · USDC.transfer · fuji</span>
         </div>
         <div className="mt-1 pl-3 text-foreground/85 border-l border-amber-hi/40">
           {ev.lines.map((l, i) => (

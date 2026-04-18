@@ -7,8 +7,8 @@ interface PairModalProps {
   onCancel: () => void;
 }
 
-const PAIR_CMD = "npx swarm-marketplace-mcp pair";
-const UNPAIR_CMD = "npx swarm-marketplace-mcp unpair";
+const PAIR_CMD = "npx -y swarm-marketplace-mcp pair";
+const UNPAIR_CMD = "npx -y swarm-marketplace-mcp unpair";
 
 // Pairing happens in the user's terminal, not the browser. The MCP CLI mints
 // the pair code, opens this site in a browser window for the wallet signature,

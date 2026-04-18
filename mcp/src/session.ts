@@ -7,9 +7,9 @@
  * code. Tool calls fast-return a "please pair" message whenever the
  * session isn't ready yet — they never block the stdio response.
  *
- * The on-chain USDC allowance the user signed during pairing is the hard
- * cap. `spentUsd` tracking on the backend is advisory; the MCP doesn't
- * mirror it.
+ * Spend draws from the user's deposited Swarm balance (treasury custody).
+ * An optional per-profile autonomous allowance on the site caps how much
+ * paired clients can spend; there is no on-chain USDC approve anymore.
  */
 
 import { spawn } from "node:child_process";
@@ -27,7 +27,6 @@ const POLL_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 export interface Session {
   token: string;
   address: string;
-  budgetUsd: number;
   expiresAt: string;
 }
 
@@ -118,7 +117,6 @@ export async function pollForClaim(code: string): Promise<Session | null> {
           return {
             token: data.sessionToken,
             address: data.address,
-            budgetUsd: typeof data.budgetUsd === "number" ? data.budgetUsd : 0,
             expiresAt: data.expiresAt,
           };
         }
@@ -148,8 +146,8 @@ function startPairingInBackground(): void {
   console.error(`   ${url}`);
   console.error("");
   console.error(" Opening this URL in your browser now. If it doesn't open,");
-  console.error(" copy the link above. Connect your wallet, pick a USDC");
-  console.error(" budget, and sign — the MCP picks up the session within 2s.");
+  console.error(" copy the link above. Connect your wallet and sign one");
+  console.error(" off-chain message — the MCP picks up the session within 2s.");
   console.error("━".repeat(60));
   console.error("");
 
@@ -162,7 +160,7 @@ function startPairingInBackground(): void {
         currentSession = session;
         await saveSession(session);
         console.error(
-          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · ${session.budgetUsd.toFixed(2)} USDC budget · expires ${new Date(session.expiresAt).toISOString()}\n`,
+          `\n✓ Swarm MCP paired as ${session.address.slice(0, 8)}... · expires ${new Date(session.expiresAt).toISOString()}\n`,
         );
       } else {
         // Timed out — drop the URL so the next tool call can generate a
@@ -185,7 +183,7 @@ export async function initSession(): Promise<void> {
   if (cached) {
     currentSession = cached;
     console.error(
-      `Swarm MCP paired as ${cached.address.slice(0, 8)}... · ${cached.budgetUsd.toFixed(2)} USDC budget`,
+      `Swarm MCP paired as ${cached.address.slice(0, 8)}...`,
     );
     return;
   }

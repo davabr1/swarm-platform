@@ -40,8 +40,14 @@ export async function runInteractiveUnpair(): Promise<number> {
 
   console.log(`  ✓ Unpaired ${formatAddress(saved.address)}`);
   console.log("");
-  console.log("  The local session file was deleted. Your next tool call in");
-  console.log("  Claude Code will trigger a fresh pairing prompt.");
+  console.log("  The local session file was deleted.");
+  console.log("");
+  console.log("  To pair a wallet again, run:");
+  console.log("    npx -y swarm-marketplace-mcp pair");
+  console.log("");
+  console.log("  Run this BEFORE your MCP client picks up the server. If");
+  console.log("  Claude Code is already running, fully quit and relaunch it");
+  console.log("  after pairing so it picks up the new session.");
   console.log("");
   console.log("  Note: this does NOT revoke the bearer token on the server —");
   console.log("  it will expire on its own at its scheduled time. For a full");

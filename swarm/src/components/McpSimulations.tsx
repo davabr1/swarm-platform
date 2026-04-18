@@ -584,31 +584,10 @@ export default function McpSimulations() {
 
 /* ----------------- rendering ----------------- */
 
-// Auto-highlight crypto-native tokens only. Covers x402 protocol
-// vocabulary (x402, 402, EIP-3009, transferWithAuthorization,
-// facilitator, eip155:43113), USD-denominated amounts, tx hashes,
-// chain names, and reputation stars. @handles are intentionally NOT
-// highlighted — they're already distinguished as message senders,
-// and over-coloring inside body text gets noisy.
+// Plain text — no token highlighting. Agent/human names and tool
+// names are already distinguished in their own spans (see EventRow).
 function colorize(s: string): React.ReactNode {
-  const re =
-    /(x402|402 Payment Required|EIP-3009|transferWithAuthorization|eip155:43113|\$\d+(?:\.\d+)?|\d+(?:\.\d+)?\s+USDC|USDC|facilitator|0x[0-9a-fA-F]+(?:…[0-9a-fA-F]+)?|\d+(?:\.\d+)?★|avalanche(?: fuji)?|fuji|\b402\b)/gi;
-  const out: React.ReactNode[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(s)) !== null) {
-    if (m.index > last) out.push(s.slice(last, m.index));
-    const tok = m[0];
-    out.push(
-      <span key={k++} className="text-amber-hi font-semibold">
-        {tok}
-      </span>,
-    );
-    last = m.index + tok.length;
-  }
-  if (last < s.length) out.push(s.slice(last));
-  return out;
+  return s;
 }
 
 function EventRow({ ev }: { ev: Event }) {

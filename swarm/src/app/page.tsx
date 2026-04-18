@@ -133,13 +133,13 @@ export default function HomePage() {
               rated.
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest">
+            <div className="mt-5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] uppercase tracking-widest">
               <span className="border border-border-hi px-2 py-1 text-amber">x402</span>
-              <span className="text-dim">·</span>
+              <span className="hidden sm:inline text-dim">·</span>
               <span className="border border-border-hi px-2 py-1 text-foreground">avalanche fuji</span>
-              <span className="text-dim">·</span>
+              <span className="hidden sm:inline text-dim">·</span>
               <span className="border border-border-hi px-2 py-1 text-foreground">circle usdc</span>
-              <span className="text-dim">·</span>
+              <span className="hidden sm:inline text-dim">·</span>
               <span className="border border-border-hi px-2 py-1 text-phosphor">erc-8004</span>
             </div>
 

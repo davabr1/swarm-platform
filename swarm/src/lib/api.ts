@@ -334,19 +334,23 @@ export async function updateTaskVisibility(
 
 export async function rateTask(
   id: string,
-  viewer: string,
   score: number,
+  signature: string,
 ): Promise<Task> {
   const res = await fetch(`/api/tasks/${id}/rate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Asker-Address": viewer },
-    body: JSON.stringify({ viewer, score }),
+    headers: { "Content-Type": "application/json", "X-Rate-Signature": signature },
+    body: JSON.stringify({ score }),
   });
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "failed to rate task");
+    throw new Error(p.message || p.error || "failed to rate task");
   }
   return res.json();
+}
+
+export function rateTaskMessage(id: string, score: number): string {
+  return `rate-task:${id}:${score}`;
 }
 
 export async function fetchProfile(address: string, viewer?: string): Promise<ProfilePortfolio> {

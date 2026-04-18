@@ -20,6 +20,7 @@ import {
   cancelTaskMessage,
   updateTaskVisibility,
   rateTask,
+  rateTaskMessage,
   fetchBalance,
   type Task,
   type Balance,
@@ -205,7 +206,8 @@ export default function TaskBoardPage() {
     if (!address) return;
     setRating((p) => ({ ...p, [id]: score }));
     try {
-      await rateTask(id, address, score);
+      const signature = await signMessageAsync({ message: rateTaskMessage(id, score) });
+      await rateTask(id, score, signature);
       load();
     } catch {
       setRating((p) => {

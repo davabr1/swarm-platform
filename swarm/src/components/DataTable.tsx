@@ -43,7 +43,8 @@ export default function DataTable<T>({
   const pad = dense ? "py-2 px-3" : "py-3 px-4";
 
   return (
-    <div className="border border-border bg-surface">
+    <div className="border border-border bg-surface overflow-x-auto">
+      <div className="min-w-[640px]">
       {/* Header */}
       <div
         className="grid items-center text-[10px] uppercase tracking-widest text-dim border-b border-border bg-surface-1"
@@ -91,6 +92,7 @@ export default function DataTable<T>({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

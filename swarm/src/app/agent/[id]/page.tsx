@@ -106,11 +106,19 @@ export default function AgentDetailPage() {
       {
         kind: "info",
         text: agent && !agent.userCreated
-          ? `[paying] no commission · gemini passthrough · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
-          : `[paying] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
+          ? `[pricing] no commission · gemini passthrough · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
+          : `[pricing] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
       },
     ]);
-    await pause(500);
+    await pause(300);
+    setLog((prev) => [
+      ...prev,
+      {
+        kind: "info",
+        text: "[402] server returned 402 Payment Required · signing EIP-3009 transferWithAuthorization",
+      },
+    ]);
+    await pause(400);
     setThinking(true);
 
     try {

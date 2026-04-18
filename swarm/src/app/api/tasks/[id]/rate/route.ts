@@ -1,9 +1,9 @@
+import { ethers } from "ethers";
 import { db } from "@/lib/db";
 import { config } from "@/lib/config";
 import { giveFeedback } from "@/lib/erc8004";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
-import { resolveAgentAddress } from "@/lib/session";
 import type { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/rate">) {
@@ -15,16 +15,34 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     return Response.json({ error: "Score must be 1-5" }, { status: 400 });
   }
 
-  const viewer =
-    resolveAgentAddress(req) ??
-    (typeof body.viewer === "string" ? body.viewer.toLowerCase() : "");
+  const signature = req.headers.get("x-rate-signature");
+  if (!signature) {
+    return Response.json(
+      {
+        error: "missing_signature",
+        message: "Provide an EIP-191 signature of `rate-task:<taskId>:<score>` in the X-Rate-Signature header.",
+      },
+      { status: 401 },
+    );
+  }
 
   const task = await db.task.findUnique({ where: { id } });
   if (!task) return Response.json({ error: "Task not found" }, { status: 404 });
+
+  let viewer: string;
+  try {
+    viewer = ethers.verifyMessage(`rate-task:${id}:${score}`, signature).toLowerCase();
+  } catch {
+    return Response.json(
+      { error: "invalid_signature", message: "Could not recover signer from X-Rate-Signature." },
+      { status: 401 },
+    );
+  }
+
   if (task.status !== "completed") {
     return Response.json({ error: "Task is not completed yet" }, { status: 400 });
   }
-  if (!viewer || viewer !== task.postedBy?.toLowerCase()) {
+  if (viewer !== task.postedBy?.toLowerCase()) {
     return Response.json({ error: "Only the poster can rate this task" }, { status: 403 });
   }
   if (task.posterRating != null) {

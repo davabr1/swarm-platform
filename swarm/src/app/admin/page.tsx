@@ -95,10 +95,11 @@ export default function AdminPage() {
                 <div className="text-[10px] uppercase tracking-widest text-amber mb-4">
                   ❯ authentication_required
                 </div>
-                <div className="text-xl text-foreground mb-2">Admin</div>
+                <div className="text-xl text-foreground mb-2">admin panel</div>
                 <p className="text-sm text-muted leading-relaxed mb-6 max-w-md">
-                  Password-gated health readout for Swarm's platform wallets.
-                  No wallet connection needed. Re-entered on every load.
+                  live fuji balances for the treasury, orchestrator, and
+                  platform-agent wallets, plus the deposit scanner's current
+                  lag behind chain head.
                 </p>
                 <label className="block text-[11px] uppercase tracking-widest text-dim mb-2">
                   admin password
@@ -151,7 +152,7 @@ export default function AdminPage() {
                   <WalletBlock
                     title="orchestrator · ERC-8004 signer"
                     wallet={data.orchestrator}
-                    roleNote="signs registerAgent + giveFeedback · AVAX only, no USDC expected"
+                    roleNote="signs registerAgent + giveFeedback · gas-only wallet"
                     expectUsdcZero
                   />
                 </div>
@@ -160,7 +161,8 @@ export default function AdminPage() {
                   <WalletBlock
                     title="platform agent · shared revenue wallet"
                     wallet={data.platformAgent}
-                    roleNote="collects per-call earnings for all platform-made agents (Chainsight, Solmantis, MEV Scope, RegulaNet, image agents, human expert)"
+                    roleNote="collects per-call earnings for all platform-made agents · receive-only, no gas needed"
+                    expectAvaxZero
                   />
                 </div>
 
@@ -223,16 +225,23 @@ function WalletBlock({
   wallet,
   roleNote,
   expectUsdcZero = false,
+  expectAvaxZero = false,
 }: {
   title: string;
   wallet: WalletReadout;
   roleNote: string;
   expectUsdcZero?: boolean;
+  expectAvaxZero?: boolean;
 }) {
   const avaxNum = Number(wallet.avax);
   const usdcNum = Number(wallet.usdcUsd);
-  const avaxLow = wallet.configured && avaxNum < 0.05;
+  const avaxLow = wallet.configured && !expectAvaxZero && avaxNum < 0.05;
   const strayUsdc = expectUsdcZero && usdcNum > 0;
+  const strayAvax = expectAvaxZero && avaxNum > 0;
+  // Irrelevant rows are hidden when zero (clean display) and surfaced in
+  // red if a balance accidentally lands there (misrouted funds detector).
+  const hideUsdcRow = expectUsdcZero && !strayUsdc;
+  const hideAvaxRow = expectAvaxZero && !strayAvax;
 
   return (
     <div className="border border-border bg-background">
@@ -259,51 +268,60 @@ function WalletBlock({
             <span className="text-dim font-mono">—</span>
           )}
         </Row>
-        <Row label="USDC balance">
-          <span
-            className={
-              strayUsdc
-                ? "text-[#ff6a6a] font-mono"
-                : wallet.configured
-                  ? "text-phosphor font-mono"
-                  : "text-dim font-mono"
-            }
-          >
-            {usdcNum.toLocaleString(undefined, {
-              minimumFractionDigits: 6,
-              maximumFractionDigits: 6,
-            })}{" "}
-            USDC
-          </span>
-          {strayUsdc && (
-            <span className="text-[#ff6a6a] text-[11px] ml-2">
-              ⚠ unexpected USDC on orchestrator
+        {!hideUsdcRow && (
+          <Row label="USDC balance">
+            <span
+              className={
+                strayUsdc
+                  ? "text-[#ff6a6a] font-mono"
+                  : wallet.configured
+                    ? "text-phosphor font-mono"
+                    : "text-dim font-mono"
+              }
+            >
+              {usdcNum.toLocaleString(undefined, {
+                minimumFractionDigits: 6,
+                maximumFractionDigits: 6,
+              })}{" "}
+              USDC
             </span>
-          )}
-          {wallet.configured && (
-            <span className="text-dim text-[11px] ml-2">
-              ({wallet.usdcMicro} µUSDC)
+            {strayUsdc && (
+              <span className="text-[#ff6a6a] text-[11px] ml-2">
+                ⚠ unexpected USDC — should be 0 on a gas-only wallet
+              </span>
+            )}
+            {wallet.configured && (
+              <span className="text-dim text-[11px] ml-2">
+                ({wallet.usdcMicro} µUSDC)
+              </span>
+            )}
+          </Row>
+        )}
+        {!hideAvaxRow && (
+          <Row label="AVAX balance">
+            <span
+              className={
+                strayAvax || avaxLow
+                  ? "text-[#ff6a6a] font-mono"
+                  : wallet.configured
+                    ? "text-phosphor font-mono"
+                    : "text-dim font-mono"
+              }
+            >
+              {avaxNum.toFixed(6)} AVAX
             </span>
-          )}
-        </Row>
-        <Row label="AVAX balance">
-          <span
-            className={
-              avaxLow
-                ? "text-[#ff6a6a] font-mono"
-                : wallet.configured
-                  ? "text-phosphor font-mono"
-                  : "text-dim font-mono"
-            }
-          >
-            {avaxNum.toFixed(6)} AVAX
-          </span>
-          {avaxLow && (
-            <span className="text-[#ff6a6a] text-[11px] ml-2">
-              ⚠ low · top up for gas
-            </span>
-          )}
-        </Row>
+            {avaxLow && (
+              <span className="text-[#ff6a6a] text-[11px] ml-2">
+                ⚠ low · top up for gas
+              </span>
+            )}
+            {strayAvax && (
+              <span className="text-[#ff6a6a] text-[11px] ml-2">
+                ⚠ unexpected AVAX — receive-only wallet, can be swept
+              </span>
+            )}
+          </Row>
+        )}
         <Row label="role">
           <span className="text-muted text-[11px] leading-relaxed">{roleNote}</span>
         </Row>

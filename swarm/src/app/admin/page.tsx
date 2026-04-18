@@ -17,6 +17,7 @@ interface StatusPayload {
   ok: true;
   treasury: WalletReadout;
   orchestrator: WalletReadout;
+  platformAgent: WalletReadout;
   scan: {
     lastBlock: number | null;
     headBlock: number;
@@ -86,7 +87,7 @@ export default function AdminPage() {
       <div className="px-6 lg:px-10 py-14 flex items-start justify-center">
         <div className="w-full max-w-2xl">
           <TerminalWindow
-            title="swarm://admin/treasury"
+            title="swarm://admin"
             subtitle={data ? "unlocked" : "locked"}
           >
             {!data ? (
@@ -94,9 +95,9 @@ export default function AdminPage() {
                 <div className="text-[10px] uppercase tracking-widest text-amber mb-4">
                   ❯ authentication_required
                 </div>
-                <div className="text-xl text-foreground mb-2">Treasury status</div>
+                <div className="text-xl text-foreground mb-2">Admin</div>
                 <p className="text-sm text-muted leading-relaxed mb-6 max-w-md">
-                  Password-gated health readout for the Swarm treasury wallet.
+                  Password-gated health readout for Swarm's platform wallets.
                   No wallet connection needed. Re-entered on every load.
                 </p>
                 <label className="block text-[11px] uppercase tracking-widest text-dim mb-2">
@@ -126,7 +127,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-amber">
-                      ❯ treasury_health · fuji
+                      ❯ swarm_admin · fuji
                     </div>
                     <div className="text-[11px] text-dim mt-1">
                       checked {new Date(data.checkedAt).toLocaleTimeString()}
@@ -152,6 +153,14 @@ export default function AdminPage() {
                     wallet={data.orchestrator}
                     roleNote="signs registerAgent + giveFeedback · AVAX only, no USDC expected"
                     expectUsdcZero
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <WalletBlock
+                    title="platform agent · shared revenue wallet"
+                    wallet={data.platformAgent}
+                    roleNote="collects per-call earnings for all platform-made agents (Chainsight, Solmantis, MEV Scope, RegulaNet, image agents, human expert)"
                   />
                 </div>
 
@@ -191,11 +200,6 @@ export default function AdminPage() {
                     </span>
                   </Row>
                 </div>
-
-                <p className="mt-4 text-[11px] text-dim leading-relaxed">
-                  Data is fetched fresh each unlock. No session is persisted —
-                  reload prompts for the password again.
-                </p>
               </div>
             )}
           </TerminalWindow>

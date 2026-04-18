@@ -70,9 +70,20 @@ export async function POST(req: NextRequest) {
     const provider = new ethers.JsonRpcProvider(config.rpc);
     const usdc = new ethers.Contract(config.usdcContract, USDC_ABI, provider);
 
-    const [treasury, orchestrator, head, cursor] = await Promise.all([
-      readWallet(provider, usdc, config.treasury.address),
-      readWallet(provider, usdc, config.orchestrator.address),
+    // Derive addresses from the private keys where available. Env-configured
+    // addresses are just labels; the signer key is the source of truth, and a
+    // mismatch would silently send funds to the wrong wallet.
+    const treasuryAddress = config.treasury.privateKey
+      ? new ethers.Wallet(config.treasury.privateKey).address
+      : config.treasury.address;
+    const orchestratorAddress = config.orchestrator.privateKey
+      ? new ethers.Wallet(config.orchestrator.privateKey).address
+      : config.orchestrator.address;
+
+    const [treasury, orchestrator, platformAgent, head, cursor] = await Promise.all([
+      readWallet(provider, usdc, treasuryAddress),
+      readWallet(provider, usdc, orchestratorAddress),
+      readWallet(provider, usdc, config.platformAgentAddress),
       provider.getBlockNumber(),
       db.depositScanCursor.findUnique({ where: { id: "usdc" } }),
     ]);
@@ -81,6 +92,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       treasury,
       orchestrator,
+      platformAgent,
       scan: {
         lastBlock: cursor?.lastBlock ?? null,
         headBlock: head,

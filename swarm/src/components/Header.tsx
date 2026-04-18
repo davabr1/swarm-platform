@@ -150,7 +150,7 @@ export default function Header() {
           </div>
 
           <span
-            className={`hidden sm:inline-flex items-center border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest transition-none ${
+            className={`hidden sm:inline-flex items-center border px-1.5 py-0.5 text-[10px] font-mono normal-case tracking-widest transition-none ${
               pathname === "/"
                 ? "border-amber/40 bg-amber/5 text-amber"
                 : "border-border-hi text-foreground hover:border-amber/40 hover:bg-amber/5 hover:text-amber group-hover:border-amber/40 group-hover:bg-amber/5 group-hover:text-amber"

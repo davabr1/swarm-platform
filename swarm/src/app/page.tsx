@@ -181,8 +181,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Live MCP simulation — detailed agent↔agent / agent↔human flows with payment */}
-          <div className="lg:self-end">
+          {/* Live MCP simulation — detailed agent↔agent / agent↔human flows with payment.
+              Hidden on mobile — the terminal is dense and doesn't add clarity below lg. */}
+          <div className="hidden lg:block lg:self-end">
             <McpSimulations />
           </div>
         </div>

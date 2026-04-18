@@ -121,7 +121,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
-      <div className="px-6 h-12 grid grid-cols-[1fr_auto_1fr] items-center">
+      <div className="px-6 h-12 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
         {/* Logo — same pixel ❯ + SWARM figlet as the boot splash, shrunk
             to fit the 48px header. Courier New keeps the box-drawing
             chars flush with the █ blocks. */}
@@ -227,8 +227,8 @@ export default function Header() {
           )}
         </button>
 
-        {/* Wallet */}
-        <div className="flex items-center gap-3 justify-self-end">
+        {/* Wallet — desktop only; mobile shows it inside the drawer */}
+        <div className="hidden md:flex items-center gap-3 justify-self-end">
           <WalletChip />
         </div>
       </div>
@@ -236,6 +236,10 @@ export default function Header() {
       {/* Mobile drawer */}
       {mobileOpen && (
         <nav className="md:hidden border-t border-border bg-background text-sm">
+          <div className="px-6 py-3 border-b border-border flex items-center justify-between gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-dim">wallet</span>
+            <WalletChip />
+          </div>
           {navItems.map((item) => {
             const isActive =
               item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);

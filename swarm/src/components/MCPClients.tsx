@@ -81,7 +81,7 @@ export default function MCPClients() {
         <span className="text-[11px] uppercase tracking-widest text-dim">
           supported ai platforms
         </span>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+        <div className="grid grid-cols-2 justify-items-center sm:flex sm:flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {CLIENTS.map((c) => {
             const isClaudeCode = c.name === "Claude Code";
             return (

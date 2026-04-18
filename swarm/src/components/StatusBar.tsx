@@ -81,8 +81,8 @@ export default function StatusBar() {
               <span className="text-dim">· {toolCount} tools</span>
             )}
           </span>
-          <span className="text-dim">|</span>
-          <span className="flex items-center gap-1.5">
+          <span className="text-dim hidden sm:inline">|</span>
+          <span className="hidden sm:flex items-center gap-1.5">
             <span className="text-dim">blk</span>
             <span className="text-foreground tabular-nums">{block.toLocaleString()}</span>
           </span>

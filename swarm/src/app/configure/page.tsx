@@ -285,10 +285,12 @@ export default function ConfigurePage() {
         <div className="mb-8">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://configure</div>
           <h1 className="text-3xl md:text-4xl text-foreground mt-2 font-semibold tracking-tight">
-            plug in · <span className="text-amber">two steps</span>
+            get your agent on swarm · <span className="text-amber">two steps</span>
           </h1>
           <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-            pair a wallet once · register the MCP with your client · done
+            First, set up an MCP wallet so your agent can pay for calls (~10 seconds).
+            Then point your client — Claude Code, Claude Desktop, Cursor, Codex — at
+            the Swarm MCP. That&apos;s the whole setup.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -340,12 +342,15 @@ export default function ConfigurePage() {
         {/* PAIR — mint a local MCP wallet, then fund it. One-time, per machine. */}
         <section className="mb-14">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">01 · mint your MCP wallet</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">01 · set up your MCP wallet</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              mint a <span className="text-amber">self-custodial key</span> · fund it with USDC
+              run one command · fund it once · <span className="text-amber">done</span>
             </h2>
             <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-              Swarm pays per call via <span className="text-foreground">x402</span> — every paid route returns <code className="text-foreground">402 Payment Required</code> and the caller&apos;s wallet signs an <span className="text-foreground">EIP-3009</span> authorization. The pair command below mints a local secp256k1 keypair on this machine. You fund that address with Fuji USDC once; every future tool call signs from it. No deposits, no bearer tokens, no gas for the payer.
+              Swarm charges per tool call. To pay, the MCP needs its own small balance
+              of USDC on Avalanche Fuji. The command below creates a local wallet on
+              this machine and prints its address — you send some test USDC to that
+              address once, and from then on every tool call pays itself.
             </p>
           </div>
 
@@ -366,7 +371,7 @@ export default function ConfigurePage() {
                   [ {pairCopied ? "copied ✓" : "copy & run"} ]
                 </button>
                 <span className="text-[11px] text-dim">
-                  mints a key in ~/.swarm-mcp/session.json · prints the address
+                  takes ~10 seconds · you won&apos;t need to touch it again
                 </span>
               </div>
             </div>
@@ -374,23 +379,27 @@ export default function ConfigurePage() {
             <div className="p-6 text-sm text-muted leading-relaxed space-y-2">
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">01.</span>
-                <span className="flex-1">Run the command — it generates a fresh secp256k1 keypair and writes it to <code className="text-foreground">~/.swarm-mcp/session.json</code> (mode 0600).</span>
+                <span className="flex-1">Run the command. The CLI prints your MCP&apos;s address (<code className="text-foreground">0x…</code>) and a link to <code className="text-foreground">/pair?mcpAddress=…</code>. Keep the terminal open.</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">02.</span>
-                <span className="flex-1">The CLI prints your MCP&apos;s address — <code className="text-foreground">0x…</code>. Copy it.</span>
+                <span className="flex-1">Send a few dollars of USDC on <span className="text-foreground">Avalanche Fuji</span> to that address. Grab free testnet USDC at the <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer" className="underline text-foreground hover:text-amber">Circle faucet</a> (pick Avalanche Fuji). The CLI polls the chain and prints <code className="text-phosphor">✓ funded</code> when it arrives.</span>
               </div>
               <div className="flex gap-3">
-                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
-                <span className="flex-1">Send USDC on <span className="text-foreground">Avalanche Fuji</span> to that address. Grab free testnet USDC from the <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer" className="underline text-foreground hover:text-amber">Circle faucet</a> (pick Avalanche Fuji). That balance is what your MCP spends.</span>
+                <span className="text-phosphor font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
+                <span className="flex-1"><span className="text-foreground font-semibold">Optional — recommended.</span> Open the <code className="text-foreground">/pair</code> link from step 01 and sign one tx to register the MCP on-chain. That makes its balance + spend visible on <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>. The MCP works either way — this is just for tracking.</span>
               </div>
-              <div className="flex gap-3">
-                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">04.</span>
-                <span className="flex-1">CLI detects the funding and prints <code className="text-phosphor">✓ funded</code>.</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">05.</span>
-                <span className="flex-1">Open the <code className="text-foreground">/pair?mcpAddress=…</code> link the CLI printed and sign a one-time <code className="text-foreground">MCPRegistry.register</code> tx from your main wallet. That binds this MCP to your profile so its balance + spend show up under <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>.</span>
+            </div>
+
+            <div className="px-6 pb-6">
+              <div className="border border-phosphor/40 bg-phosphor/5 p-4">
+                <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">❯ zero interruption</div>
+                <p className="text-sm text-muted leading-relaxed">
+                  Once the MCP is funded, your agent signs every paid call <span className="text-foreground">from this local wallet, in the background</span>.
+                  No browser popup, no wallet confirmation, no manual approval. Claude Desktop or Cursor
+                  can run hundreds of tool calls end-to-end without asking you anything. The key never
+                  leaves this machine.
+                </p>
               </div>
             </div>
 

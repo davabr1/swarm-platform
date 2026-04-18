@@ -47,13 +47,15 @@ export async function runInteractivePair(): Promise<number> {
   console.log("  authorization with this key; USDC moves peer-to-peer via");
   console.log("  x402 in ~2 seconds. No gas for you.");
   console.log("");
-  console.log("  Next step — open the pair page in your browser and sign a");
-  console.log("  one-time MCPRegistry.register(…) tx with your main wallet.");
-  console.log("  That links this MCP to your profile so its balance + spend");
-  console.log("  show up under /profile alongside any others you've paired.");
+  console.log("  Circle Fuji USDC faucet:  https://faucet.circle.com/");
+  console.log("");
+  console.log("  Optional — link this MCP to your profile on swarm.com.");
+  console.log("  Open the pair page in your browser and sign one tx with");
+  console.log("  your main wallet; the MCP's balance + spend then show up");
+  console.log("  under /profile. Skip this and everything still works — it's");
+  console.log("  just for tracking.");
   console.log("");
   console.log(`  Pair page:                ${pairUrl}`);
-  console.log("  Circle Fuji USDC faucet:  https://faucet.circle.com/");
   console.log("");
   console.log(BAR);
 

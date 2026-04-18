@@ -35,7 +35,6 @@ function PairInner() {
           <div className="p-6">
             <PairForm
               code={code}
-              defaultBudget="5"
               defaultExpiryDays="30"
               onSuccess={() => {
                 // MCP pair flow — the session lives in the backend and the

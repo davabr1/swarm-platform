@@ -58,6 +58,7 @@ export function serializeTask(
     id: string;
     description: string;
     bounty: string;
+    bountyMicroUsd?: bigint;
     skill: string;
     payload: string | null;
     status: string;
@@ -70,6 +71,9 @@ export function serializeTask(
     visibility: string;
     posterRating: number | null;
     posterRatedAt: Date | null;
+    payoutTxHash?: string | null;
+    payoutBlockNumber?: number | null;
+    cancelledAt?: Date | null;
     createdAt: Date;
     claimedAt: Date | null;
     completedAt: Date | null;
@@ -101,6 +105,9 @@ export function serializeTask(
     visibility: t.visibility,
     posterRating: t.posterRating ?? undefined,
     posterRatedAt: t.posterRatedAt ? t.posterRatedAt.getTime() : undefined,
+    payoutTxHash: t.payoutTxHash ?? undefined,
+    payoutBlockNumber: t.payoutBlockNumber ?? undefined,
+    cancelledAt: t.cancelledAt ? t.cancelledAt.getTime() : undefined,
     createdAt: t.createdAt.getTime(),
     claimedAt: t.claimedAt ? t.claimedAt.getTime() : undefined,
     completedAt: t.completedAt ? t.completedAt.getTime() : undefined,

@@ -1,47 +1,56 @@
 import { randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
+import { ethers } from "ethers";
 import { db } from "@/lib/db";
-import { readAllowance, verifyPairSignature } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
 
 export const maxDuration = 60;
 
 const CODE_PATTERN = /^pair_[A-Za-z0-9_-]{16,64}$/;
 const SESSION_TOKEN_BYTES = 32;
-const ALLOWANCE_POLL_INTERVAL_MS = 5_000;
-const ALLOWANCE_POLL_ATTEMPTS = 6; // total ~30s
+const MAX_SIGNATURE_AGE_MS = 5 * 60 * 1000;
+const DEFAULT_EXPIRY_DAYS = 30;
 
 function generateSessionToken(): string {
   return randomBytes(SESSION_TOKEN_BYTES).toString("base64url");
 }
 
 function sanitizedSession(row: {
+  id: string;
   address: string;
-  budgetUsd: number;
-  spentUsd: number;
+  label: string | null;
   expiresAt: Date;
 }) {
   return {
+    id: row.id,
     address: row.address,
-    budgetUsd: row.budgetUsd,
-    spentUsd: row.spentUsd,
+    label: row.label,
     expiresAt: row.expiresAt.toISOString(),
   };
 }
 
-// Browser-initiated: claim a pair code with an EIP-712 signature + on-chain
-// USDC allowance. Creates the McpSession row the MCP will pick up on its
-// next poll. Token leaves the server exactly once (on the GET that follows
-// status=claimed → status=consumed transition).
+// Browser-initiated: claim a pair code with a single EIP-191 signature
+// binding the code to the wallet. Mints an McpSession the MCP long-poll
+// will pick up. No on-chain step — spending draws from the wallet's
+// deposited balance and is capped globally by UserProfile.autonomousCapUsd.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const code: string | undefined = typeof body.code === "string" ? body.code : undefined;
-  const address: string | undefined = typeof body.address === "string" ? body.address.toLowerCase() : undefined;
-  const budgetUsd: number | undefined = typeof body.budgetUsd === "number" ? body.budgetUsd : undefined;
-  const expiresAt: number | undefined = typeof body.expiresAt === "number" ? body.expiresAt : undefined;
-  const signature: string | undefined = typeof body.signature === "string" ? body.signature : undefined;
+  const address: string | undefined =
+    typeof body.address === "string" ? body.address.toLowerCase() : undefined;
+  const issuedAt: number | undefined =
+    typeof body.issuedAt === "number" ? body.issuedAt : undefined;
+  const signature: string | undefined =
+    typeof body.signature === "string" ? body.signature : undefined;
+  const label: string | null =
+    typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 64) : null;
+  const expiryDaysRaw =
+    typeof body.expiryDays === "number" && Number.isFinite(body.expiryDays)
+      ? body.expiryDays
+      : DEFAULT_EXPIRY_DAYS;
+  const expiryDays = Math.max(1, Math.min(365, Math.floor(expiryDaysRaw)));
 
-  if (!code || !address || budgetUsd === undefined || !expiresAt || !signature) {
+  if (!code || !address || !issuedAt || !signature) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
   if (!CODE_PATTERN.test(code)) {
@@ -50,73 +59,34 @@ export async function POST(req: NextRequest) {
   if (!/^0x[a-f0-9]{40}$/.test(address)) {
     return Response.json({ error: "Invalid address" }, { status: 400 });
   }
-  if (budgetUsd <= 0 || budgetUsd > 50) {
-    return Response.json({ error: "Budget must be between $0 and $50" }, { status: 400 });
-  }
-  const expiresDate = new Date(expiresAt * 1000);
-  const now = Date.now();
-  if (expiresDate.getTime() <= now + 60_000) {
-    return Response.json({ error: "expiresAt too soon" }, { status: 400 });
+  if (Math.abs(Date.now() - issuedAt) > MAX_SIGNATURE_AGE_MS) {
+    return Response.json({ error: "Signature too old" }, { status: 400 });
   }
 
-  const budgetMicroUsd = BigInt(Math.round(budgetUsd * 1_000_000));
-
-  // Verify the EIP-712 signature binds this code to this address + budget.
-  // This alone doesn't stop a hostile signer — the on-chain allowance check
-  // below is the security primitive that actually caps dollars.
-  let sigOk = false;
+  const message = `Swarm MCP pair: ${code}@${address}@${issuedAt}`;
+  let recovered = "";
   try {
-    sigOk = verifyPairSignature({
-      code,
-      address,
-      budgetMicroUsd,
-      expiresAt,
-      signature,
-    });
+    recovered = ethers.verifyMessage(message, signature).toLowerCase();
   } catch {
-    sigOk = false;
+    return Response.json({ error: "Invalid signature" }, { status: 401 });
   }
-  if (!sigOk) {
+  if (recovered !== address) {
     return Response.json({ error: "Signature does not match address" }, { status: 401 });
   }
 
-  // Poll the on-chain allowance — the approve tx may not have landed yet.
-  let allowance: bigint = BigInt(0);
-  for (let i = 0; i < ALLOWANCE_POLL_ATTEMPTS; i++) {
-    try {
-      allowance = await readAllowance(address);
-    } catch {
-      allowance = BigInt(0);
-    }
-    if (allowance >= budgetMicroUsd) break;
-    if (i < ALLOWANCE_POLL_ATTEMPTS - 1) {
-      await new Promise((r) => setTimeout(r, ALLOWANCE_POLL_INTERVAL_MS));
-    }
-  }
-  if (allowance < budgetMicroUsd) {
-    return Response.json(
-      {
-        error: "allowance_not_found",
-        message:
-          "USDC approval did not appear on-chain within 30s. Confirm the approve transaction landed and retry.",
-      },
-      { status: 409 },
-    );
-  }
-
-  // Reject if this code was already claimed — codes are one-shot.
+  // Codes are one-shot.
   const existing = await db.pairCode.findUnique({ where: { code } });
   if (existing && existing.status !== "pending") {
     return Response.json({ error: "Pair code already used" }, { status: 409 });
   }
 
+  const expiresDate = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
   const token = generateSessionToken();
   const session = await db.mcpSession.create({
     data: {
       token,
       address,
-      budgetUsd,
-      spentUsd: 0,
+      label,
       expiresAt: expiresDate,
     },
   });
@@ -128,25 +98,22 @@ export async function POST(req: NextRequest) {
 
   await logActivity(
     "registration",
-    `MCP paired with ${address.slice(0, 8)}... — ${budgetUsd.toFixed(2)} USDC budget`,
+    `MCP paired with ${address.slice(0, 8)}...${label ? ` (${label})` : ""}`,
   );
 
   return Response.json({
     success: true,
     address,
-    budgetUsd,
+    label,
     expiresAt: expiresDate.toISOString(),
-    // Browser pairing reads the token directly from this POST response
-    // (no polling). MCP pairing ignores this field and picks up via the
-    // GET endpoint below — leaving the token in the POST is harmless
-    // because the same token is already in-scope for both paths.
+    // Browser pairing reads the token directly from this POST response.
+    // MCP pairing ignores this and picks up via GET (below).
     sessionToken: token,
   });
 }
 
 // MCP-initiated long-poll. Returns the session token exactly once when a
-// code transitions from claimed → consumed. Subsequent polls return 404 so
-// replayed MCP processes can't silently pick up someone else's session.
+// code transitions from claimed → consumed.
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -160,7 +127,6 @@ export async function GET(req: NextRequest) {
   if (pair.status === "consumed") {
     return Response.json({ error: "Pair code already consumed" }, { status: 410 });
   }
-  // status === "claimed" — deliver token exactly once then mark consumed.
   if (!pair.sessionId) {
     return Response.json({ error: "Pair record missing session" }, { status: 500 });
   }

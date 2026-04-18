@@ -1,35 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  useAccount,
-  useChainId,
-  useSignTypedData,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from "wagmi";
+import { useEffect, useState } from "react";
+import { useAccount, useChainId, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import SubmittingLabel from "./SubmittingLabel";
 
-export type PairStage =
-  | "idle"
-  | "signing"
-  | "approving"
-  | "awaiting-receipt"
-  | "claiming"
-  | "paired"
-  | "error";
+export type PairStage = "idle" | "signing" | "claiming" | "paired" | "error";
 
 export interface PairSuccess {
   sessionToken: string;
   address: string;
-  budgetUsd: number;
+  label: string | null;
   expiresAt: string;
 }
 
 export interface PairFormProps {
   code: string;
-  defaultBudget?: string;
+  defaultLabel?: string;
   defaultExpiryDays?: string;
   onSuccess: (result: PairSuccess) => void;
   onCancel?: () => void;
@@ -37,52 +24,17 @@ export interface PairFormProps {
   showCodeHeader?: boolean;
 }
 
-type PairConfig = { orchestrator: string; usdc: string; chainId: number };
+type PairConfig = { chainId: number };
 
-const DOMAIN = { name: "Swarm", version: "1" } as const;
-const PAIR_TYPES = {
-  PairAuthorization: [
-    { name: "code", type: "string" },
-    { name: "address", type: "address" },
-    { name: "budgetMicroUsd", type: "uint256" },
-    { name: "expiresAt", type: "uint256" },
-    { name: "chainId", type: "uint256" },
-  ],
-} as const;
-
-const USDC_ABI = [
-  {
-    type: "function",
-    name: "approve",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-] as const;
-
-type ErrorKind =
-  | "rejected"
-  | "insufficient_gas"
-  | "network"
-  | "code_used"
-  | "disconnected"
-  | "allowance_not_landed"
-  | "validation"
-  | "other";
+type ErrorKind = "rejected" | "network" | "code_used" | "disconnected" | "validation" | "other";
 
 interface ClassifiedError {
   kind: ErrorKind;
   title: string;
   body: string;
   showRetry: boolean;
-  showFaucet?: boolean;
 }
 
-// Wallet libraries vary wildly — string-match on the lowercased message
-// survives most of them. Maps raw throw shapes to actionable messages.
 function classifyError(err: unknown): ClassifiedError {
   const anyErr = err as
     | { code?: number | string; shortMessage?: string; message?: string }
@@ -103,29 +55,8 @@ function classifyError(err: unknown): ClassifiedError {
   ) {
     return {
       kind: "rejected",
-      title: "You rejected the prompt in your wallet.",
-      body: "Click authorize again to retry. You'll see two prompts — an EIP-712 signature (free) and one USDC approve (~0.001 AVAX).",
-      showRetry: true,
-    };
-  }
-  if (
-    lower.includes("insufficient funds") ||
-    lower.includes("insufficient balance for gas") ||
-    lower.includes("gas required exceeds")
-  ) {
-    return {
-      kind: "insufficient_gas",
-      title: "Not enough AVAX to pay for gas.",
-      body: "The USDC approve costs about 0.001 AVAX on Fuji. Grab testnet AVAX from the faucet and retry.",
-      showRetry: true,
-      showFaucet: true,
-    };
-  }
-  if (raw === "allowance_not_found") {
-    return {
-      kind: "allowance_not_landed",
-      title: "USDC approval didn't show up on-chain in 30s.",
-      body: "Fuji may be congested. Check your wallet's activity — if the approve tx is still pending, wait for it to confirm and retry.",
+      title: "You rejected the signature.",
+      body: "Click authorize again to retry. Only one signature prompt — no gas, no approve transaction.",
       showRetry: true,
     };
   }
@@ -138,7 +69,7 @@ function classifyError(err: unknown): ClassifiedError {
     return {
       kind: "code_used",
       title: "This pair code has already been used.",
-      body: "Retry to generate a fresh one and try again.",
+      body: "Retry to generate a fresh one.",
       showRetry: true,
     };
   }
@@ -163,17 +94,9 @@ function classifyError(err: unknown): ClassifiedError {
   };
 }
 
-function openPopup(url: string, width = 900, height = 720) {
-  if (typeof window === "undefined") return;
-  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
-  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
-  const features = `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)},noopener,noreferrer,menubar=no,toolbar=no,location=no,status=no`;
-  window.open(url, "_blank", features);
-}
-
 export default function PairForm({
   code,
-  defaultBudget = "10",
+  defaultLabel = "",
   defaultExpiryDays = "30",
   onSuccess,
   onCancel,
@@ -181,14 +104,11 @@ export default function PairForm({
 }: PairFormProps) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const [budget, setBudget] = useState(defaultBudget);
+  const [label, setLabel] = useState(defaultLabel);
   const [expiryDays, setExpiryDays] = useState(defaultExpiryDays);
   const [stage, setStage] = useState<PairStage>("idle");
   const [errorInfo, setErrorInfo] = useState<ClassifiedError | null>(null);
   const [pairConfig, setPairConfig] = useState<PairConfig | null>(null);
-  const [signature, setSignature] = useState<`0x${string}` | null>(null);
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
-  const [approveHash, setApproveHash] = useState<`0x${string}` | null>(null);
 
   useEffect(() => {
     fetch("/api/pair/config")
@@ -200,8 +120,6 @@ export default function PairForm({
       });
   }, []);
 
-  // Wallet disconnect detection — if the user disconnects mid-flow, bail
-  // with an actionable error rather than letting the stage label linger.
   useEffect(() => {
     if (isConnected) return;
     if (stage === "idle" || stage === "paired" || stage === "error") return;
@@ -216,76 +134,21 @@ export default function PairForm({
 
   const resetToIdle = () => {
     setErrorInfo(null);
-    setSignature(null);
-    setExpiresAt(null);
-    setApproveHash(null);
     setStage("idle");
   };
 
-  const { signTypedDataAsync } = useSignTypedData();
-  const { writeContractAsync } = useWriteContract();
-  const {
-    data: approveReceipt,
-    isSuccess: receiptOk,
-    isError: receiptErr,
-  } = useWaitForTransactionReceipt({
-    hash: approveHash ?? undefined,
-  });
+  const { signMessageAsync } = useSignMessage();
 
-  const budgetUsd = useMemo(() => parseFloat(budget || "0"), [budget]);
-  const budgetValid = Number.isFinite(budgetUsd) && budgetUsd > 0 && budgetUsd <= 50;
   const expiryDaysNum = parseInt(expiryDays || "0", 10);
-  const expiryValid = Number.isFinite(expiryDaysNum) && expiryDaysNum > 0 && expiryDaysNum <= 90;
-
-  // Drive the claim POST once the approve tx confirms on-chain.
-  useEffect(() => {
-    if (stage !== "awaiting-receipt") return;
-    if (receiptErr) {
-      setErrorInfo({
-        kind: "other",
-        title: "USDC approve transaction failed on-chain.",
-        body: "The transaction reverted. Check your wallet for details, then click retry.",
-        showRetry: true,
-      });
-      setStage("error");
-      return;
-    }
-    if (!receiptOk) return;
-    if (!signature || !address || !expiresAt) return;
-    setStage("claiming");
-    (async () => {
-      try {
-        const res = await fetch("/api/pair/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, address, budgetUsd, expiresAt, signature }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error ?? `Claim failed (${res.status})`);
-        if (!data?.sessionToken) {
-          throw new Error("Backend did not return sessionToken");
-        }
-        setStage("paired");
-        onSuccess({
-          sessionToken: data.sessionToken,
-          address: data.address,
-          budgetUsd: data.budgetUsd,
-          expiresAt: data.expiresAt,
-        });
-      } catch (e) {
-        setErrorInfo(classifyError(e));
-        setStage("error");
-      }
-    })();
-  }, [stage, receiptOk, receiptErr, signature, address, expiresAt, budgetUsd, code, onSuccess]);
+  const expiryValid = Number.isFinite(expiryDaysNum) && expiryDaysNum > 0 && expiryDaysNum <= 365;
 
   const authorize = async () => {
     if (!pairConfig || !address) return;
-    if (!budgetValid || !expiryValid) {
+    if (!expiryValid) {
       setErrorInfo({
         kind: "validation",
-        title: "Invalid budget or expiry.",
-        body: "Budget must be between 0 and 50 USDC. Expiry must be 1–90 days.",
+        title: "Invalid expiry.",
+        body: "Expiry must be 1–365 days.",
         showRetry: true,
       });
       setStage("error");
@@ -302,34 +165,36 @@ export default function PairForm({
       return;
     }
     setErrorInfo(null);
-    const exp = Math.floor(Date.now() / 1000) + expiryDaysNum * 24 * 60 * 60;
-    const budgetMicroUsd = BigInt(Math.round(budgetUsd * 1_000_000));
+    const issuedAt = Date.now();
+    const normalized = address.toLowerCase();
+    const message = `Swarm MCP pair: ${code}@${normalized}@${issuedAt}`;
     try {
       setStage("signing");
-      const sig = await signTypedDataAsync({
-        domain: { ...DOMAIN, chainId: pairConfig.chainId },
-        types: PAIR_TYPES,
-        primaryType: "PairAuthorization",
-        message: {
-          code,
-          address,
-          budgetMicroUsd,
-          expiresAt: BigInt(exp),
-          chainId: BigInt(pairConfig.chainId),
-        },
-      });
-      setSignature(sig);
-      setExpiresAt(exp);
+      const signature = await signMessageAsync({ message });
 
-      setStage("approving");
-      const hash = await writeContractAsync({
-        abi: USDC_ABI,
-        address: pairConfig.usdc as `0x${string}`,
-        functionName: "approve",
-        args: [pairConfig.orchestrator as `0x${string}`, budgetMicroUsd],
+      setStage("claiming");
+      const res = await fetch("/api/pair/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          address: normalized,
+          issuedAt,
+          signature,
+          label: label.trim() || undefined,
+          expiryDays: expiryDaysNum,
+        }),
       });
-      setApproveHash(hash);
-      setStage("awaiting-receipt");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `Claim failed (${res.status})`);
+      if (!data?.sessionToken) throw new Error("Backend did not return sessionToken");
+      setStage("paired");
+      onSuccess({
+        sessionToken: data.sessionToken,
+        address: data.address,
+        label: data.label ?? null,
+        expiresAt: data.expiresAt,
+      });
     } catch (e) {
       setErrorInfo(classifyError(e));
       setStage("error");
@@ -350,25 +215,24 @@ export default function PairForm({
 
       {!isConnected || !address ? (
         <div className="flex flex-col items-center py-4 gap-3">
-          <div className="text-sm text-muted">Connect the wallet you want to fund agent calls from.</div>
+          <div className="text-sm text-muted">Connect the wallet this MCP will spend from.</div>
           <ConnectButton />
         </div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
-              <div className="text-[10px] uppercase tracking-widest text-dim mb-2">budget · usdc</div>
+              <div className="text-[10px] uppercase tracking-widest text-dim mb-2">label · optional</div>
               <div className="flex items-baseline border border-border px-2 py-2">
                 <input
                   type="text"
-                  inputMode="decimal"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
-                  className="w-full bg-transparent text-amber tabular-nums outline-none border-0"
+                  value={label}
+                  placeholder="e.g. Claude Desktop"
+                  onChange={(e) => setLabel(e.target.value.slice(0, 64))}
+                  className="w-full bg-transparent text-foreground outline-none border-0"
                 />
-                <span className="text-amber ml-1 text-xs">USDC</span>
               </div>
-              <div className="text-[10px] text-dim mt-1">max 50 USDC · one USDC approve transaction</div>
+              <div className="text-[10px] text-dim mt-1">helps you tell sessions apart.</div>
             </label>
             <label className="block">
               <div className="text-[10px] uppercase tracking-widest text-dim mb-2">expires · days</div>
@@ -381,39 +245,28 @@ export default function PairForm({
                   className="w-full bg-transparent text-foreground tabular-nums outline-none border-0"
                 />
               </div>
-              <div className="text-[10px] text-dim mt-1">max 90. re-pair any time.</div>
+              <div className="text-[10px] text-dim mt-1">max 365. revoke any time.</div>
             </label>
           </div>
 
           <div className="border border-border p-3 text-[11px] text-dim leading-relaxed">
-            Authorizing will prompt two wallet actions:
-            <ol className="list-decimal ml-4 mt-1 space-y-1">
-              <li>One off-chain EIP-712 signature (free) — proves you authorized this session.</li>
-              <li>
-                One USDC <code className="text-amber">approve</code> transaction (~0.001 AVAX) — the orchestrator
-                can pull up to <span className="text-amber">{budget || "0"} USDC</span> on your behalf. You stay
-                in full control; revoke any time from your profile page.
-              </li>
-            </ol>
+            Authorize this MCP client to spend from your <span className="text-amber">deposited balance</span>,
+            bounded by your global <span className="text-amber">autonomous cap</span>. One off-chain
+            signature — no gas, no approve transaction.
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={authorize}
               disabled={
-                !budgetValid ||
                 !expiryValid ||
                 stage === "signing" ||
-                stage === "approving" ||
-                stage === "awaiting-receipt" ||
                 stage === "claiming" ||
                 stage === "paired"
               }
               className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi disabled:opacity-40 transition-none"
             >
-              {stage === "signing" ? <SubmittingLabel text="sign typed data" /> : null}
-              {stage === "approving" ? <SubmittingLabel text="sign approve" /> : null}
-              {stage === "awaiting-receipt" ? <SubmittingLabel text="waiting for tx" /> : null}
+              {stage === "signing" ? <SubmittingLabel text="sign message" /> : null}
               {stage === "claiming" ? <SubmittingLabel text="claiming" /> : null}
               {stage === "paired" ? "[ paired ✓ ]" : null}
               {stage === "idle" || stage === "error" ? "[ authorize ]" : null}
@@ -421,55 +274,13 @@ export default function PairForm({
             {onCancel && stage !== "paired" && (
               <button
                 onClick={onCancel}
-                disabled={stage === "signing" || stage === "approving" || stage === "awaiting-receipt" || stage === "claiming"}
+                disabled={stage === "signing" || stage === "claiming"}
                 className="text-[11px] text-dim hover:text-foreground disabled:opacity-40 bg-transparent border-0 cursor-pointer"
               >
                 cancel
               </button>
             )}
           </div>
-
-          {approveHash && (
-            <div className="border border-border p-3 text-[11px] leading-relaxed">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-dim">approve transaction</span>
-                <button
-                  onClick={() => openPopup(`https://testnet.snowtrace.io/tx/${approveHash}`)}
-                  className="text-[10px] text-dim hover:text-amber bg-transparent border-0 p-0 cursor-pointer"
-                  title="Open on Fuji block explorer"
-                >
-                  view on Snowtrace ↗
-                </button>
-              </div>
-              {receiptOk && approveReceipt ? (
-                <div className="space-y-1">
-                  <div className="text-phosphor">
-                    ✓ confirmed in block{" "}
-                    <span className="tabular-nums">
-                      {Number(approveReceipt.blockNumber).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="text-dim font-mono break-all">
-                    {approveHash.slice(0, 10)}…{approveHash.slice(-8)}
-                  </div>
-                  <div className="text-dim">
-                    gas used:{" "}
-                    <span className="tabular-nums text-muted">
-                      {Number(approveReceipt.gasUsed).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              ) : receiptErr ? (
-                <div className="text-danger">✗ transaction reverted on-chain</div>
-              ) : (
-                <div className="text-amber flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 bg-amber dot-pulse" />
-                  waiting for block confirmation…{" "}
-                  <span className="text-dim font-mono">{approveHash.slice(0, 8)}…</span>
-                </div>
-              )}
-            </div>
-          )}
 
           {stage === "paired" && (
             <div className="border border-phosphor p-3 text-xs text-phosphor">
@@ -487,14 +298,6 @@ export default function PairForm({
                     className="border border-amber text-amber text-[11px] px-3 py-1 hover:bg-amber hover:text-background transition-none"
                   >
                     [ retry ]
-                  </button>
-                )}
-                {errorInfo.showFaucet && (
-                  <button
-                    onClick={() => openPopup("https://faucet.avax.network")}
-                    className="border border-phosphor text-phosphor text-[11px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none bg-transparent cursor-pointer"
-                  >
-                    [ fuji faucet ↗ ]
                   </button>
                 )}
               </div>

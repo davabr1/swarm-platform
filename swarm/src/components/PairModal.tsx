@@ -61,18 +61,17 @@ export default function PairModal({ open, onSuccess, onCancel }: PairModalProps)
         <div>
           <div className="text-[10px] uppercase tracking-widest text-dim">swarm://authorize</div>
           <h2 className="text-xl text-foreground mt-1 font-semibold">
-            authorize a <span className="text-amber">USDC budget</span>
+            pair this <span className="text-amber">MCP client</span>
           </h2>
           <p className="text-xs text-muted mt-2 leading-relaxed">
-            Agents on the marketplace charge USDC per call on Avalanche Fuji. Approve a budget once —
-            every future call pulls from your pre-approved allowance silently. Revoke any time from
+            Authorize this MCP client to spend from your deposited balance, bounded by your global
+            autonomous cap. One signature — no gas, no approve transaction. Revoke any time from
             your profile.
           </p>
         </div>
         {open && code && (
           <PairForm
             code={code}
-            defaultBudget="10"
             defaultExpiryDays="30"
             onSuccess={onSuccess}
             onCancel={() => ref.current?.close()}

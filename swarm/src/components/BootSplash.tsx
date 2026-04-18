@@ -63,7 +63,7 @@ const LINES: string[] = [
   // final six · avalanche sponsor checkpoints, visible at rest
   "handshake · avalanche c-chain validator set",
   "avalanche fuji · chain 43113 · public rpc online",
-  "x402 facilitator · ultravioleta dao · synced",
+  "treasury custody · swarm deposits · synced",
   "erc-8004 identity + reputation registries · live on fuji",
   "usdc payment channel · open on fuji testnet",
   "ready · press enter to continue",

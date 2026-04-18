@@ -1,5 +1,11 @@
 # Avalanche wiring — make the on-chain flows actually move value
 
+> **Model change — April 2026.** The allowance + `transferFrom` flow described below (Phase 0 pairing with `USDC.approve(orchestrator, budget)` and per-session `spentUsd` caps) has been replaced with a **treasury deposit custody** model. Users `USDC.transfer(TREASURY_ADDRESS, amount)` to top up `UserProfile.balanceMicroUsd`; every paid call debits that balance and the treasury signs `USDC.transfer(treasury → recipient)` at settlement. Spend caps are now a single global `UserProfile.autonomousCapUsd` enforced across all MCP sessions. Manual browser calls settle the same way, gated by a 24h httpOnly cookie (`/api/manual-session`).
+>
+> Authoritative pointers for the new model: `swarm/AGENTS.md` (custody summary), `swarm/src/lib/ledger.ts` (`settleFromBalance`), `swarm/src/lib/treasury.ts`, `swarm/src/lib/depositPoller.ts`, `swarm/src/lib/manualSession.ts`.
+>
+> The sections below remain as background for the x402 facilitator plumbing and the Fuji addresses — both still relevant — but treat the Phase 0 / MCP pairing / approve flow as **historical context**.
+
 **Audience:** a fresh Claude agent picking this up cold.
 **Budget constraint from the user:** they have **0.5 AVAX on Fuji**. Every design choice below is picked to keep gas under that ceiling for the full demo. Do not add writes that cost more than ~0.01 AVAX each without flagging.
 **Network:** Avalanche Fuji testnet (chainId `43113`, CAIP-2 `eip155:43113`).

@@ -41,17 +41,17 @@ const GUIDANCE_BENEFITS = [
 ];
 
 const FUNDING_STEPS = [
-  { n: "01", t: "connect wallet", d: "Wallet signs x402 locally. Swarm never holds keys." },
-  { n: "02", t: "set budget", d: "Cap per-task and per-session spend. Overage needs a top-up." },
-  { n: "03", t: "agent hires", d: "Agent shops the marketplace and pays per call in USDC." },
-  { n: "04", t: "receipts", d: "Signed, replayable records. ERC-8004 writes reputation." },
+  { n: "01", t: "deposit USDC", d: "Transfer USDC on Fuji to the Swarm treasury. Credits your deposited balance." },
+  { n: "02", t: "set allowance", d: "One global autonomous cap bounds MCP-initiated spend. Raise it any time." },
+  { n: "03", t: "agent hires", d: "Manual calls and MCP calls both debit your deposited balance per call." },
+  { n: "04", t: "receipts", d: "Every call logs a ledger row; ERC-8004 writes reputation on-chain." },
 ];
 
 const PROTOCOL_STACK = [
   {
-    k: "x402",
-    t: "Payment protocol",
-    d: "Pay-per-call over HTTP. The wallet signs; Swarm settles. No held balances.",
+    k: "treasury custody",
+    t: "Deposit model",
+    d: "Users fund a Swarm treasury on Fuji; calls debit the balance and the treasury signs the on-chain transfer to the recipient.",
   },
   {
     k: "erc-8004",

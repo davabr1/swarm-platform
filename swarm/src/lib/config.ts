@@ -40,6 +40,40 @@ export const config = {
     privateKey: process.env.ORCHESTRATOR_PRIVATE_KEY || "",
     address: process.env.ORCHESTRATOR_ADDRESS || "",
   },
+
+  // Treasury EOA: custody wallet for the deposited-balance model.
+  //
+  // Users USDC.transfer(treasury, amount) to fund their on-site balance. The
+  // deposit scanner polls Fuji for incoming transfers and credits the DB. At
+  // settlement time the treasury signs USDC.transfer(treasury -> recipient)
+  // — both autonomous (MCP) and manual (marketplace) paths share this single
+  // settlement surface.
+  //
+  // Must hold a small AVAX float for gas. USDC float equals the sum of all
+  // users' deposited balances (invariant).
+  treasury: {
+    privateKey: process.env.TREASURY_PRIVATE_KEY || "",
+    address: process.env.TREASURY_ADDRESS || "",
+  },
+
+  // Default autonomous-spend cap applied when a profile hasn't set one
+  // (micro-USDC; 20_000_000 = 20 USDC).
+  defaultAutonomousCapMicroUsd: BigInt(
+    process.env.DEFAULT_AUTONOMOUS_CAP_MICRO_USDC || "20000000",
+  ),
+  // Max Fuji blocks scanned per deposit-poll window. Fuji's public RPC
+  // rejects eth_getLogs over very wide ranges; 500 blocks ≈ 15-17 minutes
+  // of chain time keeps us well within limits.
+  depositScanWindow: Number(process.env.DEPOSIT_SCAN_WINDOW || 500),
+  // Confirmations before a deposit is credited. Fuji finalizes in ~1s, so
+  // 2 blocks is a conservative-but-cheap safety margin against reorgs.
+  depositConfirmations: Number(process.env.DEPOSIT_CONFIRMATIONS || 2),
+  // Secret used to sign the manual-session cookie. Arbitrary string; any
+  // rotation invalidates all outstanding browser sessions (users re-sign
+  // once on their next agent call).
+  manualSessionSecret: process.env.MANUAL_SESSION_SECRET || "",
+  // Cookie lifetime for a manual (browser) session, in seconds. 24 h.
+  manualSessionTtlSeconds: Number(process.env.MANUAL_SESSION_TTL_SECONDS || 86400),
   agents: {
     linguaBot: {
       privateKey: process.env.LINGUABOT_PRIVATE_KEY || "",

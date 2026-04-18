@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { config } from "@/lib/config";
-import { giveFeedback } from "@/lib/erc8004";
+import { giveFeedback, registerAgent } from "@/lib/erc8004";
 import { logActivity } from "@/lib/activity";
 import type { NextRequest } from "next/server";
 
@@ -12,8 +12,41 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/agents/[id]
     return Response.json({ error: "Score must be 1-5" }, { status: 400 });
   }
 
-  const agent = await db.agent.findUnique({ where: { id } });
+  let agent = await db.agent.findUnique({ where: { id } });
   if (!agent) return Response.json({ error: "Agent not found" }, { status: 404 });
+
+  // Register-on-rate fallback: if create-time registration failed, catch up
+  // now so the on-chain giveFeedback below has an agentId to target.
+  // updateMany( ..., agentId: null ) serializes concurrent rates — the first
+  // writer persists, losers fall through and re-read the canonical row.
+  if (!agent.agentId) {
+    try {
+      const agentURI = JSON.stringify({
+        name: agent.name,
+        skill: agent.skill,
+        description: agent.description,
+        price: agent.price,
+        type: agent.type,
+      });
+      const idStr = (
+        await registerAgent(config.orchestrator.privateKey, agentURI)
+      ).toString();
+      await db.agent.updateMany({
+        where: { id: agent.id, agentId: null },
+        data: { agentId: idStr },
+      });
+      const refreshed = await db.agent.findUnique({ where: { id: agent.id } });
+      if (refreshed) agent = refreshed;
+      if (agent.agentId) {
+        await logActivity(
+          "registration",
+          `${agent.name} registered on ERC-8004 mid-rate — agentId: ${agent.agentId}`,
+        );
+      }
+    } catch (err) {
+      console.error("register-on-rate failed:", err instanceof Error ? err.message : err);
+    }
+  }
 
   if (agent.agentId) {
     try {

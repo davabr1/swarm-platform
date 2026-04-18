@@ -31,6 +31,7 @@ model Agent {
   pricingNote     String?
   createdAt       DateTime @default(now())
 
+  @@unique([agentId])
   @@index([type])
   @@index([userCreated])
   @@index([reputation(sort: Desc)])
@@ -40,6 +41,9 @@ model Task {
   id             String    @id
   description    String
   bounty         String
+  // Canonical numeric bounty in micro-USDC. Source of truth for balance
+  // accounting; `bounty` (String) is kept for display + backwards compat.
+  bountyMicroUsd BigInt    @default(0)
   skill          String
   payload        String?
   status         String    @default("open")
@@ -52,6 +56,13 @@ model Task {
   visibility     String    @default("private")
   posterRating   Int?
   posterRatedAt  DateTime?
+  // Link back to the manual_spend Transaction that escrowed the bounty when
+  // the task was posted. Null for legacy rows posted before Phase 3.
+  escrowTransactionId String?
+  // On-chain receipt when the bounty was paid out to the claimer at submit.
+  payoutTxHash       String?
+  payoutBlockNumber  Int?
+  cancelledAt        DateTime?
   createdAt      DateTime  @default(now())
   claimedAt      DateTime?
   completedAt    DateTime?
@@ -72,15 +83,73 @@ model Activity {
 }
 
 model UserProfile {
-  walletAddress      String   @id
-  displayName        String?
-  bio                String?
-  email              String?
-  spendCapPerTask    String?
-  spendCapPerSession String?
-  autoTopup          Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  walletAddress           String   @id
+  displayName             String?
+  bio                     String?
+  email                   String?
+  // Authoritative deposited balance in micro-USDC. Funded by USDC.Transfer
+  // to the treasury EOA; debited by every paid call (autonomous or manual).
+  balanceMicroUsd         BigInt   @default(0)
+  // Global cap on autonomous (MCP-initiated) spend. Decimal USDC string —
+  // null means "use config.defaultAutonomousCapMicroUsd".
+  autonomousCapUsd        String?
+  // Running total of autonomous spend since last cap reset. The preflight
+  // check in /api/guidance + /api/image enforces `spent + estimate <= cap`.
+  autonomousSpentMicroUsd BigInt   @default(0)
+  autoTopup               Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+// Append-only ledger powering the profile's Transactions panel. One row per
+// balance delta (deposit credit, spend debit, earnings credit, refund).
+model Transaction {
+  id            String   @id @default(uuid())
+  walletAddress String
+  // "deposit" | "autonomous_spend" | "manual_spend" | "earning" | "refund"
+  kind          String
+  // Signed micro-USDC applied to this wallet (+ for deposit/earning/refund,
+  // - for spend). Authoritative for the ledger; the UserProfile counter is
+  // the cached sum.
+  deltaMicroUsd BigInt
+  // Absolute micro-USDC moved on-chain in the underlying transfer.
+  grossMicroUsd BigInt
+  description   String?
+  // Cross-ref to the source row (guidance request / image gen / deposit).
+  refType       String?
+  refId         String?
+  // On-chain tx hash. Null for pure-DB adjustments; unique-per-kind so
+  // re-running the deposit scanner over the same block range can't double-
+  // credit.
+  txHash        String?
+  blockNumber   Int?
+  status        String   @default("confirmed")
+  createdAt     DateTime @default(now())
+
+  @@index([walletAddress, createdAt(sort: Desc)])
+  @@index([kind])
+  @@unique([txHash, kind], map: "Transaction_txHash_kind_key")
+}
+
+// One row per observed USDC.Transfer(_, treasury). Lets the deposit
+// scanner dedupe credits idempotently — txHash is the primary key.
+model Deposit {
+  txHash        String   @id
+  fromAddress   String
+  microUsd      BigInt
+  blockNumber   Int
+  creditedAt    DateTime @default(now())
+  transactionId String?
+
+  @@index([fromAddress, creditedAt(sort: Desc)])
+}
+
+// Singleton (id="usdc") tracking how far the deposit scanner has walked
+// the chain. Updated after each scan window completes.
+model DepositScanCursor {
+  id        String   @id
+  lastBlock Int
+  updatedAt DateTime @updatedAt
 }
 
 model GuidanceRequest {
@@ -111,10 +180,11 @@ model GuidanceRequest {
   @@index([rootId])
 }
 
-// MCP session pairing: Phase 0 of the Avalanche wiring. The MCP boots,
-// prints a pair URL, user connects wallet + approves a USDC budget, and the
-// browser claims the code to mint a session token. McpSession.spentUsd is a
-// soft gate — the real cap is the on-chain USDC allowance enforced by x402.
+// MCP session pairing. The MCP boots, prints a pair URL, user connects
+// wallet and signs an authorization message, and the browser claims the
+// code to mint a session token. There is no per-session on-chain budget
+// anymore — spending draws from the wallet's deposited balance, capped
+// globally by UserProfile.autonomousCapUsd.
 model PairCode {
   code       String   @id
   status     String   // "pending" | "claimed" | "consumed" | "expired"
@@ -128,8 +198,7 @@ model McpSession {
   id         String    @id @default(uuid())
   token      String    @unique
   address    String
-  budgetUsd  Float
-  spentUsd   Float     @default(0)
+  label      String?
   expiresAt  DateTime
   createdAt  DateTime  @default(now())
   revokedAt  DateTime?

@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { serializeTask } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
+import { readManualSession } from "@/lib/manualSession";
+import { escrowBounty } from "@/lib/taskEscrow";
+import { parsePrice } from "@/lib/geminiPricing";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -51,17 +54,58 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Posting a task escrows the bounty from the poster's deposited balance.
+  // Require a valid manual session cookie — matches the marketplace path.
+  const session = await readManualSession();
+  if (!session) {
+    return Response.json(
+      { error: "not_authenticated", message: "Sign in with your wallet to post tasks." },
+      { status: 401 }
+    );
+  }
+  const poster = session.address;
+  if (typeof postedBy === "string" && postedBy.length && postedBy.toLowerCase() !== poster) {
+    return Response.json(
+      { error: "address_mismatch", message: "postedBy does not match the authenticated wallet." },
+      { status: 403 }
+    );
+  }
+
+  const bountyUsd = parsePrice(String(bounty));
+  if (!(bountyUsd > 0)) {
+    return Response.json({ error: "invalid_bounty" }, { status: 400 });
+  }
+  const bountyMicroUsd = BigInt(Math.round(bountyUsd * 1_000_000));
+
   const id = `task_${Date.now()}`;
+  const escrow = await escrowBounty({
+    taskId: id,
+    bountyMicroUsd,
+    posterAddress: poster,
+    description: `Task escrow: ${String(description).slice(0, 80)}`,
+  });
+  if (!escrow.ok) {
+    return Response.json(
+      {
+        error: escrow.kind,
+        message: escrow.message,
+      },
+      { status: 402 }
+    );
+  }
+
   const vis = visibility === "public" ? "public" : "private";
   const task = await db.task.create({
     data: {
       id,
       description,
       bounty,
+      bountyMicroUsd,
+      escrowTransactionId: escrow.transactionId,
       skill,
       payload: typeof payload === "string" && payload.length ? payload : null,
       status: "open",
-      postedBy: postedBy || "orchestrator",
+      postedBy: poster,
       assignedTo: typeof assignedTo === "string" && assignedTo.length ? assignedTo : null,
       requiredSkill:
         typeof requiredSkill === "string" && requiredSkill.length ? requiredSkill : null,
@@ -73,5 +117,5 @@ export async function POST(req: NextRequest) {
 
   await logActivity("task", `New task posted: "${String(description).slice(0, 50)}..." — ${bounty} USDC bounty`);
 
-  return Response.json(serializeTask(task, { viewerAddress: postedBy }));
+  return Response.json(serializeTask(task, { viewerAddress: poster }));
 }

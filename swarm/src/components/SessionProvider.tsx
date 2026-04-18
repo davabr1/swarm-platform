@@ -10,38 +10,41 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAccount } from "wagmi";
-import PairModal from "./PairModal";
+import { useAccount, useSignMessage } from "wagmi";
+import { mintManualSession } from "@/lib/api";
 
-// Cookie-free per-wallet session store. Production systems should move
-// these tokens to httpOnly + SameSite=Strict cookies — localStorage is
-// XSS-vulnerable. For a hackathon demo it's the simplest unified store
-// that survives tab reloads and scales to multi-wallet switching.
-const STORAGE_KEY = "swarm:sessions";
+// Browser manual-session manager. The HTTP cookie itself is httpOnly +
+// signed server-side (see lib/manualSession.ts); all we track here is a
+// local marker so the UI knows whether to prompt for a wallet signature
+// before the first paid call.
+//
+// Storage stores only { address, expiresAt } — no secret material. If
+// localStorage and the server-side cookie drift (e.g. user cleared
+// cookies), the next paid call returns 401 and the UI can clear our
+// flag and prompt again.
+const STORAGE_KEY = "swarm:manual-sessions";
 
-interface StoredSession {
-  token: string;
+interface StoredFlag {
   address: string;
-  budgetUsd: number;
-  expiresAt: string; // ISO
+  expiresAt: number; // epoch ms
 }
 
-type SessionMap = Record<string, StoredSession>;
+type FlagMap = Record<string, StoredFlag>;
 
-function readAll(): SessionMap {
+function readAll(): FlagMap {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed as SessionMap;
+    if (parsed && typeof parsed === "object") return parsed as FlagMap;
   } catch {
     // malformed — drop it
   }
   return {};
 }
 
-function writeAll(map: SessionMap) {
+function writeAll(map: FlagMap) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
@@ -50,22 +53,22 @@ function writeAll(map: SessionMap) {
   }
 }
 
-function storedFor(address: string | undefined): StoredSession | null {
+function flagFor(address: string | undefined): StoredFlag | null {
   if (!address) return null;
   const map = readAll();
   const s = map[address.toLowerCase()];
   if (!s) return null;
-  if (new Date(s.expiresAt).getTime() <= Date.now()) return null;
+  if (s.expiresAt <= Date.now()) return null;
   return s;
 }
 
-function saveFor(address: string, session: StoredSession) {
+function saveFlag(flag: StoredFlag) {
   const map = readAll();
-  map[address.toLowerCase()] = session;
+  map[flag.address.toLowerCase()] = flag;
   writeAll(map);
 }
 
-function clearFor(address: string | undefined) {
+function clearFlag(address: string | undefined) {
   if (!address) return;
   const map = readAll();
   delete map[address.toLowerCase()];
@@ -73,14 +76,17 @@ function clearFor(address: string | undefined) {
 }
 
 interface SessionContextValue {
-  token: string | null;
   address: string | null;
-  budgetUsd: number;
   expiresAt: Date | null;
+  hasSession: boolean;
   needsPairing: boolean;
-  /** Resolves with the current token, opening the pair modal if needed. Resolves null if the user cancels. */
-  ensureSession: () => Promise<string | null>;
-  /** Force-clear the cached session for the connected wallet — used after a 401. */
+  /**
+   * Ensures a manual-session cookie is minted for the connected wallet.
+   * Prompts for a single signature the first time; subsequent calls are
+   * in-memory. Resolves true on success, false on cancel / error.
+   */
+  ensureSession: () => Promise<boolean>;
+  /** Force-clear the cached session marker (e.g. after a 401). */
   clearSession: () => void;
 }
 
@@ -94,93 +100,72 @@ export function useSession(): SessionContextValue {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { address, isConnected } = useAccount();
-  const [session, setSession] = useState<StoredSession | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const pendingResolvers = useRef<Array<(token: string | null) => void>>([]);
+  const [flag, setFlag] = useState<StoredFlag | null>(null);
+  const inFlight = useRef<Promise<boolean> | null>(null);
 
-  // Re-read localStorage whenever the connected wallet changes.
   useEffect(() => {
     if (!isConnected || !address) {
-      setSession(null);
+      setFlag(null);
       return;
     }
-    setSession(storedFor(address));
+    setFlag(flagFor(address));
   }, [address, isConnected]);
 
   const clearSession = useCallback(() => {
-    clearFor(address ?? undefined);
-    setSession(null);
+    clearFlag(address ?? undefined);
+    setFlag(null);
   }, [address]);
 
-  const openModal = useCallback((): Promise<string | null> => {
-    return new Promise((resolve) => {
-      pendingResolvers.current.push(resolve);
-      setModalOpen(true);
-    });
-  }, []);
+  const { signMessageAsync } = useSignMessage();
 
-  const resolveAll = useCallback((value: string | null) => {
-    const resolvers = pendingResolvers.current;
-    pendingResolvers.current = [];
-    for (const r of resolvers) r(value);
-  }, []);
-
-  const ensureSession = useCallback(async (): Promise<string | null> => {
-    if (!isConnected || !address) {
-      // No wallet connected — can't pair. Caller should prompt ConnectButton.
-      return null;
-    }
-    const existing = storedFor(address);
+  const ensureSession = useCallback(async (): Promise<boolean> => {
+    if (!isConnected || !address) return false;
+    const existing = flagFor(address);
     if (existing) {
-      setSession(existing);
-      return existing.token;
+      setFlag(existing);
+      return true;
     }
-    return openModal();
-  }, [address, isConnected, openModal]);
-
-  const handleModalSuccess = useCallback(
-    (result: {
-      sessionToken: string;
-      address: string;
-      budgetUsd: number;
-      expiresAt: string;
-    }) => {
-      const stored: StoredSession = {
-        token: result.sessionToken,
-        address: result.address,
-        budgetUsd: result.budgetUsd,
-        expiresAt: result.expiresAt,
-      };
-      saveFor(result.address, stored);
-      setSession(stored);
-      setModalOpen(false);
-      resolveAll(result.sessionToken);
-    },
-    [resolveAll],
-  );
-
-  const handleModalCancel = useCallback(() => {
-    setModalOpen(false);
-    resolveAll(null);
-  }, [resolveAll]);
+    // Single-flight: if a prompt is already open, piggyback on it.
+    if (inFlight.current) return inFlight.current;
+    const p = (async (): Promise<boolean> => {
+      try {
+        const issuedAt = Date.now();
+        const normalized = address.toLowerCase();
+        const message = `Swarm manual session: ${normalized}@${issuedAt}`;
+        const signature = await signMessageAsync({ message });
+        const result = await mintManualSession({
+          address: normalized,
+          issuedAt,
+          signature,
+        });
+        const stored: StoredFlag = {
+          address: result.address,
+          expiresAt: result.expiresAt,
+        };
+        saveFlag(stored);
+        setFlag(stored);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        inFlight.current = null;
+      }
+    })();
+    inFlight.current = p;
+    return p;
+  }, [address, isConnected, signMessageAsync]);
 
   const value = useMemo<SessionContextValue>(
     () => ({
-      token: session?.token ?? null,
-      address: session?.address ?? null,
-      budgetUsd: session?.budgetUsd ?? 0,
-      expiresAt: session ? new Date(session.expiresAt) : null,
-      needsPairing: isConnected && !!address && !session,
+      address: flag?.address ?? null,
+      expiresAt: flag ? new Date(flag.expiresAt) : null,
+      hasSession: !!flag,
+      needsPairing: isConnected && !!address && !flag,
       ensureSession,
       clearSession,
     }),
-    [session, isConnected, address, ensureSession, clearSession],
+    [flag, isConnected, address, ensureSession, clearSession],
   );
 
-  return (
-    <Ctx.Provider value={value}>
-      {children}
-      <PairModal open={modalOpen} onSuccess={handleModalSuccess} onCancel={handleModalCancel} />
-    </Ctx.Provider>
-  );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -88,21 +88,22 @@ export default function AgentDetailPage() {
     setLoading(true);
     ratingInFlight.current = false;
 
-    // Ensure the user has a paired session (an active USDC allowance).
-    // Opens the pair modal if needed; resolves null if they cancel.
-    let token: string | null = null;
+    // Ensure the user has a manual-session cookie. First paid call prompts
+    // for a single wallet signature; subsequent calls ride silently on the
+    // httpOnly cookie.
+    let ok = false;
     try {
-      token = await ensureSession();
+      ok = await ensureSession();
     } catch (e) {
       setLoading(false);
       setLog((prev) => [...prev, { kind: "error", text: `! ${getErrorMessage(e)}` }]);
       return;
     }
-    if (!token) {
+    if (!ok) {
       setLoading(false);
       setLog((prev) => [
         ...prev,
-        { kind: "error", text: "! authorization cancelled — agents can't charge until you pair a wallet" },
+        { kind: "error", text: "! signature cancelled — agents can't charge until you authorize this browser" },
       ]);
       return;
     }
@@ -138,7 +139,7 @@ export default function AgentDetailPage() {
         // PNG on disk. Never run through the guidance envelope (which
         // would turn them into a text model asking clarifying
         // questions with no way for the UI to follow up).
-        const data = await callImage(id, message, { token });
+        const data = await callImage(id, message);
         setThinking(false);
         if (data.status !== "ready" || !data.imageUrl) {
           setLog((prev) => [
@@ -166,7 +167,6 @@ export default function AgentDetailPage() {
 
       const result = await askAgent(id, message, {
         conversationId: isFollowUp ? conversationId! : undefined,
-        token,
       });
       setThinking(false);
       if (result.status !== "ready" || !result.response) {
@@ -212,23 +212,18 @@ export default function AgentDetailPage() {
     } catch (err) {
       setThinking(false);
       if (err instanceof PaymentRequiredError) {
-        if (err.status === 401 || err.reason === "invalid_session") {
-          // Session token expired / revoked — drop it locally and tell
-          // the user to re-pair on their next attempt.
+        if (err.status === 401 || err.reason === "authorization_required") {
           clearSession();
           setLog((prev) => [
             ...prev,
-            { kind: "error", text: "! session revoked or expired — retry to authorize a fresh one" },
+            { kind: "error", text: "! session expired — retry to sign a fresh one" },
           ]);
-        } else if (
-          err.reason === "budget_exhausted" ||
-          err.reason === "allowance_exhausted"
-        ) {
+        } else if (err.reason === "autonomous_cap_exhausted") {
           setLog((prev) => [
             ...prev,
             {
               kind: "error",
-              text: "! budget exhausted — top up your session on your profile page",
+              text: "! autonomous cap hit — raise the cap or reset usage on your profile page",
             },
           ]);
         } else if (err.reason === "insufficient_balance") {
@@ -236,7 +231,7 @@ export default function AgentDetailPage() {
             ...prev,
             {
               kind: "error",
-              text: "! not enough USDC in your wallet — top up at faucet.circle.com and retry",
+              text: "! deposited balance too low — top up from your profile page",
             },
           ]);
         } else {

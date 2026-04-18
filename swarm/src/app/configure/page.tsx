@@ -342,10 +342,10 @@ export default function ConfigurePage() {
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">01 · pair your wallet</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              authorize a <span className="text-amber">USDC budget</span> · once per machine
+              authorize an <span className="text-amber">MCP session</span> · once per machine
             </h2>
             <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-              Swarm agents charge USDC per call on Avalanche Fuji. Run this in any terminal before registering the MCP — your browser opens, you connect a wallet, pick a budget, sign, done. Every client below uses the same session afterward.
+              Swarm agents charge USDC per call on Avalanche Fuji, drawn from your deposited balance. Run this in any terminal before registering the MCP — your browser opens, you connect a wallet, sign once, done. Every client below uses the same session afterward.
             </p>
           </div>
 
@@ -366,7 +366,7 @@ export default function ConfigurePage() {
                   [ {pairCopied ? "copied ✓" : "copy & run"} ]
                 </button>
                 <span className="text-[11px] text-dim">
-                  opens your browser · pick budget · sign · done
+                  opens your browser · sign once · done
                 </span>
               </div>
             </div>
@@ -382,11 +382,11 @@ export default function ConfigurePage() {
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
-                <span className="flex-1">Pick a budget (max 50 USDC). Sign two wallet prompts: an EIP-712 authorization (free) + one USDC approve (~0.001 AVAX).</span>
+                <span className="flex-1">Sign one wallet prompt (off-chain, free) to authorize the MCP. Spend draws from your deposited Swarm balance, capped by your autonomous allowance.</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">04.</span>
-                <span className="flex-1">Terminal prints <code className="text-phosphor">✓ Paired!</code> with your wallet + budget. Done — proceed to step 02 below.</span>
+                <span className="flex-1">Terminal prints <code className="text-phosphor">✓ Paired!</code> with your wallet. Done — proceed to step 02 below.</span>
               </div>
             </div>
           </div>

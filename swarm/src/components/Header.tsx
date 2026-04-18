@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import WalletChip from "./WalletChip";
 import { CHEVRON_MASCOT, SWARM_ART } from "./BootSplash";
@@ -99,6 +99,19 @@ function EarnMenu() {
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+  // Triple-click on the SWARM logo within 1500ms opens the hidden admin
+  // gate. Single click still navigates home via the Link default.
+  const logoClicks = useRef<number[]>([]);
+  const onLogoClick = (e: React.MouseEvent) => {
+    const now = Date.now();
+    logoClicks.current = [...logoClicks.current.filter((t) => now - t < 1500), now];
+    if (logoClicks.current.length >= 3) {
+      e.preventDefault();
+      logoClicks.current = [];
+      router.push("/admin");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
@@ -106,7 +119,11 @@ export default function Header() {
         {/* Logo — same pixel ❯ + SWARM figlet as the boot splash, shrunk
             to fit the 48px header. Courier New keeps the box-drawing
             chars flush with the █ blocks. */}
-        <Link href="/" className="flex items-center gap-3 group select-none justify-self-start">
+        <Link
+          href="/"
+          onClick={onLogoClick}
+          className="flex items-center gap-3 group select-none justify-self-start"
+        >
           <div className="flex items-center gap-1">
             <pre
               className={`leading-[3px] whitespace-pre font-bold m-0 ${

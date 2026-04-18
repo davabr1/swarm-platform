@@ -16,10 +16,29 @@ import {
   claimTask,
   submitTask,
   postTask,
+  cancelTask,
   updateTaskVisibility,
   rateTask,
+  fetchBalance,
   type Task,
+  type Balance,
 } from "@/lib/api";
+import { useSession } from "@/components/SessionProvider";
+import { parsePrice } from "@/lib/geminiPricing";
+
+function openSnowtrace(hash: string) {
+  if (typeof window === "undefined") return;
+  const url = `https://testnet.snowtrace.io/tx/${hash}`;
+  const width = 900;
+  const height = 720;
+  const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.max(0, window.screenY + (window.outerHeight - height) / 2);
+  window.open(
+    url,
+    "_blank",
+    `width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)},noopener,noreferrer,menubar=no,toolbar=no,location=no,status=no`,
+  );
+}
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -59,16 +78,21 @@ function Stars({
 
 export default function TaskBoardPage() {
   const { address, isConnected } = useAccount();
+  const { ensureSession, clearSession } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed" | "cancelled">(
+    "all",
+  );
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitText, setSubmitText] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [togglingVisId, setTogglingVisId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<Record<string, string>>({});
   const [rating, setRating] = useState<Record<string, number>>({});
+  const [balance, setBalance] = useState<Balance | null>(null);
 
   const [showPost, setShowPost] = useState(false);
   const [postForm, setPostForm] = useState({
@@ -85,6 +109,25 @@ export default function TaskBoardPage() {
   const [posting, setPosting] = useState(false);
 
   const load = () => fetchTasks(address).then(setTasks).catch(() => {});
+  const loadBalance = useMemo(
+    () => async () => {
+      if (!address) {
+        setBalance(null);
+        return;
+      }
+      try {
+        const b = await fetchBalance(address);
+        setBalance(b);
+      } catch {
+        // best-effort; stale balance is fine
+      }
+    },
+    [address],
+  );
+
+  useEffect(() => {
+    loadBalance();
+  }, [loadBalance]);
 
   useEffect(() => {
     // First fetch toggles the loading state so the empty slot reads
@@ -177,9 +220,28 @@ export default function TaskBoardPage() {
       setPostingErr("description, bounty, and skill are required");
       return;
     }
+    const bountyUsd = parsePrice(postForm.bounty);
+    if (!(bountyUsd > 0)) {
+      setPostingErr("bounty must be a positive USDC amount");
+      return;
+    }
+    const balanceUsd = balance ? Number(balance.balanceUsd) : 0;
+    if (balance && bountyUsd > balanceUsd) {
+      setPostingErr(
+        `bounty ${bountyUsd.toFixed(2)} USDC exceeds your deposited balance ${balanceUsd.toFixed(2)} USDC — top up on your profile first`,
+      );
+      return;
+    }
     setPosting(true);
     setPostingErr("");
     try {
+      // Escrow debits the user's deposited balance — first post requires a
+      // one-time wallet signature to mint a browser manual-session cookie.
+      const ok = await ensureSession();
+      if (!ok) {
+        setPostingErr("signature cancelled — can't escrow bounty without an authorized session");
+        return;
+      }
       await postTask({
         description: postForm.description.trim(),
         bounty: (() => {
@@ -208,10 +270,32 @@ export default function TaskBoardPage() {
       });
       setShowPost(false);
       load();
+      loadBalance();
     } catch (e) {
-      setPostingErr(e instanceof Error ? e.message : "post failed");
+      const msg = e instanceof Error ? e.message : "post failed";
+      if (/not_authenticated|401/i.test(msg)) clearSession();
+      setPostingErr(msg);
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!address || cancellingId) return;
+    setCancellingId(id);
+    try {
+      const ok = await ensureSession();
+      if (!ok) return;
+      await cancelTask(id);
+      load();
+      loadBalance();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "cancel failed";
+      if (/not_authenticated|401/i.test(msg)) clearSession();
+      // Surface the error near the task — reuse claimError for the banner.
+      setClaimError((p) => ({ ...p, [id]: msg }));
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -227,6 +311,8 @@ export default function TaskBoardPage() {
               ? "bg-amber dot-pulse"
               : t.status === "claimed"
               ? "bg-info"
+              : t.status === "cancelled"
+              ? "bg-dim"
               : "bg-phosphor"
           }`}
         />
@@ -283,6 +369,8 @@ export default function TaskBoardPage() {
               ? "text-amber"
               : t.status === "claimed"
               ? "text-info"
+              : t.status === "cancelled"
+              ? "text-dim"
               : "text-phosphor"
           }`}
         >
@@ -361,6 +449,25 @@ export default function TaskBoardPage() {
         {isConnected && showPost && (
           <div className="mb-6">
             <TerminalWindow title="swarm://post-task" subtitle="form">
+              <div className="border-b border-border px-5 py-3 flex items-center justify-between gap-3 text-[11px] flex-wrap">
+                <div className="text-dim">
+                  <span className="text-[10px] uppercase tracking-widest text-phosphor mr-2">
+                    ❯ bounty is escrowed at post time
+                  </span>
+                  debits your Swarm deposited balance and refunds on cancel.
+                </div>
+                <div className="text-muted tabular-nums">
+                  deposited: {balance ? (
+                    <span className="text-phosphor">{Number(balance.balanceUsd).toFixed(2)} USDC</span>
+                  ) : (
+                    <span className="text-dim">—</span>
+                  )}
+                  {" · "}
+                  <Link href={`/profile/${address ?? ""}`} className="text-amber hover:text-amber-hi">
+                    top up
+                  </Link>
+                </div>
+              </div>
               <div className="p-5 grid gap-5 lg:grid-cols-2">
                 <div className="space-y-4">
                   <div>
@@ -509,7 +616,7 @@ export default function TaskBoardPage() {
 
         {/* Filter chips */}
         <div className="mb-4 flex items-center">
-          {(["all", "open", "claimed", "completed"] as const).map((k, i) => (
+          {(["all", "open", "claimed", "completed", "cancelled"] as const).map((k, i) => (
             <button
               key={k}
               onClick={() => setFilter(k)}
@@ -652,25 +759,54 @@ export default function TaskBoardPage() {
                       )}
                     </span>
                     <div className="flex flex-col items-end gap-1">
-                      <button
-                        onClick={() => handleClaim(t.id)}
-                        disabled={!isConnected || claimingId === t.id}
-                        className="border border-phosphor bg-phosphor text-background text-xs font-bold px-4 py-2 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        {claimingId === t.id ? (
-                          <SubmittingLabel text="claiming" />
-                        ) : isConnected ? (
-                          "[ claim task ]"
-                        ) : (
-                          "[ connect wallet to claim ]"
+                      <div className="flex items-center gap-2">
+                        {iAmPoster && (
+                          <button
+                            onClick={() => handleCancel(t.id)}
+                            disabled={cancellingId === t.id}
+                            className="border border-border text-muted hover:text-foreground hover:border-border-hi text-xs px-3 py-2 transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {cancellingId === t.id ? (
+                              <SubmittingLabel text="refunding" />
+                            ) : (
+                              "[ cancel & refund ]"
+                            )}
+                          </button>
                         )}
-                      </button>
+                        {!iAmPoster && (
+                          <button
+                            onClick={() => handleClaim(t.id)}
+                            disabled={!isConnected || claimingId === t.id}
+                            className="border border-phosphor bg-phosphor text-background text-xs font-bold px-4 py-2 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {claimingId === t.id ? (
+                              <SubmittingLabel text="claiming" />
+                            ) : isConnected ? (
+                              "[ claim task ]"
+                            ) : (
+                              "[ connect wallet to claim ]"
+                            )}
+                          </button>
+                        )}
+                      </div>
                       {claimError[t.id] && (
                         <span className="text-[11px] text-danger">
                           ⛔ {claimError[t.id]}
                         </span>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {t.status === "cancelled" && (
+                  <div className="pt-3 border-t border-border text-sm text-dim">
+                    cancelled
+                    {t.cancelledAt && (
+                      <span className="ml-2 text-muted">
+                        · {new Date(t.cancelledAt).toLocaleString()}
+                      </span>
+                    )}
+                    <span className="ml-2">· bounty refunded to poster</span>
                   </div>
                 )}
 
@@ -727,6 +863,24 @@ export default function TaskBoardPage() {
                         </div>
                       </div>
                     ) : null}
+
+                    {t.payoutTxHash && (
+                      <div className="text-[11px] text-dim flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] uppercase tracking-widest text-phosphor">
+                          ❯ payout
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openSnowtrace(t.payoutTxHash!)}
+                          className="text-amber hover:text-amber-hi underline underline-offset-2 font-mono bg-transparent border-0 p-0 cursor-pointer"
+                        >
+                          {t.payoutTxHash.slice(0, 10)}…{t.payoutTxHash.slice(-8)}
+                        </button>
+                        {t.payoutBlockNumber != null && (
+                          <span className="text-muted">· block {t.payoutBlockNumber}</span>
+                        )}
+                      </div>
+                    )}
 
                     {iAmPoster && (
                       <div className="border border-border bg-surface-1 p-3 flex items-center justify-between gap-3 flex-wrap">

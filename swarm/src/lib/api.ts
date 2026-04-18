@@ -27,7 +27,7 @@ export interface Task {
   skill: string;
   payload?: string;
   hasPayload: boolean;
-  status: "open" | "claimed" | "completed";
+  status: "open" | "claimed" | "completed" | "cancelled";
   postedBy: string;
   claimedBy?: string;
   result?: string;
@@ -38,6 +38,9 @@ export interface Task {
   visibility: "public" | "private";
   posterRating?: number;
   posterRatedAt?: number;
+  payoutTxHash?: string;
+  payoutBlockNumber?: number;
+  cancelledAt?: number;
   createdAt: number;
   claimedAt?: number;
   completedAt?: number;
@@ -48,8 +51,10 @@ export interface UserProfile {
   displayName?: string;
   bio?: string;
   email?: string;
-  spendCapPerTask?: string;
-  spendCapPerSession?: string;
+  balanceMicroUsd: string;
+  autonomousCapUsd?: string;
+  autonomousCapMicroUsd: string;
+  autonomousSpentMicroUsd: string;
   autoTopup: boolean;
   createdAt: number;
   updatedAt: number;
@@ -130,10 +135,8 @@ export class PaymentRequiredError extends Error {
   }
 }
 
-function bearerHeaders(token?: string | null): HeadersInit {
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) h.Authorization = `Bearer ${token}`;
-  return h;
+function jsonHeaders(): HeadersInit {
+  return { "Content-Type": "application/json" };
 }
 
 async function throwIfPaymentRequired(res: Response): Promise<Response> {
@@ -151,11 +154,12 @@ async function throwIfPaymentRequired(res: Response): Promise<Response> {
 export async function askAgent(
   agentId: string,
   question: string,
-  opts?: { askerAddress?: string; conversationId?: string; token?: string | null },
+  opts?: { askerAddress?: string; conversationId?: string },
 ): Promise<GuidanceRequest> {
   const res = await fetch(`/api/guidance`, {
     method: "POST",
-    headers: bearerHeaders(opts?.token),
+    headers: jsonHeaders(),
+    credentials: "same-origin",
     body: JSON.stringify({
       agentId,
       question,
@@ -194,11 +198,11 @@ export interface ImageResult {
 export async function callImage(
   agentId: string,
   prompt: string,
-  opts?: { token?: string | null },
 ): Promise<ImageResult> {
   const res = await fetch(`/api/image`, {
     method: "POST",
-    headers: bearerHeaders(opts?.token),
+    headers: jsonHeaders(),
+    credentials: "same-origin",
     body: JSON.stringify({ agentId, prompt }),
   });
   await throwIfPaymentRequired(res);
@@ -280,6 +284,19 @@ export async function submitTask(id: string, result: string): Promise<Task> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ result }),
   });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.message || p.error || "failed to submit task");
+  }
+  return res.json();
+}
+
+export async function cancelTask(id: string): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}/cancel`, { method: "POST" });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.message || p.error || "failed to cancel task");
+  }
   return res.json();
 }
 
@@ -334,8 +351,6 @@ export async function updateProfile(
     displayName: string;
     bio: string;
     email: string;
-    spendCapPerTask: string;
-    spendCapPerSession: string;
     autoTopup: boolean;
   }>,
 ): Promise<UserProfile> {
@@ -419,4 +434,152 @@ export async function pingMcp(): Promise<{ ok: boolean; latencyMs: number; agent
   const res = await fetch(`/api/mcp/ping`, { method: "POST" });
   if (!res.ok) throw new Error("ping failed");
   return res.json();
+}
+
+export interface Balance {
+  address: string;
+  balanceMicroUsd: string;
+  balanceUsd: string;
+  autonomousCapMicroUsd: string;
+  autonomousCapUsd: string;
+  autonomousSpentMicroUsd: string;
+  autonomousSpentUsd: string;
+  autonomousRemainingUsd: string;
+  usingDefaultCap: boolean;
+}
+
+export async function fetchBalance(address: string): Promise<Balance> {
+  const res = await fetch(`/api/balance?address=${encodeURIComponent(address)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("failed to load balance");
+  return res.json();
+}
+
+export async function setAutonomousCap(params: {
+  address: string;
+  autonomousCapUsd: number;
+  issuedAt: number;
+  signature: string;
+}): Promise<{ success: boolean; autonomousCapUsd: string }> {
+  const res = await fetch(`/api/balance/cap`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to set cap");
+  }
+  return res.json();
+}
+
+export async function resetAutonomousCap(params: {
+  address: string;
+  issuedAt: number;
+  signature: string;
+}): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/balance/cap/reset`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to reset cap");
+  }
+  return res.json();
+}
+
+export interface TransactionEntry {
+  id: string;
+  kind: "deposit" | "autonomous_spend" | "manual_spend" | "earning" | "refund";
+  deltaMicroUsd: string;
+  grossMicroUsd: string;
+  usd: string;
+  description: string | null;
+  refType: string | null;
+  refId: string | null;
+  agentName: string | null;
+  txHash: string | null;
+  blockNumber: number | null;
+  status: string;
+  createdAt: number;
+}
+
+export async function fetchTransactions(
+  address: string,
+  opts?: { kind?: string; limit?: number; cursor?: string | null },
+): Promise<{ entries: TransactionEntry[]; nextCursor: string | null; hasMore: boolean }> {
+  const qs = new URLSearchParams();
+  if (opts?.kind && opts.kind !== "all") qs.set("kind", opts.kind);
+  if (opts?.limit) qs.set("limit", String(opts.limit));
+  if (opts?.cursor) qs.set("cursor", opts.cursor);
+  const url = `/api/profile/${address}/transactions${qs.toString() ? `?${qs}` : ""}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error("failed to load transactions");
+  return res.json();
+}
+
+export interface DepositConfig {
+  treasury: string;
+  usdc: string;
+  chainId: number;
+}
+
+export async function fetchDepositConfig(): Promise<DepositConfig> {
+  const res = await fetch(`/api/deposit/config`);
+  if (!res.ok) throw new Error("failed to load deposit config");
+  return res.json();
+}
+
+export async function announceDeposit(params: {
+  address: string;
+  txHash: string;
+}): Promise<{ status: string; creditedMicroUsd?: string }> {
+  const res = await fetch(`/api/deposit/announce`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "announce failed");
+  }
+  return res.json();
+}
+
+export async function pollDeposits(address: string): Promise<{ creditedMicroUsd: string }> {
+  const res = await fetch(`/api/deposit/poll`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify({ address }),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "poll failed");
+  }
+  return res.json();
+}
+
+export async function mintManualSession(params: {
+  address: string;
+  issuedAt: number;
+  signature: string;
+}): Promise<{ success: boolean; address: string; expiresAt: number }> {
+  const res = await fetch(`/api/manual-session`, {
+    method: "POST",
+    headers: jsonHeaders(),
+    credentials: "same-origin",
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "manual session mint failed");
+  }
+  return res.json();
+}
+
+export async function clearManualSession(): Promise<void> {
+  await fetch(`/api/manual-session`, { method: "DELETE", credentials: "same-origin" });
 }

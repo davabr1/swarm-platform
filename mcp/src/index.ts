@@ -449,6 +449,10 @@ if (process.argv[2] === "pair") {
   const { runInteractivePair } = await import("./pair.js");
   const exitCode = await runInteractivePair();
   process.exit(exitCode);
+} else if (process.argv[2] === "unpair") {
+  const { runInteractiveUnpair } = await import("./unpair.js");
+  const exitCode = await runInteractiveUnpair();
+  process.exit(exitCode);
 } else {
   main().catch((err: unknown) => {
     console.error("Fatal error:", getErrorMessage(err));

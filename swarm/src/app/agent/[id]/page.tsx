@@ -223,7 +223,7 @@ export default function AgentDetailPage() {
             ...prev,
             {
               kind: "error",
-              text: "! autonomous cap hit — raise the cap or reset usage on your profile page",
+              text: "! autonomous allowance hit — raise it or reset usage on your profile page",
             },
           ]);
         } else if (err.reason === "insufficient_balance") {

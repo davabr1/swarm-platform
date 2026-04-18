@@ -7,10 +7,14 @@ import type { Agent } from "@/lib/api";
 // with an Image skill still reads as "img-gen" from the user's POV.
 //
 // Priority ordered:
-//   human_expert  → always `human` (green)
-//   skill "Image" → `img-gen` (pink), regardless of ownership
-//   userCreated    → `custom` (amber) — independent-wallet agents
-//   default        → `ai` (blue) — platform-seeded AI agents
+//   human_expert    → always `human` (green)
+//   skill "Image"   → `img-gen` (pink), regardless of ownership
+//   type custom_skill OR userCreated → `custom` (amber) — the "custom ai"
+//                     bucket covers both third-party user-listed agents
+//                     AND platform-seeded niche specialists (tagged with
+//                     type="custom_skill" in the seed) so they surface
+//                     under the "custom ai" filter instead of hiding in "ai"
+//   default         → `ai` (blue) — platform-seeded generalist AI agents
 //
 // Colors reuse existing theme tokens (see globals.css): phosphor,
 // danger, amber, info.
@@ -19,7 +23,7 @@ export type AgentCategory = "human" | "img-gen" | "custom" | "ai";
 export function getCategory(agent: Pick<Agent, "type" | "skill" | "userCreated">): AgentCategory {
   if (agent.type === "human_expert") return "human";
   if (agent.skill.startsWith("Image")) return "img-gen";
-  if (agent.userCreated) return "custom";
+  if (agent.type === "custom_skill" || agent.userCreated) return "custom";
   return "ai";
 }
 

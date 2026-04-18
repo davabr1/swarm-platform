@@ -74,6 +74,11 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
   const [hash, setHash] = useState<`0x${string}` | null>(null);
   const [error, setError] = useState<{ title: string; body: string } | null>(null);
   const [creditedUsd, setCreditedUsd] = useState<string | null>(null);
+  // Baseline captured BEFORE the user signs the transfer. Must not be read
+  // after the receipt — by then /api/balance's deposit scan may already
+  // have credited this transfer, making the before/after compare equal and
+  // leaving the button stuck on "announcing" until timeout.
+  const baseBalanceRef = useRef<bigint | null>(null);
   const pollStartedAt = useRef<number | null>(null);
 
   const { writeContractAsync } = useWriteContract();
@@ -96,6 +101,7 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
     setHash(null);
     setError(null);
     setCreditedUsd(null);
+    baseBalanceRef.current = null;
     pollStartedAt.current = null;
   };
 
@@ -111,6 +117,10 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
     }
     setError(null);
     try {
+      // Snapshot baseline before the user signs — after the receipt the
+      // deposit poller may have already credited this transfer.
+      const pre = await fetchBalance(address).catch(() => null);
+      baseBalanceRef.current = pre ? BigInt(pre.balanceMicroUsd) : BigInt(0);
       setStage("sending");
       const txHash = await writeContractAsync({
         abi: USDC_TRANSFER_ABI,
@@ -139,8 +149,9 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
     (async () => {
       try {
         setStage("announcing");
-        const before = await fetchBalance(address).catch(() => null);
-        const beforeBalance = before ? BigInt(before.balanceMicroUsd) : BigInt(0);
+        // Baseline was captured in send() before the transfer was signed.
+        // Fall back to 0 in the defensive case where it somehow wasn't set.
+        const beforeBalance = baseBalanceRef.current ?? BigInt(0);
         await announceDeposit({ address, txHash: hash });
         if (cancelled) return;
         setStage("polling");
@@ -191,7 +202,7 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
         <div>
           <div className="text-[10px] uppercase tracking-widest text-dim">swarm://deposit</div>
           <div className="text-sm text-foreground mt-1">
-            deposit USDC to <span className="text-amber">Swarm treasury</span>
+            deposit USDC to <span className="text-amber">swarm treasury</span>
           </div>
           <div className="text-[11px] text-dim mt-1 leading-relaxed max-w-md">
             One ERC-20 transfer on Fuji. Credits your deposited balance within ~10s after confirmation. No withdraw yet — deposit only what you plan to spend on agent calls.
@@ -252,7 +263,7 @@ export default function DepositFlow({ onClose, onCredited }: DepositFlowProps) {
 
       {stage === "credited" && creditedUsd && (
         <div className="border border-phosphor p-3 text-xs text-phosphor">
-          ✓ Credited {creditedUsd} USDC to your Swarm balance.
+          ✓ Credited {creditedUsd} USDC to your swarm balance.
         </div>
       )}
       {error && (

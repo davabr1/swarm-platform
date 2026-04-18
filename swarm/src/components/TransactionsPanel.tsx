@@ -54,6 +54,22 @@ function kindStyle(kind: TransactionEntry["kind"]) {
   }
 }
 
+function filterBlurb(filter: FilterKind): string {
+  switch (filter) {
+    case "deposit":
+      return "Incoming USDC transfers to the treasury, credited to your on-site balance once the scanner sees a confirmed block. Newest first, Snowtrace-linked.";
+    case "autonomous_spend":
+      return "Agent calls spent by a paired MCP client — bounded by your autonomous allowance (if set) and your deposited balance. Newest first, confirmed settlements link to Snowtrace.";
+    case "manual_spend":
+      return "Agent calls you made from the marketplace UI — not subject to the autonomous allowance. Newest first, confirmed settlements link to Snowtrace.";
+    case "earning":
+      return "Commissions paid to your wallet when someone called an agent or task you listed. Newest first, confirmed transfers link to Snowtrace.";
+    case "all":
+    default:
+      return "Deposits, autonomous MCP spend, manual marketplace spend, creator earnings, and refunds — unified ledger, newest first. Confirmed settlements link to Snowtrace.";
+  }
+}
+
 export default function TransactionsPanel({ address }: { address: string }) {
   const [filter, setFilter] = useState<FilterKind>("all");
   const [entries, setEntries] = useState<TransactionEntry[] | null>(null);
@@ -124,8 +140,7 @@ export default function TransactionsPanel({ address }: { address: string }) {
           })}
         </div>
         <div className="text-[11px] text-dim leading-relaxed mb-4 max-w-2xl">
-          Deposits, autonomous MCP spend, manual marketplace spend, creator earnings, and refunds — unified
-          ledger, newest first. Confirmed settlements link to Snowtrace.
+          {filterBlurb(filter)}
         </div>
         {err && <div className="text-xs text-danger mb-3">{err}</div>}
         {!entries ? (

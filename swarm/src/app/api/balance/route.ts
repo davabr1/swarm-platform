@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { config } from "@/lib/config";
 import { runDepositScan } from "@/lib/depositPoller";
 
 // Merged view of the profile's deposited balance and autonomous-cap state.
@@ -26,25 +25,35 @@ export async function GET(req: NextRequest) {
     where: { walletAddress: address },
   });
 
-  const cap = profile?.autonomousCapUsd
-    ? Number(profile.autonomousCapUsd)
-    : Number(config.defaultAutonomousCapMicroUsd) / 1_000_000;
+  // Null allowance = user hasn't set one. Autonomous spend is then bounded
+  // only by deposited balance. The frontend uses `autonomousCapSet` to
+  // render the "— cap / balance remaining" readout and the save/reset UI.
+  const capSet = !!profile?.autonomousCapUsd;
+  const cap = capSet ? Number(profile!.autonomousCapUsd) : 0;
   const capMicroUsd = BigInt(Math.round(cap * 1_000_000));
   const balanceMicroUsd = profile?.balanceMicroUsd ?? BigInt(0);
   const spentMicroUsd = profile?.autonomousSpentMicroUsd ?? BigInt(0);
+  const balanceUsd = Number(balanceMicroUsd) / 1_000_000;
+  const spentUsd = Number(spentMicroUsd) / 1_000_000;
 
   return Response.json({
     address,
     balanceMicroUsd: balanceMicroUsd.toString(),
-    balanceUsd: (Number(balanceMicroUsd) / 1_000_000).toFixed(6),
+    balanceUsd: balanceUsd.toFixed(6),
     autonomousCapMicroUsd: capMicroUsd.toString(),
     autonomousCapUsd: cap.toFixed(6),
+    autonomousCapSet: capSet,
     autonomousSpentMicroUsd: spentMicroUsd.toString(),
-    autonomousSpentUsd: (Number(spentMicroUsd) / 1_000_000).toFixed(6),
-    autonomousRemainingUsd: Math.max(
-      0,
-      cap - Number(spentMicroUsd) / 1_000_000,
+    autonomousSpentUsd: spentUsd.toFixed(6),
+    // Effective remaining = what the next MCP call can actually spend.
+    // With no allowance set, it's just the deposited balance; with one
+    // set, it's the lesser of (allowance − used) and deposited balance.
+    autonomousRemainingUsd: (capSet
+      ? Math.max(0, Math.min(cap - spentUsd, balanceUsd))
+      : balanceUsd
     ).toFixed(6),
-    usingDefaultCap: !profile?.autonomousCapUsd,
+    // Deprecated alias — kept for older clients. `autonomousCapSet` is the
+    // canonical flag going forward.
+    usingDefaultCap: !capSet,
   });
 }

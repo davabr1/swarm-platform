@@ -46,12 +46,13 @@ export type SettlementOutcome =
       message: string;
     };
 
-function resolveCapMicroUsd(stored: string | null): bigint {
-  if (!stored) return config.defaultAutonomousCapMicroUsd;
+// Returns null when the user hasn't set an allowance — autonomous spend is
+// then bounded only by deposited balance. The stored value is a decimal
+// string (Prisma Decimal); NaN / negative / empty means "unset".
+function resolveCapMicroUsd(stored: string | null): bigint | null {
+  if (!stored) return null;
   const parsed = Number(stored);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return config.defaultAutonomousCapMicroUsd;
-  }
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
   return BigInt(Math.round(parsed * 1_000_000));
 }
 
@@ -81,13 +82,15 @@ export async function settleFromBalance(ctx: SettleContext): Promise<SettlementO
 
   // Preflight check for a cleaner 402 reason. The conditional UPDATE below
   // is authoritative — this just lets us return the more specific
-  // "cap_exhausted" code when it's the cap (not the balance) that blocks.
-  if (ctx.isAutonomous) {
+  // "cap_exhausted" code when it's the allowance (not the balance) that
+  // blocks. Skipped entirely when the user hasn't set an allowance: in
+  // that case autonomous spend is bounded only by deposited balance.
+  if (ctx.isAutonomous && capMicroUsd !== null) {
     if (profile.autonomousSpentMicroUsd + ctx.totalMicroUsd > capMicroUsd) {
       return {
         ok: false,
         kind: "cap_exhausted",
-        message: `autonomous cap exceeded (${capMicroUsd.toString()} micro-USDC)`,
+        message: `autonomous allowance exceeded (${capMicroUsd.toString()} micro-USDC)`,
       };
     }
   }
@@ -95,9 +98,11 @@ export async function settleFromBalance(ctx: SettleContext): Promise<SettlementO
   // Atomic reserve: debits balance + (if autonomous) increments spent, only
   // if both invariants hold. Raw SQL so we can express the compound guard
   // in one statement — Prisma's updateMany doesn't express "autonomousSpent
-  // + delta <= cap" cleanly.
-  const reserved = ctx.isAutonomous
-    ? await db.$executeRaw`
+  // + delta <= cap" cleanly. When no allowance is set we drop the cap
+  // guard and enforce only the balance.
+  const reserved =
+    ctx.isAutonomous && capMicroUsd !== null
+      ? await db.$executeRaw`
         UPDATE "UserProfile"
            SET "balanceMicroUsd"        = "balanceMicroUsd" - ${ctx.totalMicroUsd}::bigint,
                "autonomousSpentMicroUsd" = "autonomousSpentMicroUsd" + ${ctx.totalMicroUsd}::bigint,
@@ -106,7 +111,16 @@ export async function settleFromBalance(ctx: SettleContext): Promise<SettlementO
            AND "balanceMicroUsd" >= ${ctx.totalMicroUsd}::bigint
            AND "autonomousSpentMicroUsd" + ${ctx.totalMicroUsd}::bigint <= ${capMicroUsd}::bigint
       `
-    : await db.$executeRaw`
+      : ctx.isAutonomous
+        ? await db.$executeRaw`
+        UPDATE "UserProfile"
+           SET "balanceMicroUsd"        = "balanceMicroUsd" - ${ctx.totalMicroUsd}::bigint,
+               "autonomousSpentMicroUsd" = "autonomousSpentMicroUsd" + ${ctx.totalMicroUsd}::bigint,
+               "updatedAt"              = CURRENT_TIMESTAMP
+         WHERE "walletAddress" = ${wallet}
+           AND "balanceMicroUsd" >= ${ctx.totalMicroUsd}::bigint
+      `
+        : await db.$executeRaw`
         UPDATE "UserProfile"
            SET "balanceMicroUsd" = "balanceMicroUsd" - ${ctx.totalMicroUsd}::bigint,
                "updatedAt"       = CURRENT_TIMESTAMP
@@ -116,15 +130,18 @@ export async function settleFromBalance(ctx: SettleContext): Promise<SettlementO
 
   if (reserved === 0) {
     // Re-read to tell the caller *which* invariant failed. Either the
-    // balance is insufficient or the autonomous cap is exhausted.
+    // balance is insufficient or the autonomous allowance is exhausted.
     const fresh = await db.userProfile.findUnique({ where: { walletAddress: wallet } });
     if (fresh && ctx.isAutonomous) {
       const freshCap = resolveCapMicroUsd(fresh.autonomousCapUsd);
-      if (fresh.autonomousSpentMicroUsd + ctx.totalMicroUsd > freshCap) {
+      if (
+        freshCap !== null &&
+        fresh.autonomousSpentMicroUsd + ctx.totalMicroUsd > freshCap
+      ) {
         return {
           ok: false,
           kind: "cap_exhausted",
-          message: `autonomous cap exceeded (${freshCap.toString()} micro-USDC)`,
+          message: `autonomous allowance exceeded (${freshCap.toString()} micro-USDC)`,
         };
       }
     }

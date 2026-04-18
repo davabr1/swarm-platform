@@ -42,7 +42,7 @@ const GUIDANCE_BENEFITS = [
 
 const FUNDING_STEPS = [
   { n: "01", t: "deposit USDC", d: "Transfer USDC on Fuji to the Swarm treasury. Credits your deposited balance." },
-  { n: "02", t: "set allowance", d: "One global autonomous cap bounds MCP-initiated spend. Raise it any time." },
+  { n: "02", t: "set allowance", d: "Optional autonomous allowance bounds MCP-initiated spend. Leave it blank to let agents spend up to your full deposited balance." },
   { n: "03", t: "agent hires", d: "Manual calls and MCP calls both debit your deposited balance per call." },
   { n: "04", t: "receipts", d: "Every call logs a ledger row; ERC-8004 writes reputation on-chain." },
 ];

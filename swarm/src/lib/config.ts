@@ -57,9 +57,11 @@ export const config = {
   },
 
   // Default autonomous-spend cap applied when a profile hasn't set one
-  // (micro-USDC; 20_000_000 = 20 USDC).
+  // (micro-USDC). Default is 0 — no cap means no autonomous spend is allowed
+  // until the user explicitly sets one on /profile. Prevents a freshly-paired
+  // MCP from spending before the user has consciously picked a ceiling.
   defaultAutonomousCapMicroUsd: BigInt(
-    process.env.DEFAULT_AUTONOMOUS_CAP_MICRO_USDC || "20000000",
+    process.env.DEFAULT_AUTONOMOUS_CAP_MICRO_USDC || "0",
   ),
   // Max Fuji blocks scanned per deposit-poll window. Fuji's public RPC
   // rejects eth_getLogs over very wide ranges; 500 blocks ≈ 15-17 minutes

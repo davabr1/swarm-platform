@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const capStr = capRaw.toString();
-  const message = `Swarm autonomous cap set: ${address}@${capStr}@${issuedAt}`;
+  const message = `Swarm autonomous allowance set: ${address}@${capStr}@${issuedAt}`;
   let recovered = "";
   try {
     recovered = ethers.verifyMessage(message, signature).toLowerCase();

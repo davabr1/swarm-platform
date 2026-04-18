@@ -161,10 +161,66 @@ export default function PublicProfilePage() {
 
           {isSelf && <TransactionsPanel address={address} />}
 
+          {isSelf && <FaucetPanel address={address} />}
+
           {isSelf && <DisconnectPanel />}
         </div>
       </div>
     </div>
+  );
+}
+
+function FaucetPanel({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* clipboard denied */
+    }
+  };
+  return (
+    <TerminalWindow title="swarm://profile/faucet" subtitle="fuji USDC · testnet" dots={false}>
+      <div className="p-5 text-xs text-muted leading-relaxed space-y-3">
+        <div>
+          Need testnet USDC to top up your deposited balance? Use the{" "}
+          <a
+            href="https://faucet.circle.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber underline hover:text-amber-hi"
+          >
+            Circle faucet
+          </a>{" "}
+          — on the network dropdown choose{" "}
+          <span className="text-foreground">Avalanche Fuji</span>, paste your wallet address, and
+          submit. It drops 10 USDC per request.
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="font-mono bg-surface-1 border border-border px-2 py-1 text-[11px] text-foreground truncate max-w-full">
+            {address}
+          </code>
+          <button
+            onClick={copy}
+            className={`border border-amber text-amber text-[11px] px-2.5 py-1 hover:bg-amber hover:text-background transition-none ${
+              copied ? "bg-amber text-background" : ""
+            }`}
+          >
+            {copied ? "[ copied ✓ ]" : "[ copy address ]"}
+          </button>
+          <a
+            href="https://faucet.circle.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-border text-muted text-[11px] px-2.5 py-1 hover:border-amber hover:text-amber transition-none"
+          >
+            [ open faucet ↗ ]
+          </a>
+        </div>
+      </div>
+    </TerminalWindow>
   );
 }
 

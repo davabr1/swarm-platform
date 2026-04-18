@@ -65,12 +65,17 @@ export async function saveSession(session: Session): Promise<void> {
   }
 }
 
-async function clearSession(): Promise<void> {
+export async function clearSession(): Promise<void> {
+  currentSession = null;
   try {
     await rm(SESSION_FILE, { force: true });
   } catch {
     // ignore
   }
+}
+
+export async function peekSavedSession(): Promise<Session | null> {
+  return loadSession();
 }
 
 // Fire-and-forget browser opener. Opt out via SWARM_MCP_NO_OPEN=1 for

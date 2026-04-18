@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Missing signature" }, { status: 400 });
   }
 
-  const message = `Swarm autonomous cap reset: ${address}@${issuedAt}`;
+  const message = `Swarm autonomous allowance reset: ${address}@${issuedAt}`;
   let recovered = "";
   try {
     recovered = ethers.verifyMessage(message, signature).toLowerCase();

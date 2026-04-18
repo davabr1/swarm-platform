@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSignMessage } from "wagmi";
 import TerminalWindow from "./TerminalWindow";
 import SubmittingLabel from "./SubmittingLabel";
@@ -64,9 +64,23 @@ export default function BalanceAutonomousAccessPanel({
     return () => clearInterval(iv);
   }, [loadBalance]);
 
-  const capUsd = balance ? fmtUsd(balance.autonomousCapMicroUsd) : "—";
+  const capSet = !!(balance && !balance.usingDefaultCap);
+  const capUsd = capSet ? fmtUsd(balance!.autonomousCapMicroUsd) : "—";
   const spentUsd = balance ? fmtUsd(balance.autonomousSpentMicroUsd) : "—";
-  const remainingUsd = balance ? Number(balance.autonomousRemainingUsd).toFixed(2) : "—";
+  // Effective spendable = min(cap - used, deposited balance). Showing the
+  // raw cap as "remaining" implies you can spend that much even when your
+  // deposited balance is smaller, which is wrong — the ledger blocks on
+  // whichever limit hits first.
+  const remainingUsd = (() => {
+    if (!balance || !capSet) return "—";
+    const capLeft = Math.max(
+      0,
+      Number(balance.autonomousCapMicroUsd) / 1_000_000 -
+        Number(balance.autonomousSpentMicroUsd) / 1_000_000,
+    );
+    const deposited = Number(balance.balanceMicroUsd) / 1_000_000;
+    return Math.min(capLeft, deposited).toFixed(2);
+  })();
 
   // Cap editor state
   const [capInput, setCapInput] = useState<string>("");
@@ -74,11 +88,19 @@ export default function BalanceAutonomousAccessPanel({
   const [capResetting, setCapResetting] = useState(false);
   const [capErr, setCapErr] = useState("");
   const [capSaved, setCapSaved] = useState(false);
+  const capInputInitRef = useRef(false);
 
   useEffect(() => {
-    // Initialize the cap editor to whatever is currently stored, once.
-    if (capInput === "" && balance) setCapInput(fmtUsd(balance.autonomousCapMicroUsd));
-  }, [balance, capInput]);
+    // Prefill the cap editor ONCE — with the stored cap if the user has set
+    // one, otherwise leave it empty so the placeholder shows and the user
+    // types a fresh value. Without the once-guard this effect snapped the
+    // input back to the stored cap every time the user erased a digit.
+    if (capInputInitRef.current || !balance) return;
+    capInputInitRef.current = true;
+    if (!balance.usingDefaultCap) {
+      setCapInput(fmtUsd(balance.autonomousCapMicroUsd));
+    }
+  }, [balance]);
 
   const saveCap = async () => {
     const num = parseFloat(capInput || "0");
@@ -90,7 +112,7 @@ export default function BalanceAutonomousAccessPanel({
     setCapSaving(true);
     try {
       const issuedAt = Date.now();
-      const message = `Swarm autonomous cap set: ${address.toLowerCase()}@${num}@${issuedAt}`;
+      const message = `Swarm autonomous allowance set: ${address.toLowerCase()}@${num}@${issuedAt}`;
       const signature = await signMessageAsync({ message });
       await setAutonomousCap({
         address: address.toLowerCase(),
@@ -113,7 +135,7 @@ export default function BalanceAutonomousAccessPanel({
     setCapResetting(true);
     try {
       const issuedAt = Date.now();
-      const message = `Swarm autonomous cap reset: ${address.toLowerCase()}@${issuedAt}`;
+      const message = `Swarm autonomous allowance reset: ${address.toLowerCase()}@${issuedAt}`;
       const signature = await signMessageAsync({ message });
       await resetAutonomousCap({ address: address.toLowerCase(), issuedAt, signature });
       loadBalance();
@@ -147,6 +169,20 @@ export default function BalanceAutonomousAccessPanel({
               <div className="text-[10px] text-dim mt-2 leading-relaxed">
                 on-chain wallet: {usdc.formatted} USDC{usdc.loading ? " · syncing" : ""}
               </div>
+              {isSelf && !usdc.loading && usdc.formatted === "0.00" && (
+                <div className="text-[11px] text-amber mt-2 leading-relaxed">
+                  no Fuji USDC in your wallet —{" "}
+                  <a
+                    href="https://faucet.circle.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-amber-hi"
+                  >
+                    grab some from the Circle faucet
+                  </a>
+                  {" "}(choose <span className="text-foreground">Avalanche Fuji</span>).
+                </div>
+              )}
               {balanceErr && <div className="text-[11px] text-danger mt-2">{balanceErr}</div>}
             </div>
             {isSelf && !depositOpen && (
@@ -175,8 +211,9 @@ export default function BalanceAutonomousAccessPanel({
                 autonomous allowance
               </div>
               <div className="text-[11px] text-dim mb-3 leading-relaxed max-w-2xl">
-                Global ceiling on what MCP-paired agents can autonomously spend from your deposited
-                balance. Manual marketplace calls are not subject to this cap.
+                Optional global ceiling on what MCP-paired agents can autonomously spend from your
+                deposited balance. Leave it blank to let MCP agents spend up to your full deposited
+                balance. Manual marketplace calls are never subject to this allowance.
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <label className="block">
@@ -185,8 +222,9 @@ export default function BalanceAutonomousAccessPanel({
                       type="text"
                       inputMode="decimal"
                       value={capInput}
+                      placeholder="no limit"
                       onChange={(e) => setCapInput(e.target.value.replace(/[^0-9.]/g, ""))}
-                      className="w-24 bg-transparent text-amber tabular-nums outline-none border-0"
+                      className="w-24 bg-transparent text-amber tabular-nums outline-none border-0 placeholder:text-dim/50"
                     />
                     <span className="text-amber ml-2 text-xs">USDC</span>
                   </div>
@@ -196,18 +234,19 @@ export default function BalanceAutonomousAccessPanel({
                   disabled={capSaving || capResetting}
                   className="border border-amber bg-amber text-background text-xs font-bold px-4 py-2 hover:bg-amber-hi disabled:opacity-40 transition-none"
                 >
-                  {capSaved ? "[ saved ✓ ]" : capSaving ? <SubmittingLabel text="signing" /> : "[ save cap ]"}
+                  {capSaved ? "[ saved ✓ ]" : capSaving ? <SubmittingLabel text="signing" /> : "[ save allowance ]"}
                 </button>
                 <button
                   onClick={resetUsage}
                   disabled={capSaving || capResetting}
+                  title="Zeros the running counter of what MCP agents have spent this allowance period. Doesn't change the allowance itself."
                   className="border border-dim text-dim text-xs px-3 py-2 hover:border-muted hover:text-muted disabled:opacity-40 transition-none"
                 >
-                  {capResetting ? <SubmittingLabel text="resetting" /> : "[ reset usage ]"}
+                  {capResetting ? <SubmittingLabel text="resetting" /> : "[ reset limit ]"}
                 </button>
               </div>
               <div className="text-[11px] text-dim mt-2 tabular-nums">
-                <span className="text-amber">{capUsd}</span> cap ·{" "}
+                <span className="text-amber">{capUsd}</span> allowance ·{" "}
                 <span className="text-foreground">{spentUsd}</span> used ·{" "}
                 <span className="text-phosphor">{remainingUsd}</span> remaining
               </div>
@@ -221,14 +260,7 @@ export default function BalanceAutonomousAccessPanel({
       </TerminalWindow>
 
       {isSelf && (
-        <PairModal
-          open={pairOpen}
-          onSuccess={() => {
-            setPairOpen(false);
-            loadBalance();
-          }}
-          onCancel={() => setPairOpen(false)}
-        />
+        <PairModal open={pairOpen} onCancel={() => setPairOpen(false)} />
       )}
     </>
   );
@@ -297,7 +329,7 @@ function McpSessionsRow({ address, onPair }: { address: string; onPair: () => vo
           onClick={onPair}
           className="border border-amber text-amber text-xs px-3 py-2 hover:bg-amber hover:text-background transition-none"
         >
-          [ pair new MCP ]
+          [ how to pair ]
         </button>
       </div>
       {err && <div className="text-[11px] text-danger mb-2">{err}</div>}

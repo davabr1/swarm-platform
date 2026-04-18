@@ -50,8 +50,8 @@ export async function runInteractivePair(): Promise<number> {
   console.log(" What happens next:");
   console.log("  1. Press ENTER — your browser opens the pair page.");
   console.log("  2. Connect your wallet (Avalanche Fuji).");
-  console.log("  3. Pick a USDC budget and sign two wallet prompts:");
-  console.log("     an EIP-712 auth (free) + one USDC approve (~0.001 AVAX).");
+  console.log("  3. Sign one off-chain message (free, no gas) to authorize this MCP session.");
+  console.log("     Spend draws from your Swarm deposited balance (top up on /profile).");
   console.log("  4. This terminal will confirm when pairing completes.");
   console.log("");
   console.log(" (Ctrl+C to cancel. If the browser can't auto-open, copy the");
@@ -106,7 +106,6 @@ export async function runInteractivePair(): Promise<number> {
   console.log("  ✓ Paired!");
   console.log("");
   console.log(`    Wallet:  ${formatAddress(session.address)}`);
-  console.log(`    Budget:  ${session.budgetUsd.toFixed(2)} USDC`);
   console.log(`    Expires: ${expiryDate}`);
   console.log("");
   console.log("  The session is saved at ~/.swarm-mcp/session.json.");
@@ -115,6 +114,7 @@ export async function runInteractivePair(): Promise<number> {
   console.log("    claude mcp add swarm -- npx -y swarm-marketplace-mcp");
   console.log("");
   console.log("  …then restart Claude Code. Tool calls will work immediately.");
+  console.log("  Revoke this session later with: npx -y swarm-marketplace-mcp unpair");
   console.log("");
   return 0;
 }

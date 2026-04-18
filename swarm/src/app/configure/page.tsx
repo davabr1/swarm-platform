@@ -382,7 +382,7 @@ export default function ConfigurePage() {
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
-                <span className="flex-1">Sign one wallet prompt (off-chain, free) to authorize the MCP. Spend draws from your deposited Swarm balance, capped by your autonomous allowance.</span>
+                <span className="flex-1">Sign one wallet prompt (off-chain, free) to authorize the MCP. Spend draws from your deposited Swarm balance — capped by your autonomous allowance if you set one on /profile.</span>
               </div>
               <div className="flex gap-3">
                 <span className="text-amber font-mono text-xs w-6 flex-shrink-0 pt-0.5">04.</span>

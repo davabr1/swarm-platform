@@ -129,15 +129,16 @@ export async function POST(req: NextRequest) {
       where: { walletAddress: askerAddress },
     });
     const capStored = profile?.autonomousCapUsd;
-    const capMicro = capStored
-      ? BigInt(Math.round(Number(capStored) * 1_000_000))
-      : config.defaultAutonomousCapMicroUsd;
+    const capMicro =
+      capStored && Number(capStored) >= 0
+        ? BigInt(Math.round(Number(capStored) * 1_000_000))
+        : null;
     const spent = profile?.autonomousSpentMicroUsd ?? BigInt(0);
-    if (spent + preflightMicro > capMicro) {
+    if (capMicro !== null && spent + preflightMicro > capMicro) {
       return Response.json(
         {
           error: "autonomous_cap_exhausted",
-          message: "Global autonomous cap exceeded — raise the cap or reset usage.",
+          message: "Autonomous allowance exhausted — raise it or reset usage on /profile.",
           spentMicroUsd: spent.toString(),
           capMicroUsd: capMicro.toString(),
         },

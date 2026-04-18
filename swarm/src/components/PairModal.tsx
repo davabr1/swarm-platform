@@ -1,32 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import PairForm, { type PairSuccess } from "./PairForm";
+import { useEffect, useRef, useState } from "react";
 
 interface PairModalProps {
   open: boolean;
-  onSuccess: (result: PairSuccess) => void;
   onCancel: () => void;
 }
 
-// Generates a browser-local pair code that matches the backend's regex
-// /^pair_[A-Za-z0-9_-]{16,64}$/. The crypto.randomUUID is present in all
-// browsers the marketplace targets (modern evergreen). Slicing 22 base64-
-// style chars keeps us safely inside the regex bounds.
-function generatePairCode(): string {
-  const rand =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID().replace(/-/g, "")
-      : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  return `pair_${rand.slice(0, 22)}`;
-}
+const PAIR_CMD = "npx swarm-marketplace-mcp pair";
+const UNPAIR_CMD = "npx swarm-marketplace-mcp unpair";
 
-export default function PairModal({ open, onSuccess, onCancel }: PairModalProps) {
+// Pairing happens in the user's terminal, not the browser. The MCP CLI mints
+// the pair code, opens this site in a browser window for the wallet signature,
+// and polls `/api/pair/claim` with the same code until the browser step
+// completes. This modal just shows the command + a quick walkthrough.
+export default function PairModal({ open, onCancel }: PairModalProps) {
   const ref = useRef<HTMLDialogElement | null>(null);
-  // Freeze the generated code across the modal's lifetime so re-renders
-  // don't regenerate it mid-flow. The code is replaced each time the modal
-  // opens via the `open` dependency below.
-  const code = useMemo(() => (open ? generatePairCode() : ""), [open]);
+  const [flashedPair, setFlashedPair] = useState(false);
+  const [flashedUnpair, setFlashedUnpair] = useState(false);
 
   useEffect(() => {
     const dlg = ref.current;
@@ -35,48 +26,107 @@ export default function PairModal({ open, onSuccess, onCancel }: PairModalProps)
     if (!open && dlg.open) dlg.close();
   }, [open]);
 
-  // Treat ESC / backdrop close as cancel.
   useEffect(() => {
     const dlg = ref.current;
     if (!dlg) return;
-    const handler = () => {
-      if (dlg.returnValue !== "ok") onCancel();
-    };
+    const handler = () => onCancel();
     dlg.addEventListener("close", handler);
     return () => dlg.removeEventListener("close", handler);
   }, [onCancel]);
+
+  const copy = async (text: string, setFlash: (v: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 800);
+    } catch {
+      /* clipboard denied — user can still select-copy */
+    }
+  };
 
   return (
     <dialog
       ref={ref}
       className="bg-background text-foreground border border-amber p-0 max-w-xl w-[min(40rem,calc(100vw-2rem))] backdrop:bg-black/70"
       onClick={(e) => {
-        // Clicking the backdrop (outside the content) cancels.
-        if (e.target === ref.current) {
-          ref.current?.close();
-        }
+        if (e.target === ref.current) ref.current?.close();
       }}
     >
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-5">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-dim">swarm://authorize</div>
           <h2 className="text-xl text-foreground mt-1 font-semibold">
-            pair this <span className="text-amber">MCP client</span>
+            pair a new <span className="text-amber">MCP client</span>
           </h2>
           <p className="text-xs text-muted mt-2 leading-relaxed">
-            Authorize this MCP client to spend from your deposited balance, bounded by your global
-            autonomous cap. One signature — no gas, no approve transaction. Revoke any time from
-            your profile.
+            Pairing is initiated from your terminal — not from this page. Run the command below in
+            the shell where your MCP client (Claude Code, Cursor, Codex) will run. It will mint a
+            pair code, open a browser tab back here, and wait while you sign a one-time off-chain
+            message to authorize the session.
           </p>
         </div>
-        {open && code && (
-          <PairForm
-            code={code}
-            defaultExpiryDays="30"
-            onSuccess={onSuccess}
-            onCancel={() => ref.current?.close()}
-          />
-        )}
+
+        <div className="border border-border p-4 space-y-4 text-xs">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+              ❯ step 1 — pair
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <code className="font-mono bg-surface-1 px-3 py-2 border border-border text-foreground select-all">
+                {PAIR_CMD}
+              </code>
+              <button
+                onClick={() => copy(PAIR_CMD, setFlashedPair)}
+                className={`border border-amber text-amber px-3 py-2 hover:bg-amber hover:text-background transition-none ${
+                  flashedPair ? "bg-amber text-background" : ""
+                }`}
+              >
+                {flashedPair ? "[ copied ✓ ]" : "[ copy ]"}
+              </button>
+            </div>
+            <div className="text-dim mt-2 leading-relaxed">
+              The CLI prints a URL — it opens automatically in most terminals. You&apos;ll sign one
+              message in your wallet, then the terminal will print the config snippet to paste into
+              your MCP client.
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border">
+            <div className="text-[10px] uppercase tracking-widest text-dim mb-2">
+              ❯ step 2 — revoke (later, when you&apos;re done)
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <code className="font-mono bg-surface-1 px-3 py-2 border border-border text-muted select-all">
+                {UNPAIR_CMD}
+              </code>
+              <button
+                onClick={() => copy(UNPAIR_CMD, setFlashedUnpair)}
+                className={`border border-dim text-dim px-3 py-2 hover:border-muted hover:text-muted transition-none ${
+                  flashedUnpair ? "border-amber text-amber" : ""
+                }`}
+              >
+                {flashedUnpair ? "[ copied ✓ ]" : "[ copy ]"}
+              </button>
+            </div>
+            <div className="text-dim mt-2 leading-relaxed">
+              Revokes the session for this machine. You can also revoke any session from the list
+              on this page — no CLI required.
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-dim leading-relaxed">
+          once your wallet signs, the session appears in the list below within a few seconds.
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={() => ref.current?.close()}
+            className="border border-border text-muted px-3 py-2 hover:border-amber hover:text-amber text-xs transition-none"
+          >
+            [ close ]
+          </button>
+        </div>
       </div>
     </dialog>
   );

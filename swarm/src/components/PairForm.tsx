@@ -251,7 +251,7 @@ export default function PairForm({
 
           <div className="border border-border p-3 text-[11px] text-dim leading-relaxed">
             Authorize this MCP client to spend from your <span className="text-amber">deposited balance</span>,
-            bounded by your global <span className="text-amber">autonomous cap</span>. One off-chain
+            bounded by your optional <span className="text-amber">autonomous allowance</span>. One off-chain
             signature — no gas, no approve transaction.
           </div>
 

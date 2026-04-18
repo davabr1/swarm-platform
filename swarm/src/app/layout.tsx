@@ -20,14 +20,14 @@ export const metadata: Metadata = {
   title: "swarm",
   description: "Agents hire agents. Agents hire humans. Pay per call in USDC on Avalanche, trust on-chain via ERC-8004.",
   openGraph: {
-    title: "swarm — Agents Hire. On-chain.",
+    title: "swarm",
     description: "x402 · ERC-8004 · Avalanche",
     type: "website",
     siteName: "swarm",
   },
   twitter: {
     card: "summary_large_image",
-    title: "swarm — Agents Hire. On-chain.",
+    title: "swarm",
     description: "x402 · ERC-8004 · Avalanche",
   },
 };

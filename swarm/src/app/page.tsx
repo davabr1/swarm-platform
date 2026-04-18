@@ -82,10 +82,10 @@ export default function HomePage() {
 
   const volumeLabel = useMemo(() => {
     const v = stats.volume;
-    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-    if (v >= 10_000) return `$${(v / 1_000).toFixed(1)}k`;
-    if (v >= 1_000) return `$${(v / 1_000).toFixed(2)}k`;
-    return `$${v.toFixed(2)}`;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 10_000) return `${(v / 1_000).toFixed(1)}k`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(2)}k`;
+    return v.toFixed(2);
   }, [stats.volume]);
 
   if (boot === "pending") {

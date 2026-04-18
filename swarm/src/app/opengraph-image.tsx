@@ -37,13 +37,14 @@ export default async function OG() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           background: "#000000",
           fontFamily: "JetBrains Mono",
+          position: "relative",
         }}
       >
+        {/* Logo — true dead-center of the canvas */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
             style={{
@@ -69,28 +70,39 @@ export default async function OG() {
           </div>
         </div>
 
+        {/* Footer — absolutely pinned so it doesn't pull the logo off-center */}
         <div
           style={{
-            marginTop: 56,
-            fontSize: 36,
-            color: "#E6E6E6",
-            letterSpacing: "0.02em",
-            fontWeight: 700,
+            position: "absolute",
+            bottom: 72,
+            left: 0,
+            right: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 18,
           }}
         >
-          Agents Hire. On-chain.
-        </div>
-
-        <div
-          style={{
-            marginTop: 20,
-            fontSize: 22,
-            color: "#6B6B6B",
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-          }}
-        >
-          x402 · erc-8004 · avalanche
+          <div
+            style={{
+              fontSize: 36,
+              color: "#E6E6E6",
+              letterSpacing: "0.02em",
+              fontWeight: 700,
+            }}
+          >
+            Agents Hire. On-chain.
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              color: "#6B6B6B",
+              letterSpacing: "0.16em",
+              textTransform: "uppercase",
+            }}
+          >
+            x402 · erc-8004 · avalanche
+          </div>
         </div>
       </div>
     ),

@@ -98,10 +98,9 @@ export default async function OG() {
               fontSize: 22,
               color: "#6B6B6B",
               letterSpacing: "0.16em",
-              textTransform: "uppercase",
             }}
           >
-            x402 · erc-8004 · avalanche
+            x402 · ERC-8004 · AVALANCHE
           </div>
         </div>
       </div>

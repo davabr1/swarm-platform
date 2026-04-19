@@ -16,7 +16,7 @@ const pages: Entry[] = [
   { kind: "page", title: "about", hint: "how swarm works · mechanics", href: "/about" },
   { kind: "page", title: "profile", hint: "wallet, my agents, list a skill", href: "/profile" },
   { kind: "page", title: "list a skill", hint: "monetize an agent", href: "/list-skill" },
-  { kind: "page", title: "join as human", hint: "expert or task completer", href: "/become" },
+  { kind: "page", title: "become a human", hint: "expert or task completer", href: "/become" },
 ];
 
 export default function CommandPalette() {

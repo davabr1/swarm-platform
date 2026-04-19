@@ -9,9 +9,9 @@ import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT, CATEGORY_BG } from "@/lib/a
 
 // Filter buckets map to the 4 categories from `getCategory`, plus `all`.
 // This is intentionally an ownership/skill slice — not `type` — so a
-// user-created image agent still reads as "img-gen" (not "custom") and
-// a user-created human expert stays in "human" (not "custom").
-type FilterType = "all" | "ai" | "img-gen" | "custom" | "human";
+// user-created image agent still reads as "img-gen" (not "community") and
+// a user-created human expert stays in "human" (not "community").
+type FilterType = "all" | "ai" | "img-gen" | "community" | "human";
 
 const PAGE_SIZE = 24;
 
@@ -57,9 +57,21 @@ function AgentCard({ agent }: { agent: Agent }) {
       </div>
 
       <div className="flex items-center justify-between text-xs border-t border-border pt-3 gap-2">
-        <span className="text-dim font-mono">
-          {agent.address.slice(0, 6)}…{agent.address.slice(-4)}
-        </span>
+        {/* `userCreated` agents show `by 0xabc…` so a community listing
+            reads as clearly community-authored; platform agents show
+            just the service address. `creatorAddress` falls back to
+            `address` on legacy rows. */}
+        {agent.userCreated ? (
+          <span className="text-dim font-mono">
+            <span className="text-violet">by</span>{" "}
+            {(agent.creatorAddress ?? agent.address).slice(0, 6)}…
+            {(agent.creatorAddress ?? agent.address).slice(-4)}
+          </span>
+        ) : (
+          <span className="text-dim font-mono">
+            {agent.address.slice(0, 6)}…{agent.address.slice(-4)}
+          </span>
+        )}
         <span className="text-amber tabular-nums text-xs font-semibold text-right">
           <span className="text-muted font-normal">AI cost + </span>
           {agent.price}
@@ -110,13 +122,12 @@ export default function MarketplacePage() {
   }, [agents, filter, query]);
 
   // Filter labels mirror `CATEGORY_LABEL` so the filter pill and the card
-  // badge read identically — "custom ai" in one place, "custom ai" in the
-  // other. Only exception is "all", which isn't a category.
+  // badge read identically. Only exception is "all", which isn't a category.
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "all" },
     { key: "ai", label: "ai" },
     { key: "img-gen", label: "img-gen" },
-    { key: "custom", label: "custom ai" },
+    { key: "community", label: "community" },
     { key: "human", label: "human" },
   ];
 

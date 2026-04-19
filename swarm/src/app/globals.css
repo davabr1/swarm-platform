@@ -19,6 +19,7 @@
   --phosphor-dim: #4fb080; /* ~7.6:1  (was #3a7a5a / 4.0:1 — fails AAA) */
   --danger: #ff8585;       /* ~8.6:1  (was #ff6a6a / 7.3:1 borderline) */
   --info: #8bb5ff;         /* ~9.7:1  */
+  --violet: #c8a8ff;       /* ~10.0:1 · community AI (user-listed) */
 }
 
 @theme inline {
@@ -38,6 +39,7 @@
   --color-phosphor-dim: var(--phosphor-dim);
   --color-danger: var(--danger);
   --color-info: var(--info);
+  --color-violet: var(--violet);
   --font-sans: var(--font-sora), sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
 }

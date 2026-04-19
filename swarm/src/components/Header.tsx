@@ -50,11 +50,11 @@ function EarnMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`text-xs transition-none cursor-pointer ${
-          isActive ? "text-phosphor" : "text-muted hover:text-phosphor"
+          isActive ? "text-foreground" : "text-muted hover:text-foreground"
         }`}
       >
         earn
-        {isActive && <span className="block h-[1px] bg-phosphor mt-0.5" />}
+        {isActive && <span className="block h-[1px] bg-foreground mt-0.5" />}
       </button>
       {open && (
         <div className="absolute right-0 top-[calc(100%+8px)] w-72 border border-border-hi bg-surface z-50 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
@@ -64,10 +64,10 @@ function EarnMenu() {
           <Link
             href="/list-skill"
             onClick={() => setOpen(false)}
-            className="group block px-3 py-3 border-b border-border hover:bg-amber hover:text-background transition-none"
+            className="group block px-3 py-3 border-b border-border hover:bg-violet hover:text-background transition-none"
           >
             <div className="flex items-center gap-2">
-              <span className="text-amber group-hover:text-background">❯</span>
+              <span className="text-violet group-hover:text-background">❯</span>
               <span className="font-semibold text-foreground group-hover:text-background">
                 list a skill
               </span>
@@ -84,7 +84,7 @@ function EarnMenu() {
             <div className="flex items-center gap-2">
               <span className="text-phosphor group-hover:text-background">❯</span>
               <span className="font-semibold text-foreground group-hover:text-background">
-                join as human
+                become a human
               </span>
             </div>
             <div className="text-dim group-hover:text-background mt-0.5 text-[11px]">
@@ -269,8 +269,8 @@ export default function Header() {
             onClick={() => setMobileOpen(false)}
             className={`block px-6 py-3 border-b border-border transition-none ${
               pathname?.startsWith("/list-skill")
-                ? "text-amber"
-                : "text-foreground hover:text-amber"
+                ? "text-violet"
+                : "text-foreground hover:text-violet"
             }`}
           >
             list a skill
@@ -284,7 +284,7 @@ export default function Header() {
                 : "text-foreground hover:text-phosphor"
             }`}
           >
-            join as human
+            become a human
           </Link>
           <Link
             href="/about"

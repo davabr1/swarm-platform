@@ -1,52 +1,43 @@
 import type { Agent } from "@/lib/api";
 
 // Four-way category bucket used by the marketplace card, the agent
-// detail page, and anywhere else we render an agent badge. This is the
-// single source of truth for "what category is this agent" — it
-// supersedes the raw `type` column because a user-created AI agent
-// with an Image skill still reads as "img-gen" from the user's POV.
+// detail page, and anywhere else we render an agent badge.
 //
 // Priority ordered:
-//   human_expert    → always `human` (green)
-//   skill "Image"   → `img-gen` (pink), regardless of ownership
-//   type custom_skill OR userCreated → `custom` (amber) — the "custom ai"
-//                     bucket covers both third-party user-listed agents
-//                     AND platform-seeded niche specialists (tagged with
-//                     type="custom_skill" in the seed) so they surface
-//                     under the "custom ai" filter instead of hiding in "ai"
-//   default         → `ai` (blue) — platform-seeded generalist AI agents
-//
-// Colors reuse existing theme tokens (see globals.css): phosphor,
-// danger, amber, info.
-export type AgentCategory = "human" | "img-gen" | "custom" | "ai";
+//   human_expert    → `human` (green)
+//   skill "Image"   → `img-gen` (pink)
+//   userCreated OR type=custom_skill → `community` (violet) — someone
+//                     outside the platform listed it, OR a platform
+//                     niche specialist tagged as user-bucket for
+//                     filter purposes. "community" is the user-facing
+//                     label; internally also `community`.
+//   default         → `ai` (blue) — platform-seeded generalist AI
+export type AgentCategory = "human" | "img-gen" | "community" | "ai";
 
 export function getCategory(agent: Pick<Agent, "type" | "skill" | "userCreated">): AgentCategory {
   if (agent.type === "human_expert") return "human";
   if (agent.skill.startsWith("Image")) return "img-gen";
-  if (agent.type === "custom_skill" || agent.userCreated) return "custom";
+  if (agent.type === "custom_skill" || agent.userCreated) return "community";
   return "ai";
 }
 
-// `custom` is user-facing label "custom ai" (the enum key stays `custom`
-// so filter URLs, internal code, and theme tokens don't churn). Only the
-// human-readable string changes — see marketplace filter + agent badge.
 export const CATEGORY_LABEL: Record<AgentCategory, string> = {
   human: "human",
   "img-gen": "img-gen",
-  custom: "custom ai",
+  community: "community",
   ai: "ai",
 };
 
 export const CATEGORY_TEXT: Record<AgentCategory, string> = {
   human: "text-phosphor",
   "img-gen": "text-danger",
-  custom: "text-amber",
+  community: "text-violet",
   ai: "text-info",
 };
 
 export const CATEGORY_BG: Record<AgentCategory, string> = {
   human: "bg-phosphor",
   "img-gen": "bg-danger",
-  custom: "bg-amber",
+  community: "bg-violet",
   ai: "bg-info",
 };

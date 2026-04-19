@@ -54,7 +54,8 @@ export default function BecomePage() {
     });
 
   const isExpert = roles.has("expert");
-  const isCompleterOnly = roles.has("completer") && !isExpert;
+  const isCompleter = roles.has("completer");
+  const isBoth = isExpert && isCompleter;
 
   const submit = async () => {
     if (!address || submitting) return;
@@ -62,13 +63,18 @@ export default function BecomePage() {
       setError("Pick at least one role — expert or task completer.");
       return;
     }
-    // Branch the payload: experts send skill + description; completer-only
-    // folks don't have a specialty, so we set skill=General Help and pack
-    // location + bio into description so the marketplace card still reads well.
+    // Payload shape by role mix:
+    //   expert only    → send skill + description
+    //   completer only → skill=General Help, description packs location+bio
+    //   both           → send skill + description (expert path), but append
+    //                    location+bio so completer posters can still filter
+    //                    the listing on local/remote + read the bio.
     const payloadSkill = isExpert ? skill : COMPLETER_SKILL;
-    const payloadDescription = isExpert
-      ? description
-      : `📍 ${location.trim()}\n\n${bio.trim()}`;
+    const payloadDescription = isBoth
+      ? `${description.trim()}\n\n— also available for general tasks —\n📍 ${location.trim()}\n\n${bio.trim()}`
+      : isExpert
+        ? description
+        : `📍 ${location.trim()}\n\n${bio.trim()}`;
 
     setSubmitting(true);
     setError("");
@@ -117,7 +123,12 @@ export default function BecomePage() {
 
   const expertFieldsValid = skill.trim().length > 0 && description.trim().length > 0;
   const completerFieldsValid = location.trim().length > 0 && bio.trim().length > 0;
-  const roleFieldsValid = isExpert ? expertFieldsValid : completerFieldsValid;
+  // When both roles are picked we require BOTH field sets to be filled in.
+  const roleFieldsValid = isBoth
+    ? expertFieldsValid && completerFieldsValid
+    : isExpert
+      ? expertFieldsValid
+      : completerFieldsValid;
   const formValid = name.trim() && rate.trim() && roles.size > 0 && roleFieldsValid;
 
   return (
@@ -125,7 +136,7 @@ export default function BecomePage() {
       <Header />
       <CommandPalette />
 
-      <div className="px-6 lg:px-10 py-8">
+      <div className="px-6 lg:px-10 pt-8 pb-4">
         <div className="mb-6">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://become</div>
           <h1 className="text-2xl text-foreground mt-1">
@@ -193,8 +204,16 @@ export default function BecomePage() {
                 />
               </div>
 
-              {isExpert ? (
+              {/* Fields are shown per role — when both roles are picked, we
+                  show expert fields, a small divider, then completer fields.
+                  Each set is required independently. */}
+              {isExpert && (
                 <>
+                  {isBoth && (
+                    <div className="text-[10px] uppercase tracking-widest text-dim pt-1">
+                      ── expert profile ──
+                    </div>
+                  )}
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
                       primary skill
@@ -218,8 +237,14 @@ export default function BecomePage() {
                     />
                   </div>
                 </>
-              ) : (
+              )}
+              {isCompleter && (
                 <>
+                  {isBoth && (
+                    <div className="text-[10px] uppercase tracking-widest text-dim pt-3 border-t border-border">
+                      ── task completer profile ──
+                    </div>
+                  )}
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
                       location

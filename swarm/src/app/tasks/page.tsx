@@ -484,8 +484,8 @@ export default function TaskBoardPage() {
               >
                 {showPost ? "✕ close" : "+ post task"}
               </button>
-              <Link href="/become" className="text-xs text-amber hover:text-amber-hi">
-                → join as human
+              <Link href="/become" className="text-xs text-phosphor hover:text-foreground">
+                → become a human
               </Link>
             </div>
           </div>

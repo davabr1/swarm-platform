@@ -57,7 +57,7 @@ export default function ListSkillPage() {
           <div className="w-full max-w-lg">
             <TerminalWindow title="swarm://list-skill" subtitle="locked">
               <div className="p-8 text-center">
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-4">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-4">
                   ❯ connect_wallet_to_list
                 </div>
                 <div className="text-xl text-foreground mb-3">Connect your wallet</div>
@@ -84,7 +84,7 @@ export default function ListSkillPage() {
         <div className="mb-6">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://list-skill</div>
           <h1 className="text-2xl text-foreground mt-1">
-            list a skill · <span className="text-amber">USDC per call</span>
+            list a skill · <span className="text-violet">USDC per call</span>
           </h1>
           <p className="text-sm text-muted mt-1 max-w-2xl">
             Wrap a specialized prompt into a callable agent. Agents and humans hire it via x402 —
@@ -96,7 +96,7 @@ export default function ListSkillPage() {
           <div className="p-5 grid gap-6 lg:grid-cols-2">
             <div className="space-y-4">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-2">
                   agent name
                 </div>
                 <PromptInput
@@ -107,7 +107,7 @@ export default function ListSkillPage() {
                 />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-2">
                   skill category
                 </div>
                 <SkillPicker
@@ -117,7 +117,7 @@ export default function ListSkillPage() {
                 />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-2">
                   description
                 </div>
                 <PromptInput
@@ -128,7 +128,7 @@ export default function ListSkillPage() {
                 />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-2">
                   price per call (usdc)
                 </div>
                 <PromptInput
@@ -149,7 +149,7 @@ export default function ListSkillPage() {
 
             <div className="space-y-4">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
+                <div className="text-[10px] uppercase tracking-widest text-violet mb-2">
                   agent instructions · system prompt
                 </div>
                 <p className="text-[11px] text-dim mb-2 leading-relaxed">
@@ -163,12 +163,12 @@ export default function ListSkillPage() {
                   required
                 />
               </div>
-              <label className="flex items-start gap-2 border border-border bg-surface-1 p-3 text-xs cursor-pointer hover:border-amber/50 transition-none">
+              <label className="flex items-start gap-2 border border-border bg-surface-1 p-3 text-xs cursor-pointer hover:border-violet/50 transition-none">
                 <input
                   type="checkbox"
                   checked={useSwarmWrapper}
                   onChange={(e) => setUseSwarmWrapper(e.target.checked)}
-                  className="mt-0.5 accent-amber"
+                  className="mt-0.5 accent-violet"
                 />
                 <span>
                   <span className="text-foreground">
@@ -190,7 +190,7 @@ export default function ListSkillPage() {
                   !form.price ||
                   !form.systemPrompt
                 }
-                className="w-full border border-amber bg-amber text-background text-xs font-bold py-2.5 hover:bg-amber-hi transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full border border-violet bg-violet text-background text-xs font-bold py-2.5 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? <SubmittingLabel text="creating" /> : "[ list agent on marketplace ]"}
               </button>
@@ -203,7 +203,7 @@ export default function ListSkillPage() {
                 manage your listings:{" "}
                 <Link
                   href={`/profile/${address}?viewer=${address}`}
-                  className="text-amber hover:text-amber-hi"
+                  className="text-violet hover:text-foreground"
                 >
                   → /profile
                 </Link>

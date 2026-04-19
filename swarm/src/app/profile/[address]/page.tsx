@@ -317,7 +317,6 @@ function MyListingsPanel({
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [togglingRole, setTogglingRole] = useState(false);
   const [err, setErr] = useState("");
 
   const hasExpert = (human?.roles ?? []).includes("expert");
@@ -362,30 +361,6 @@ function MyListingsPanel({
       setErr(e instanceof Error ? e.message : "delete failed");
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const toggleRole = async (role: "expert" | "completer", turnOn: boolean) => {
-    if (!viewer || togglingRole) return;
-    const current = human.roles ?? [];
-    const next = turnOn
-      ? Array.from(new Set([...current, role]))
-      : current.filter((r) => r !== role);
-    if (next.length === 0) {
-      setErr(
-        "Can't turn off your last role — delete the listing instead if you want to remove both.",
-      );
-      return;
-    }
-    setTogglingRole(true);
-    setErr("");
-    try {
-      await updateAgent(human.id, viewer, { roles: next });
-      onChanged();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "update failed");
-    } finally {
-      setTogglingRole(false);
     }
   };
 
@@ -438,20 +413,8 @@ function MyListingsPanel({
         <div className="p-4 space-y-3 text-xs">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <RoleChip
-                label="expert"
-                active={hasExpert}
-                canToggle={isSelf && !togglingRole}
-                canDeactivate={hasCompleter}
-                onToggle={() => toggleRole("expert", !hasExpert)}
-              />
-              <RoleChip
-                label="task completer"
-                active={hasCompleter}
-                canToggle={isSelf && !togglingRole}
-                canDeactivate={hasExpert}
-                onToggle={() => toggleRole("completer", !hasCompleter)}
-              />
+              <RoleChip label="expert" active={hasExpert} />
+              <RoleChip label="task completer" active={hasCompleter} />
             </div>
             {isSelf && !confirmDelete && (
               <div className="flex items-center gap-2">
@@ -503,44 +466,19 @@ function MyListingsPanel({
   );
 }
 
-function RoleChip({
-  label,
-  active,
-  canToggle,
-  canDeactivate,
-  onToggle,
-}: {
-  label: string;
-  active: boolean;
-  canToggle: boolean;
-  canDeactivate: boolean;
-  onToggle: () => void;
-}) {
-  // Deactivating the last active role would unlist the user entirely; the
-  // delete button is the right tool for that. So when this chip is the sole
-  // active role, clicking is a no-op and the affordance is muted.
-  const disabled = !canToggle || (active && !canDeactivate);
-  const title = active && !canDeactivate
-    ? "Last active role — use delete to unlist entirely"
-    : active
-      ? `click to deactivate ${label} role`
-      : `click to activate ${label} role`;
+function RoleChip({ label, active }: { label: string; active: boolean }) {
+  // Display-only. Role toggling lives in the [ edit ] form — accidental
+  // clicks here would silently deactivate hats the user cares about.
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      disabled={disabled}
-      title={title}
-      className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[11px] transition-none disabled:cursor-default ${
-        active
-          ? "border-phosphor/60 text-phosphor"
-          : "border-border-hi text-muted hover:border-phosphor hover:text-phosphor"
+    <span
+      className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[11px] ${
+        active ? "border-phosphor/60 text-phosphor" : "border-border-hi text-muted"
       }`}
     >
       <span className={`inline-block w-1.5 h-1.5 ${active ? "bg-phosphor" : "bg-border-hi"}`} />
       <span>{label}</span>
       <span className="text-dim text-[10px]">· {active ? "active" : "inactive"}</span>
-    </button>
+    </span>
   );
 }
 

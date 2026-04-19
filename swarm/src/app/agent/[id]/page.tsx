@@ -465,7 +465,7 @@ export default function AgentDetailPage() {
                         text={isImage ? "generating" : awaitingReply ? "replying" : "asking"}
                       />
                     ) : (
-                      `[ ${awaitingReply ? "reply" : isImage ? "generate" : "ask"} · ≈ ${ceilingLabel} ]`
+                      `[ ${awaitingReply ? "reply" : isImage ? "generate" : "ask"} · pay ]`
                     )}
                   </button>
                 </div>

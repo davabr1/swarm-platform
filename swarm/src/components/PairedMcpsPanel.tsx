@@ -90,7 +90,7 @@ export default function PairedMcpsPanel({
             )}
           </div>
         ) : (
-          <div className="divide-y divide-border border border-border">
+          <div className="divide-y divide-border">
             {list.map((mcp) => (
               <McpRow
                 key={mcp}

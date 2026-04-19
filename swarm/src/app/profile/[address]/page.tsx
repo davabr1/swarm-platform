@@ -93,10 +93,6 @@ export default function PublicProfilePage() {
 
   useEffect(() => {
     if (!isConnected) return;
-    // Reset the cached portfolio when the URL address changes — otherwise
-    // the post-redirect render briefly shows the previous wallet's data
-    // while the new fetch is in flight.
-    setPortfolio(null);
     setErr("");
     load();
     const iv = setInterval(load, 10000);
@@ -158,10 +154,8 @@ export default function PublicProfilePage() {
 
   if (!portfolio) {
     return (
-      <div className="min-h-screen">
-        <Header />
-        <CommandPalette />
-        <div className="px-6 lg:px-10 py-16 text-center text-sm text-muted">loading profile…</div>
+      <div className="min-h-screen flex items-center justify-center text-muted text-sm">
+        loading profile → {address.slice(0, 8)}…{address.slice(-6)}
       </div>
     );
   }
@@ -939,18 +933,15 @@ function PostedTasksPanel({ tasks, onChanged }: { tasks: Task[]; onChanged: () =
       render: (t) => <span className="text-dim text-xs tabular-nums">{timeAgo(t.createdAt)}</span>,
     },
     {
-      // Two sub-cells share one column: expiry countdown (left) + revoke
-      // button (right). Revoke is open-tasks-only — claimed work already has
-      // a counterparty with a stake, and cancelled/completed rows have nothing
-      // to reverse. Claimed tasks show a "— in progress" hint in the same slot.
+      // Only populated for open tasks — countdown + revoke button. Other
+      // statuses show a blank cell so the column stays aligned without
+      // littering every finished row with a noisy em-dash.
       key: "actions",
-      header: "expires · actions",
-      width: "200px",
+      header: "expires",
+      width: "140px",
       align: "right",
       render: (t) => {
-        if (t.status !== "open") {
-          return <span className="text-dim text-xs">—</span>;
-        }
+        if (t.status !== "open") return null;
         const err = errById[t.id];
         const revoking = revokingId === t.id;
         return (
@@ -961,7 +952,7 @@ function PostedTasksPanel({ tasks, onChanged }: { tasks: Task[]; onChanged: () =
             <button
               onClick={() => handleRevoke(t.id)}
               disabled={revoking}
-              title={err || "Refund the bounty to your wallet and close the task."}
+              title={err || "Refund the bounty to your wallet. Unclaimed tasks also auto-refund after 7 days."}
               className="border border-danger/60 text-danger bg-transparent text-[11px] px-2 py-0.5 hover:bg-danger hover:text-background transition-none disabled:opacity-40"
             >
               {revoking ? "…" : "revoke"}
@@ -980,10 +971,6 @@ function PostedTasksPanel({ tasks, onChanged }: { tasks: Task[]; onChanged: () =
         <div className="p-6 text-sm text-muted">no tasks posted yet.</div>
       ) : (
         <>
-          <div className="px-4 pt-3 text-[11px] text-dim">
-            Revoke any <span className="text-amber">open</span> task to refund the bounty to your
-            wallet. Unclaimed tasks also auto-refund after 7 days.
-          </div>
           <DataTable<Task> rows={tasks} columns={columns} rowKey={(t) => t.id} dense />
           {errSummary && (
             <div className="border-t border-border bg-danger/10 text-danger text-[11px] px-4 py-2">

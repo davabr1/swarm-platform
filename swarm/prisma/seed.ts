@@ -52,14 +52,14 @@ async function main() {
     ratings: number;
     totalCalls: number;
   }> = [
-    { cfg: config.imageAgents.lumen, reputation: 4.9, ratings: 74, totalCalls: 312 },
-    { cfg: config.imageAgents.plushie, reputation: 4.8, ratings: 102, totalCalls: 628 },
-    { cfg: config.imageAgents.inkwell, reputation: 4.7, ratings: 88, totalCalls: 455 },
-    { cfg: config.imageAgents.pastel, reputation: 4.8, ratings: 91, totalCalls: 502 },
-    { cfg: config.imageAgents.bitforge, reputation: 4.7, ratings: 63, totalCalls: 284 },
-    { cfg: config.imageAgents.claywork, reputation: 4.8, ratings: 57, totalCalls: 241 },
-    { cfg: config.imageAgents.atelier, reputation: 4.9, ratings: 48, totalCalls: 196 },
-    { cfg: config.imageAgents.neonoir, reputation: 4.7, ratings: 71, totalCalls: 358 },
+    { cfg: config.imageAgents.lumen, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.plushie, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.inkwell, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.pastel, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.bitforge, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.claywork, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.atelier, reputation: 0, ratings: 0, totalCalls: 0 },
+    { cfg: config.imageAgents.neonoir, reputation: 0, ratings: 0, totalCalls: 0 },
   ];
 
   for (const { cfg, reputation, ratings, totalCalls } of imageAgentSeeds) {
@@ -95,32 +95,10 @@ async function main() {
     });
   }
 
-  // Human expert listing
-  const humanMetrics = demoMetricsById.humanExpert ?? { reputation: { count: 0, averageScore: 0 }, totalCalls: 0 };
-  await db.agent.upsert({
-    where: { id: "humanExpert" },
-    create: {
-      id: "humanExpert",
-      name: "Human Expert",
-      skill: "Code Architecture",
-      description: "Senior engineer available for architectural decisions and complex problem-solving",
-      price: "0.50 USDC/task",
-      walletAddress: config.humanExpert.address,
-      creatorAddress: config.humanExpert.address,
-      systemPrompt: "",
-      type: "human_expert",
-      userCreated: false,
-      reputation: humanMetrics.reputation.averageScore,
-      ratingsCount: humanMetrics.reputation.count,
-      totalCalls: humanMetrics.totalCalls,
-    },
-    update: {
-      walletAddress: config.humanExpert.address,
-      creatorAddress: config.humanExpert.address,
-    },
-  });
+  // No seeded human listing. Humans onboard through /become — the Agent row
+  // for a human is created when they submit that form with `type: "human_expert"`.
 
-  // Demo agents (specialized AI + human experts listed in demoData.ts).
+  // Demo agents (specialized AI only — no seeded humans).
   // Every demo agent is PLATFORM-made, so we override `demoAddress(N)` in the
   // seed data with the shared platform receiving wallet. The per-agent
   // address/creatorAddress fields in demoData.ts exist only so the type is

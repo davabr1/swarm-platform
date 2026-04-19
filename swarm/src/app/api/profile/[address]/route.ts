@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { serializeAgent, serializeTask } from "@/lib/serializeAgent";
+import { TASK_LIST_SELECT } from "@/lib/taskSelect";
 import type { NextRequest } from "next/server";
 
 function isAddress(s: string): boolean {
@@ -41,6 +42,7 @@ async function loadPortfolio(address: string, viewer?: string) {
         ],
       },
       orderBy: { createdAt: "desc" },
+      select: TASK_LIST_SELECT,
     }),
   ]);
 
@@ -48,7 +50,10 @@ async function loadPortfolio(address: string, viewer?: string) {
   const claimedTasks = tasks.filter((t) => t.claimedBy?.toLowerCase() === addrLower);
 
   let inbox: typeof tasks = [];
-  const openTasks = await db.task.findMany({ where: { status: "open" } });
+  const openTasks = await db.task.findMany({
+    where: { status: "open" },
+    select: TASK_LIST_SELECT,
+  });
   const mySkills = new Set(agents.map((a) => a.skill.toLowerCase()));
   const bestRep = agents.reduce((m, a) => Math.max(m, a.reputation ?? 0), 0);
   inbox = openTasks.filter((t) => {

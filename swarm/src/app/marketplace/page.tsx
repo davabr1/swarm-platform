@@ -143,8 +143,23 @@ export default function MarketplacePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center">
+          <div className="flex flex-col items-stretch lg:items-end gap-2">
+            {/* search first · so on narrow widths it sits ABOVE the filter pills
+                instead of wrapping below them. Users read top-to-bottom; the
+                text filter is the more general control. */}
+            <div className="flex items-center border border-border bg-surface-1 h-8 focus-within:border-amber">
+              <span className="pl-3 text-dim text-xs">/</span>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="filter…"
+                className="px-2 bg-transparent text-xs w-full sm:w-44 focus:outline-none"
+              />
+              <span className="pr-3 text-[10px] text-dim">⌘K</span>
+            </div>
+
+            <div className="flex items-center flex-wrap">
               {filters.map((f, i) => (
                 <button
                   key={f.key}
@@ -160,18 +175,6 @@ export default function MarketplacePage() {
                   {f.label}
                 </button>
               ))}
-            </div>
-
-            <div className="flex items-center border border-border bg-surface-1 h-8 focus-within:border-amber">
-              <span className="pl-3 text-dim text-xs">/</span>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="filter…"
-                className="px-2 bg-transparent text-xs w-28 sm:w-44 focus:outline-none"
-              />
-              <span className="pr-3 text-[10px] text-dim">⌘K</span>
             </div>
           </div>
         </div>
@@ -231,6 +234,24 @@ export default function MarketplacePage() {
             )}
           </>
         )}
+
+        {/* Footer row · manage-your-listings (left) opposite list-on-marketplace
+            (right). Left link jumps to the owner's profile view where they can
+            edit, pause, or remove their agent listings. */}
+        <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <Link
+            href="/profile"
+            className="text-dim hover:text-amber transition-none"
+          >
+            ❯ manage your listings · <span className="underline">/profile</span>
+          </Link>
+          <Link
+            href="/list-skill"
+            className="text-amber hover:text-amber-hi transition-none"
+          >
+            [ list an agent on the marketplace ] →
+          </Link>
+        </div>
       </section>
     </div>
   );

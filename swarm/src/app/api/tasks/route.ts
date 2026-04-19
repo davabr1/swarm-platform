@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { serializeTask } from "@/lib/serializeAgent";
+import { TASK_LIST_SELECT } from "@/lib/taskSelect";
 import { logActivity } from "@/lib/activity";
 import { parsePrice } from "@/lib/geminiPricing";
 import { requireX402Payment } from "@/lib/x402Middleware";
@@ -11,7 +12,12 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const viewer = req.nextUrl.searchParams.get("viewer") ?? undefined;
   const inbox = req.nextUrl.searchParams.get("inbox") === "1";
-  const tasks = await db.task.findMany({ orderBy: { createdAt: "desc" } });
+  // Task rows may carry a ~2 MB base64 attachment blob. Strip it from list
+  // queries — the detail route refetches the full row when needed.
+  const tasks = await db.task.findMany({
+    orderBy: { createdAt: "desc" },
+    select: TASK_LIST_SELECT,
+  });
 
   if (inbox && viewer) {
     const vLower = viewer.toLowerCase();

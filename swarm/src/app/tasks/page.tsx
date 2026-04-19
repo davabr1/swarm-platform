@@ -89,6 +89,10 @@ export default function TaskBoardPage() {
   );
   const [expanded, setExpanded] = useState<string | null>(null);
   const [submitText, setSubmitText] = useState<Record<string, string>>({});
+  const [submitAttachment, setSubmitAttachment] = useState<
+    Record<string, { dataUri: string; type: string; name: string }>
+  >({});
+  const [submitAttachmentErr, setSubmitAttachmentErr] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -181,13 +185,58 @@ export default function TaskBoardPage() {
     if (!r?.trim() || submittingId) return;
     setSubmittingId(id);
     try {
-      await submitTask(id, r);
+      await submitTask(id, r, submitAttachment[id]?.dataUri || null);
       setSubmitText((prev) => ({ ...prev, [id]: "" }));
+      setSubmitAttachment((prev) => {
+        const n = { ...prev };
+        delete n[id];
+        return n;
+      });
+      setSubmitAttachmentErr((prev) => ({ ...prev, [id]: "" }));
       load();
       setExpanded(null);
     } finally {
       setSubmittingId(null);
     }
+  };
+
+  const handleAttachmentPick = (id: string, file: File | null) => {
+    setSubmitAttachmentErr((p) => ({ ...p, [id]: "" }));
+    if (!file) {
+      setSubmitAttachment((p) => {
+        const n = { ...p };
+        delete n[id];
+        return n;
+      });
+      return;
+    }
+    const isImage = file.type.startsWith("image/");
+    const isPdf = file.type === "application/pdf";
+    if (!isImage && !isPdf) {
+      setSubmitAttachmentErr((p) => ({
+        ...p,
+        [id]: "Only images and PDFs are supported.",
+      }));
+      return;
+    }
+    // ~2 MB raw cap. Base64 inflates by ~33%, and the server caps at ~2.8 MB
+    // after encoding, so keep the raw file conservatively under the limit.
+    if (file.size > 2_000_000) {
+      setSubmitAttachmentErr((p) => ({ ...p, [id]: "Attachment must be under 2 MB." }));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUri = typeof reader.result === "string" ? reader.result : "";
+      setSubmitAttachment((p) => ({
+        ...p,
+        [id]: { dataUri, type: file.type, name: file.name },
+      }));
+    };
+    reader.onerror = () => {
+      setSubmitAttachmentErr((p) => ({ ...p, [id]: "Could not read the file." }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleVisibility = async (id: string, next: "public" | "private") => {
@@ -436,7 +485,7 @@ export default function TaskBoardPage() {
                 {showPost ? "✕ close" : "+ post task"}
               </button>
               <Link href="/become" className="text-xs text-amber hover:text-amber-hi">
-                → become a specialist
+                → join as human
               </Link>
             </div>
           </div>
@@ -493,7 +542,7 @@ export default function TaskBoardPage() {
                         suffix="USDC"
                         value={postForm.bounty}
                         onChange={(e) => setPostForm((p) => ({ ...p, bounty: e.target.value }))}
-                        placeholder="0.50"
+                        placeholder="3.00"
                         required
                       />
                     </div>
@@ -843,6 +892,60 @@ export default function TaskBoardPage() {
                         placeholder="your result…"
                         rows={4}
                       />
+
+                      <div className="space-y-2">
+                        <label className="inline-flex items-center gap-2 text-[11px] text-muted border border-border bg-surface-1 px-3 py-1.5 hover:border-amber cursor-pointer transition-none">
+                          <span className="text-phosphor">❯</span>
+                          <span>
+                            {submitAttachment[t.id]
+                              ? "change attachment"
+                              : "attach photo or pdf (optional)"}
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) =>
+                              handleAttachmentPick(t.id, e.target.files?.[0] ?? null)
+                            }
+                          />
+                        </label>
+                        {submitAttachment[t.id] && (
+                          <div className="flex items-start gap-3">
+                            {submitAttachment[t.id].type.startsWith("image/") ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={submitAttachment[t.id].dataUri}
+                                alt="attachment preview"
+                                className="w-24 h-24 object-cover border border-border"
+                              />
+                            ) : (
+                              <div className="w-24 h-24 border border-border bg-surface flex flex-col items-center justify-center text-[10px] text-phosphor gap-1">
+                                <span className="text-2xl">📄</span>
+                                <span className="uppercase tracking-widest">pdf</span>
+                              </div>
+                            )}
+                            <div className="flex flex-col text-[11px]">
+                              <span className="text-muted truncate max-w-[200px]">
+                                {submitAttachment[t.id].name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleAttachmentPick(t.id, null)}
+                                className="text-dim hover:text-danger mt-1 self-start"
+                              >
+                                ✕ remove
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {submitAttachmentErr[t.id] && (
+                          <div className="text-[11px] text-danger">
+                            {submitAttachmentErr[t.id]}
+                          </div>
+                        )}
+                      </div>
+
                       <button
                         onClick={() => handleSubmit(t.id)}
                         disabled={!submitText[t.id]?.trim() || submittingId === t.id}
@@ -864,13 +967,41 @@ export default function TaskBoardPage() {
                 {t.status === "completed" && (
                   <div className="pt-3 border-t border-border space-y-3">
                     {canSeeResult ? (
-                      <div>
+                      <div className="space-y-3">
                         <div className="text-[10px] uppercase tracking-widest text-phosphor mb-1">
                           ✓ completed · {t.bounty} paid
                         </div>
                         <pre className="text-sm text-foreground whitespace-pre-wrap border-l border-border pl-3 leading-relaxed">
                           {t.result}
                         </pre>
+                        {t.resultAttachment && t.resultAttachmentType?.startsWith("image/") && (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
+                              ❯ attached photo
+                            </div>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={t.resultAttachment}
+                              alt="task attachment"
+                              className="max-w-md border border-border"
+                            />
+                          </div>
+                        )}
+                        {t.resultAttachment && t.resultAttachmentType === "application/pdf" && (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
+                              ❯ attached pdf
+                            </div>
+                            <a
+                              href={t.resultAttachment}
+                              download={`task-${t.id}.pdf`}
+                              className="inline-flex items-center gap-2 border border-border bg-surface-1 px-3 py-2 text-xs text-phosphor hover:border-phosphor transition-none"
+                            >
+                              <span>📄</span>
+                              <span>download pdf</span>
+                            </a>
+                          </div>
+                        )}
                       </div>
                     ) : t.hasResult ? (
                       <div>
@@ -879,6 +1010,12 @@ export default function TaskBoardPage() {
                         </div>
                         <div className="text-sm text-dim border-l border-border pl-3 italic">
                           🔒 result hidden · only the poster and claimer can see this
+                          {t.hasResultAttachment &&
+                            t.resultAttachmentType?.startsWith("image/") &&
+                            " · includes photo attachment"}
+                          {t.hasResultAttachment &&
+                            t.resultAttachmentType === "application/pdf" &&
+                            " · includes pdf attachment"}
                         </div>
                       </div>
                     ) : null}

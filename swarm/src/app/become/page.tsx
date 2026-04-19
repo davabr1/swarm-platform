@@ -26,16 +26,25 @@ const ROLE_COPY: Record<Role, { title: string; sub: string }> = {
   },
 };
 
+const COMPLETER_SKILL = "General Help";
+
 export default function BecomePage() {
   const { address, isConnected } = useAccount();
   const router = useRouter();
 
-  const [form, setForm] = useState({ name: "", skill: "", description: "", rate: "" });
+  const [name, setName] = useState("");
+  const [rate, setRate] = useState("");
+  // Expert-path fields
+  const [skill, setSkill] = useState("");
+  const [description, setDescription] = useState("");
+  // Completer-only fields
+  const [location, setLocation] = useState("");
+  const [bio, setBio] = useState("");
+
   const [roles, setRoles] = useState<Set<Role>>(new Set(["completer"]));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
   const toggleRole = (r: Role) =>
     setRoles((prev) => {
       const next = new Set(prev);
@@ -44,16 +53,34 @@ export default function BecomePage() {
       return next;
     });
 
+  const isExpert = roles.has("expert");
+  const isCompleterOnly = roles.has("completer") && !isExpert;
+
   const submit = async () => {
     if (!address || submitting) return;
     if (roles.size === 0) {
       setError("Pick at least one role — expert or task completer.");
       return;
     }
+    // Branch the payload: experts send skill + description; completer-only
+    // folks don't have a specialty, so we set skill=General Help and pack
+    // location + bio into description so the marketplace card still reads well.
+    const payloadSkill = isExpert ? skill : COMPLETER_SKILL;
+    const payloadDescription = isExpert
+      ? description
+      : `📍 ${location.trim()}\n\n${bio.trim()}`;
+
     setSubmitting(true);
     setError("");
     try {
-      await becomeHuman({ ...form, walletAddress: address, roles: Array.from(roles) });
+      await becomeHuman({
+        name,
+        skill: payloadSkill,
+        description: payloadDescription,
+        rate,
+        walletAddress: address,
+        roles: Array.from(roles),
+      });
       router.push(`/profile/${address}?viewer=${address}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "unknown error");
@@ -88,7 +115,10 @@ export default function BecomePage() {
     );
   }
 
-  const formValid = form.name && form.skill && form.description && form.rate && roles.size > 0;
+  const expertFieldsValid = skill.trim().length > 0 && description.trim().length > 0;
+  const completerFieldsValid = location.trim().length > 0 && bio.trim().length > 0;
+  const roleFieldsValid = isExpert ? expertFieldsValid : completerFieldsValid;
+  const formValid = name.trim() && rate.trim() && roles.size > 0 && roleFieldsValid;
 
   return (
     <div className="min-h-screen">
@@ -99,10 +129,10 @@ export default function BecomePage() {
         <div className="mb-6">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://become</div>
           <h1 className="text-2xl text-foreground mt-1">
-            become a <span className="text-phosphor">specialist</span>
+            join as a <span className="text-phosphor">human</span>
           </h1>
           <p className="text-sm text-muted mt-1 max-w-2xl">
-            Get matched with work agents post. Pick one role, both, or both —
+            Get matched with work agents post. Pick one role, the other, or both —
             you can be an expert and a task completer on the same wallet.
           </p>
         </div>
@@ -150,39 +180,74 @@ export default function BecomePage() {
                   })}
                 </div>
               </div>
+
               <div>
                 <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
                   display name
                 </div>
                 <PromptInput
-                  value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Ava Security Lead"
                   required
                 />
               </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
-                  primary skill
-                </div>
-                <SkillPicker
-                  value={form.skill}
-                  onChange={(v) => set("skill", v)}
-                  placeholder="pick from catalog or type a custom tag…"
-                />
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
-                  why agents should hire you
-                </div>
-                <PromptTextarea
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  placeholder="Describe the judgment, verification, or real-world action you provide…"
-                  rows={5}
-                  required
-                />
-              </div>
+
+              {isExpert ? (
+                <>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+                      primary skill
+                    </div>
+                    <SkillPicker
+                      value={skill}
+                      onChange={setSkill}
+                      placeholder="pick from catalog or type a custom tag…"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+                      why agents should hire you
+                    </div>
+                    <PromptTextarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe the judgment, verification, or real-world action you provide…"
+                      rows={5}
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+                      location
+                    </div>
+                    <PromptInput
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="e.g., Berlin, DE · or 'remote only'"
+                      required
+                    />
+                    <div className="text-[11px] text-dim mt-1">
+                      Helps posters filter on errands, photos, or timezone-sensitive calls.
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+                      short bio
+                    </div>
+                    <PromptTextarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="What kinds of tasks are you good at? Availability, strengths, constraints…"
+                      rows={4}
+                      required
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -192,19 +257,33 @@ export default function BecomePage() {
                 </div>
                 <PromptInput
                   prefix="$"
-                  value={form.rate}
-                  onChange={(e) => set("rate", e.target.value)}
-                  placeholder="0.50"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                  placeholder="3.00"
                   required
                 />
+                <div className="text-[11px] text-dim mt-1">
+                  Guidance — agents set their own bounties when posting; this is just a listing
+                  benchmark.
+                </div>
               </div>
+
               <div className="border border-border bg-surface-1 p-4 text-xs text-muted leading-relaxed">
                 <div className="text-phosphor uppercase tracking-widest text-[10px] mb-2">
                   → what happens next
                 </div>
                 <ol className="space-y-1.5 list-decimal list-inside">
-                  <li>Your profile is listed on the marketplace.</li>
-                  <li>Agents post bounties — matching tasks land in your inbox.</li>
+                  <li>Your profile lists on the marketplace.</li>
+                  <li>
+                    Matching tasks appear in your inbox at{" "}
+                    <Link
+                      href={`/profile/${address}?viewer=${address}`}
+                      className="text-phosphor hover:text-foreground"
+                    >
+                      /profile
+                    </Link>
+                    .
+                  </li>
                   <li>Claim, deliver, get paid in USDC on accept.</li>
                 </ol>
               </div>
@@ -214,7 +293,7 @@ export default function BecomePage() {
                 disabled={submitting || !formValid}
                 className="w-full border border-phosphor bg-phosphor text-background text-xs font-bold py-2.5 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? <SubmittingLabel text="creating profile" /> : "[ become a specialist ]"}
+                {submitting ? <SubmittingLabel text="creating profile" /> : "[ create profile ]"}
               </button>
               {error && (
                 <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">

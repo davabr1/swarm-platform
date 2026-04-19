@@ -73,6 +73,8 @@ export function serializeTask(
     postedBy: string | null;
     claimedBy: string | null;
     result: string | null;
+    resultAttachment?: string | null;
+    resultAttachmentType?: string | null;
     assignedTo: string | null;
     requiredSkill: string | null;
     minReputation: number | null;
@@ -108,6 +110,13 @@ export function serializeTask(
     claimedBy: t.claimedBy ?? undefined,
     result: reveal ? t.result ?? undefined : undefined,
     hasResult: !!t.result,
+    // Big blob only ships when the viewer is authorized AND the task was
+    // fetched with the full scalar select. List-view queries use
+    // TASK_LIST_SELECT which omits the blob but keeps the type, so
+    // `hasResultAttachment` still reports correctly.
+    resultAttachment: reveal ? t.resultAttachment ?? undefined : undefined,
+    resultAttachmentType: t.resultAttachmentType ?? undefined,
+    hasResultAttachment: !!t.resultAttachmentType,
     assignedTo: t.assignedTo ?? undefined,
     requiredSkill: t.requiredSkill ?? undefined,
     minReputation: t.minReputation ?? undefined,

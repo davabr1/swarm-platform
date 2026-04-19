@@ -56,6 +56,13 @@ model Task {
   postedBy       String?
   claimedBy      String?
   result         String?
+  // Optional photo / PDF attachment on submit — e.g. shelf photos, signed
+  // docs, screenshots, receipts. Stored as a data URI (base64) so the MCP
+  // can round-trip it via /api/tasks/[id] without a separate blob store.
+  // Capped at ~2.8 MB post-base64 (~2 MB raw). Never selected on list-view
+  // queries — see lib/taskSelect.ts.
+  resultAttachment     String?
+  resultAttachmentType String?
   assignedTo     String?
   requiredSkill  String?
   minReputation  Float?

@@ -21,31 +21,6 @@ const typeColor: Record<ActivityItem["type"], string> = {
   registration: "text-foreground",
 };
 
-// Synthetic events that get injected into the feed every few seconds so it
-// feels alive during the demo even without real MCP traffic.
-const SYNTHETIC_EVENTS: Array<{ type: ActivityItem["type"]; message: string }> = [
-  { type: "payment", message: "Chainsight settled 0.18 USDC decoding a 7-hop path through Railgun into Kraken." },
-  { type: "task", message: "An agent escalated a zk circuit soundness review · $3.40 bounty." },
-  { type: "reputation", message: "Solmantis 4.9/5 for catching a signature-replay vector in a v3 bridge proxy." },
-  { type: "payment", message: "MEV Scope routed 0.09 USDC on a 6-block sandwich trace across Flashbots." },
-  { type: "registration", message: "BridgeGuard joined as a LayerZero/Wormhole validator-set audit specialist." },
-  { type: "task", message: "Maya Rios claimed a $4.50 live exploit incident response bounty in 38s." },
-  { type: "payment", message: "RegulaNet closed 0.22 USDC on a MiCA classification memo for a euro-USDC frontend." },
-  { type: "reputation", message: "Runtime Warden 500 rollup runs at 4.8/5 across Arbitrum, Base, zkSync." },
-  { type: "payment", message: "StableScope billed 0.18 USDC modeling a FRAX reserve-cascade scenario." },
-  { type: "task", message: "Aria Stone picked up a restaking tokenomics edge-case review · $3.10." },
-  { type: "registration", message: "OrderflowLens registered · private mempool flow estimation for market-makers." },
-  { type: "payment", message: "Audit Canary billed 0.14 USDC on a pre-audit pass of a new staking vault." },
-  { type: "reputation", message: "Prism Ledger 4.9/5 after stress-testing a perps vault funding-rate regime." },
-  { type: "task", message: "Proofline claimed a $2.40 final sign-off on a proxy storage upgrade." },
-  { type: "payment", message: "LiquidityMap closed 0.13 USDC mapping concentrated liquidity for a 5 ETH fill." },
-  { type: "registration", message: "SigLab joined the marketplace as a Halo2 / Plonky2 circuit auditor." },
-  { type: "task", message: "Counsel North claimed a sanctions-wording clearance bounty for $1.80." },
-  { type: "payment", message: "Orbit Counsel billed 0.17 USDC on a cross-border FATF travel-rule posture memo." },
-  { type: "reputation", message: "Vigil Ops 250 incident-triage runs at 4.7/5 with median resolution 4m42s." },
-  { type: "payment", message: "Evidence Dock closed 0.16 USDC assembling a Series B diligence packet." },
-];
-
 interface FeedItem extends ActivityItem {
   _key: string;
   _dropping?: boolean;
@@ -66,7 +41,6 @@ export default function ActivityTicker() {
     fallbackActivity.slice(0, VISIBLE).map((a, i) => ({ ...a, _key: `seed-${i}` }))
   );
   const [, rerender] = useState(0);
-  const syntheticIdx = useRef(0);
   const realSeenTs = useRef<Set<number>>(new Set());
 
   // Tick each second for relative timestamps
@@ -96,25 +70,11 @@ export default function ActivityTicker() {
           pushItem({ ...d, _key: `real-${d.timestamp}-${Math.random()}` });
         }
       } catch {
-        // synthetic events keep the feed alive
+        // transient fetch miss — next poll will retry.
       }
     };
     load();
     const iv = setInterval(load, 5000);
-    return () => clearInterval(iv);
-  }, []);
-
-  // Synthetic event every ~2.6s
-  useEffect(() => {
-    const iv = setInterval(() => {
-      const seed = SYNTHETIC_EVENTS[syntheticIdx.current % SYNTHETIC_EVENTS.length]!;
-      syntheticIdx.current += 1;
-      pushItem({
-        ...seed,
-        timestamp: Date.now(),
-        _key: `syn-${Date.now()}-${Math.random()}`,
-      });
-    }, 5000);
     return () => clearInterval(iv);
   }, []);
 

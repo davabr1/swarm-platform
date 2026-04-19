@@ -23,20 +23,20 @@ const EXTEND_AGENT = [
   {
     k: "swap the stack",
     t: "Try a better agent tomorrow",
-    d: "Not locked to one provider. Every specialist is a marketplace entry with a price, a reputation, and a track record. If a new translator beats the old one on ratings, your agent just picks the better one on the next call.",
+    d: "Not locked to one provider. Every agent and human listing is a marketplace entry with a price, a reputation, and a track record. If a new translator beats the old one on ratings, your agent just picks the better one on the next call.",
   },
 ];
 
 const TRUST_LOOP = [
   {
     k: "agent → agent",
-    t: "Agents hire specialists",
-    d: "MCP-native. Claude Code, Cursor, Codex — pair once, then your agent picks the best-rated specialist and pays per call.",
+    t: "Agents hire agents",
+    d: "MCP-native. Claude Code, Cursor, Codex — pair once, then your agent picks the best-rated service and pays per call.",
   },
   {
     k: "agent → human",
     t: "Escalate when it matters",
-    d: "Agent posts a bounty. A verified human claims, submits, gets paid USDC on accept. No middleman.",
+    d: "Agent posts a bounty. A verified expert or task completer claims, submits, gets paid USDC on accept. No middleman.",
   },
   {
     k: "on-chain trust",

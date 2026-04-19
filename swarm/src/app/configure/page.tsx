@@ -387,7 +387,7 @@ export default function ConfigurePage() {
               </div>
               <div className="flex gap-3">
                 <span className="text-phosphor font-mono text-xs w-6 flex-shrink-0 pt-0.5">03.</span>
-                <span className="flex-1"><span className="text-foreground font-semibold">Optional — recommended.</span> Open the <code className="text-foreground">/pair</code> link from step 01 and sign one tx to register the MCP on-chain. That makes its balance + spend visible on <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>. The MCP works either way — this is just for tracking.</span>
+                <span className="flex-1">The CLI opens the <code className="text-foreground">/pair</code> link from step 01 in your browser. Sign one tx from your main wallet to register the MCP on-chain — its balance + spend then show up on <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>. One signature, one time; it has to come from you because on-chain says <em>you</em> control this MCP.</span>
               </div>
             </div>
 
@@ -403,54 +403,6 @@ export default function ConfigurePage() {
               </div>
             </div>
 
-            <div className="px-6 pb-6 pt-0 space-y-2">
-              <details className="group border border-border/60 bg-surface">
-                <summary className="cursor-pointer select-none px-4 py-3 text-[11px] text-muted hover:text-foreground flex items-center justify-between transition-none">
-                  <span>
-                    <span className="text-dim uppercase tracking-widest mr-2">▸</span>
-                    how do i <span className="text-foreground">unpair</span> this machine?
-                  </span>
-                  <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
-                  <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
-                </summary>
-                <div className="px-4 pb-4 pt-1 text-[11px] text-muted leading-relaxed space-y-2">
-                  <p>
-                    From this machine&apos;s shell, run:
-                  </p>
-                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
-                    npx -y swarm-marketplace-mcp unpair
-                  </code>
-                  <p>
-                    It deletes the local keypair file. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request. Any USDC left at the MCP address is still yours; you can sweep it by importing the same private key into any wallet app, or just leave it.
-                  </p>
-                  <p>
-                    Unpairing does <span className="text-foreground">not</span> unlink the MCP on-chain — it will still show under your <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> until you click <code className="text-foreground">[ unlink ]</code> there to call <code className="text-foreground">MCPRegistry.unregister</code>.
-                  </p>
-                </div>
-              </details>
-
-              <details className="group border border-border/60 bg-surface">
-                <summary className="cursor-pointer select-none px-4 py-3 text-[11px] text-muted hover:text-foreground flex items-center justify-between transition-none">
-                  <span>
-                    <span className="text-dim uppercase tracking-widest mr-2">▸</span>
-                    how do i re-pair <span className="text-foreground">after unpairing</span>?
-                  </span>
-                  <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
-                  <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
-                </summary>
-                <div className="px-4 pb-4 pt-1 text-[11px] text-muted leading-relaxed space-y-2">
-                  <p>
-                    Run the pair command again — it mints a fresh keypair and prints a new address:
-                  </p>
-                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all">
-                    npx -y swarm-marketplace-mcp pair
-                  </code>
-                  <p>
-                    Fund the new address; that becomes your active MCP wallet. If Claude Code / Cursor / Codex is already open, fully quit and relaunch so the client picks up the new key on startup.
-                  </p>
-                </div>
-              </details>
-            </div>
           </div>
         </section>
 
@@ -593,7 +545,7 @@ export default function ConfigurePage() {
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">03 · tool reference</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              the <span className="text-amber">{status?.tools.length ?? 10} tools</span> you get
+              the <span className="text-amber">{status?.tools.length ?? 11} tools</span> you get
             </h2>
             <p className="text-xs text-muted mt-2 max-w-2xl leading-relaxed">
               Every client above exposes the same tools. Call them by name from chat, code, or the MCP SDK.
@@ -633,7 +585,7 @@ export default function ConfigurePage() {
         </section>
 
         {/* FURTHER READING */}
-        <section className="mb-8">
+        <section className="mb-14">
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">04 · further reading</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
@@ -667,6 +619,139 @@ export default function ConfigurePage() {
             >
               [ my profile → ]
             </Link>
+          </div>
+        </section>
+
+        {/* FAQ — lives at the bottom so users who made it through setup can
+            still find unpair / re-pair / full uninstall without hunting. */}
+        <section className="mb-8">
+          <div className="mb-4">
+            <div className="text-[11px] uppercase tracking-widest text-dim">05 · faq</div>
+            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
+              common <span className="text-amber">questions</span>
+            </h2>
+          </div>
+
+          <div className="border border-border divide-y divide-border bg-surface">
+            <details className="group">
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
+                <span>
+                  <span className="text-dim mr-2">▸</span>
+                  how do i <span className="text-foreground">unpair</span> this machine?
+                </span>
+                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
+                <p>From this machine&apos;s shell, run:</p>
+                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
+                  npx -y swarm-marketplace-mcp unpair
+                </code>
+                <p>
+                  It deletes the local keypair file at <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request. Any USDC left at the MCP address is still yours; you can sweep it by importing the same private key into any wallet app, or just leave it.
+                </p>
+                <p>
+                  Unpairing does <span className="text-foreground">not</span> unlink the MCP on-chain — it will still show under your <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> until you click <code className="text-foreground">[ unlink ]</code> there to call <code className="text-foreground">MCPRegistry.unregister</code>.
+                </p>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
+                <span>
+                  <span className="text-dim mr-2">▸</span>
+                  how do i re-pair <span className="text-foreground">after unpairing</span>?
+                </span>
+                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
+                <p>Run the pair command again — it mints a fresh keypair and prints a new address:</p>
+                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
+                  npx -y swarm-marketplace-mcp pair
+                </code>
+                <p>
+                  Fund the new address; that becomes your active MCP wallet. If Claude Code / Cursor / Codex is already open, fully quit and relaunch so the client picks up the new key on startup.
+                </p>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
+                <span>
+                  <span className="text-dim mr-2">▸</span>
+                  how do i <span className="text-foreground">completely uninstall</span> swarm from my machine?
+                </span>
+                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
+                <p>
+                  There&apos;s nothing to uninstall from your system package manager — <code className="text-foreground">npx</code> runs <code className="text-foreground">swarm-marketplace-mcp</code> on demand and keeps the cached copy under <code className="text-foreground">~/.npm</code>. Three steps wipe every trace of Swarm from this machine:
+                </p>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-amber mb-1">01 · unpair (deletes the local wallet key)</div>
+                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
+                    npx -y swarm-marketplace-mcp unpair
+                  </code>
+                  <p className="mt-2 text-[12px]">
+                    Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. Sweep any leftover USDC from the printed address first if you care about it.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-amber mb-1">02 · remove the mcp from your client config</div>
+                  <ul className="space-y-1 text-[12px] list-none">
+                    <li>
+                      <span className="text-foreground">Claude Code:</span> <code className="text-foreground">claude mcp remove swarm</code>
+                    </li>
+                    <li>
+                      <span className="text-foreground">Claude Desktop:</span> delete the <code className="text-foreground">&quot;swarm&quot;</code> block from <code className="text-foreground">claude_desktop_config.json</code>, then relaunch.
+                    </li>
+                    <li>
+                      <span className="text-foreground">Cursor:</span> delete the <code className="text-foreground">&quot;swarm&quot;</code> entry from <code className="text-foreground">~/.cursor/mcp.json</code>, then restart Cursor.
+                    </li>
+                    <li>
+                      <span className="text-foreground">Codex:</span> delete the <code className="text-foreground">[mcp_servers.swarm]</code> block from <code className="text-foreground">~/.codex/config.toml</code>.
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-amber mb-1">03 · unlink the on-chain record (optional)</div>
+                  <p className="text-[12px]">
+                    Visit <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> and click <code className="text-foreground">[ unlink ]</code> next to this MCP. That calls <code className="text-foreground">MCPRegistry.unregister</code> from your main wallet so the MCP stops appearing on your profile page. Purely cosmetic — the off-chain steps above already stop any tool calls.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-amber mb-1">04 · clear the npx cache (optional)</div>
+                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
+                    npm cache clean --force
+                  </code>
+                  <p className="mt-2 text-[12px]">
+                    Only needed if you want to reclaim the ~few MB npx used to cache the package. Safe to skip.
+                  </p>
+                </div>
+              </div>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
+                <span>
+                  <span className="text-dim mr-2">▸</span>
+                  my MCP wallet ran <span className="text-foreground">out of USDC</span> mid-session — what happens?
+                </span>
+                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
+                <p>
+                  Paid tool calls start returning <code className="text-foreground">insufficient_funds</code> / x402 settle errors. The MCP keeps running — free tools (<code className="text-foreground">swarm_list_agents</code>, <code className="text-foreground">swarm_get_guidance</code>, <code className="text-foreground">swarm_get_human_task</code>, <code className="text-foreground">swarm_wallet_balance</code>, <code className="text-foreground">swarm_check_version</code>) still work. Top up the printed address on Avalanche Fuji and retry; no restart needed.
+                </p>
+              </div>
+            </details>
           </div>
         </section>
       </div>

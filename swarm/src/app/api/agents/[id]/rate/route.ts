@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 import { db } from "@/lib/db";
 import { config } from "@/lib/config";
 import { giveFeedback, registerAgent } from "@/lib/erc8004";
@@ -10,6 +11,27 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/agents/[id]
   const score = Number(body.score);
   if (!score || score < 1 || score > 5) {
     return Response.json({ error: "Score must be 1-5" }, { status: 400 });
+  }
+
+  const signature = req.headers.get("x-rate-signature");
+  if (!signature) {
+    return Response.json(
+      {
+        error: "missing_signature",
+        message: "Provide an EIP-191 signature of `rate-agent:<agentId>:<score>` in the X-Rate-Signature header.",
+      },
+      { status: 401 },
+    );
+  }
+
+  let signer: string;
+  try {
+    signer = ethers.verifyMessage(`rate-agent:${id}:${score}`, signature).toLowerCase();
+  } catch {
+    return Response.json(
+      { error: "invalid_signature", message: "Could not recover signer from X-Rate-Signature." },
+      { status: 401 },
+    );
   }
 
   let agent = await db.agent.findUnique({ where: { id } });
@@ -57,7 +79,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/agents/[id]
         agent.skill.toLowerCase().replace(/\s+/g, "_"),
         `/api/agents/${agent.id}/call`
       );
-      await logActivity("reputation", `${agent.name} rated ${score}/5 — on-chain reputation updated`);
+      await logActivity(
+        "reputation",
+        `${agent.name} rated ${score}/5 by ${signer.slice(0, 8)}… — on-chain reputation updated`,
+      );
     } catch (err) {
       console.error("ERC-8004 feedback failed:", err instanceof Error ? err.message : err);
     }

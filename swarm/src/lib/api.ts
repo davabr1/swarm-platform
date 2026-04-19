@@ -32,6 +32,9 @@ export interface Task {
   claimedBy?: string;
   result?: string;
   hasResult?: boolean;
+  resultAttachment?: string;
+  resultAttachmentType?: string;
+  hasResultAttachment?: boolean;
   assignedTo?: string;
   requiredSkill?: string;
   minReputation?: number;
@@ -98,7 +101,7 @@ export interface GuidanceRequest {
   // Follow-up envelope (matches MCP `swarm_ask_agent` / `swarm_follow_up`).
   // `replyType === "question"` means the specialist asked a clarifying
   // question — the UI should let the user reply with the same
-  // conversationId instead of firing the rating gate.
+  // conversationId instead of showing a rating row.
   replyType?: "question" | "response";
   conversationId?: string;
   turn?: number;
@@ -223,13 +226,25 @@ export async function fetchGuidance(id: string): Promise<GuidanceRequest> {
   return res.json();
 }
 
-export async function rateAgent(id: string, score: number): Promise<{ success: boolean; reputation: { count: number; averageScore: number } }> {
+export async function rateAgent(
+  id: string,
+  score: number,
+  signature: string,
+): Promise<{ success: boolean; reputation: { count: number; averageScore: number } }> {
   const res = await fetch(`/api/agents/${id}/rate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Rate-Signature": signature },
     body: JSON.stringify({ score }),
   });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.message || p.error || "failed to rate agent");
+  }
   return res.json();
+}
+
+export function rateAgentMessage(id: string, score: number): string {
+  return `rate-agent:${id}:${score}`;
 }
 
 export async function fetchTasks(viewer?: string): Promise<Task[]> {
@@ -288,11 +303,15 @@ export async function claimTask(id: string, expertAddress?: string): Promise<Tas
   return res.json();
 }
 
-export async function submitTask(id: string, result: string): Promise<Task> {
+export async function submitTask(
+  id: string,
+  result: string,
+  resultAttachment?: string | null,
+): Promise<Task> {
   const res = await fetch(`/api/tasks/${id}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ result }),
+    body: JSON.stringify({ result, resultAttachment: resultAttachment ?? undefined }),
   });
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));

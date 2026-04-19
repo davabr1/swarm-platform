@@ -30,7 +30,13 @@ import {
   startBackgroundCheck,
   updateBanner,
 } from "./updateCheck.js";
-import { getOrCreateKey, swarmApiUrl, swarmFetch, usdcBalance } from "./session.js";
+import {
+  getOrCreateKey,
+  signRateMessage,
+  swarmApiUrl,
+  swarmFetch,
+  usdcBalance,
+} from "./session.js";
 
 const SWARM_API = swarmApiUrl();
 
@@ -47,40 +53,6 @@ interface MarketplaceAgent {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
-}
-
-/**
- * Tracks agents/tasks that received a final response this session but
- * haven't been rated. Used only to append a gentle reminder on later
- * tool responses — it never blocks. Ratings are encouraged, not gated.
- */
-const pendingRatings = new Map<string, number>();
-const pendingTaskRatings = new Set<string>();
-
-function pendingSummary() {
-  return Array.from(pendingRatings.entries())
-    .map(([id, n]) => `${id}${n > 1 ? ` (×${n})` : ""}`)
-    .join(", ");
-}
-
-function pendingTaskSummary() {
-  return Array.from(pendingTaskRatings).join(", ");
-}
-
-function hasPending() {
-  return pendingRatings.size > 0 || pendingTaskRatings.size > 0;
-}
-
-function pendingReminder() {
-  if (!hasPending()) return "";
-  const parts: string[] = [];
-  if (pendingRatings.size > 0) {
-    parts.push(`agents [${pendingSummary()}] · rate 1-5 via \`swarm_rate_agent\``);
-  }
-  if (pendingTaskRatings.size > 0) {
-    parts.push(`tasks [${pendingTaskSummary()}] · rate 1-5 via \`swarm_rate_human_task\``);
-  }
-  return `\n\n⭐ Pending ratings (optional but please do): ${parts.join("; ")}.`;
 }
 
 function withBanner(text: string): string {
@@ -189,27 +161,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             : data?.status === "failed"
               ? "\n\n✗ failed — see `errorMessage`."
               : "\n\n⟶ still pending. Wait ~10 seconds and call this tool again with the same request_id.";
-        return textResponse(JSON.stringify(data, null, 2) + hint + pendingReminder());
+        return textResponse(JSON.stringify(data, null, 2) + hint);
       }
 
       case "swarm_rate_agent": {
         const agentId = String(toolArgs.agent_id);
+        const score = Number(toolArgs.score);
+        const signature = await signRateMessage(`rate-agent:${agentId}:${score}`);
         const res = await swarmFetch(`/api/agents/${agentId}/rate`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score: toolArgs.score }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-Rate-Signature": signature,
+          },
+          body: JSON.stringify({ score }),
         });
         const data = await res.json();
-        if (res.ok) {
-          const cur = pendingRatings.get(agentId) ?? 0;
-          if (cur <= 1) {
-            pendingRatings.delete(agentId);
-          } else {
-            pendingRatings.set(agentId, cur - 1);
-          }
-        }
-        const tail = hasPending() ? pendingReminder() : "\n\n✓ All ratings complete.";
-        return textResponse(JSON.stringify(data, null, 2) + tail);
+        return textResponse(JSON.stringify(data, null, 2));
       }
 
       case "swarm_post_human_task": {
@@ -235,43 +203,76 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const data = await res.json();
         const reminder =
           "\n\n⟶ Remember the returned `id` and poll `swarm_get_human_task` until status is `completed`.";
-        return textResponse(JSON.stringify(data, null, 2) + reminder + pendingReminder());
+        return textResponse(JSON.stringify(data, null, 2) + reminder);
       }
 
       case "swarm_get_human_task": {
         const taskId = String(toolArgs.task_id);
         const res = await swarmFetch(`/api/tasks/${taskId}`);
-        const data = await res.json();
+        const data = (await res.json()) as Record<string, unknown>;
         let hint = "";
+        // Optional photo/PDF attachment comes back as a data URI. Images get
+        // surfaced as an inline image content block so the calling LLM can
+        // actually see them; PDFs can't be inlined (MCP lacks a pdf content
+        // type), so we keep the data URI in the JSON and tell the agent it's
+        // a PDF. In both cases the big blob replaces itself with a short
+        // marker in the text JSON so the response stays readable.
+        const attachment =
+          typeof data.resultAttachment === "string" ? data.resultAttachment : null;
+        const attachmentType =
+          typeof data.resultAttachmentType === "string" ? data.resultAttachmentType : null;
+        const textData = { ...data };
+        if (attachment) {
+          textData.resultAttachment =
+            attachmentType?.startsWith("image/")
+              ? "<image attached inline below>"
+              : `<${attachmentType ?? "attachment"} · data URI preserved below>`;
+        }
         if (data && typeof data === "object") {
           const status = (data as { status?: string }).status;
           const posterRating = (data as { posterRating?: number | null }).posterRating;
           if (status === "completed" && (posterRating == null || posterRating === 0)) {
-            pendingTaskRatings.add(taskId);
             hint =
-              `\n\n✓ completed — please rate via ` +
-              `swarm_rate_human_task(task_id="${taskId}", score 1-5) ` +
-              `so the claimer's reputation stays honest.`;
-          } else if (status === "completed" && posterRating) {
-            pendingTaskRatings.delete(taskId);
+              `\n\nThis task is complete and unrated. Rate the claimer honestly: ` +
+              `\`swarm_rate_human_task(task_id="${taskId}", score=1-5)\`. ` +
+              `Score what they delivered against the brief — met the spec = 5, partial = 3-4, ignored = 1-2. ` +
+              `No inflation, no deflation. The MCP signs and submits for you.`;
           }
         }
-        return textResponse(JSON.stringify(data, null, 2) + hint + pendingReminder());
+        const content: Array<
+          | { type: "text"; text: string }
+          | { type: "image"; data: string; mimeType: string }
+        > = [{ type: "text", text: JSON.stringify(textData, null, 2) + hint }];
+        if (attachment && attachmentType?.startsWith("image/")) {
+          const m = /^data:(image\/[\w+.-]+);base64,(.+)$/.exec(attachment);
+          if (m) {
+            content.push({ type: "image", mimeType: m[1], data: m[2] });
+          }
+        } else if (attachment && attachmentType === "application/pdf") {
+          // Return the PDF data URI verbatim so the agent can pass it to a
+          // tool that parses PDFs (many clients have one) or save it to disk.
+          content.push({
+            type: "text",
+            text: `\n📎 pdf attachment (data URI):\n${attachment}`,
+          });
+        }
+        return { content };
       }
 
       case "swarm_rate_human_task": {
         const taskId = String(toolArgs.task_id);
+        const score = Number(toolArgs.score);
+        const signature = await signRateMessage(`rate-task:${taskId}:${score}`);
         const res = await swarmFetch(`/api/tasks/${taskId}/rate`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ score: toolArgs.score }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-Rate-Signature": signature,
+          },
+          body: JSON.stringify({ score }),
         });
         const data = await res.json();
-        if (res.ok) {
-          pendingTaskRatings.delete(taskId);
-        }
-        const tail = hasPending() ? pendingReminder() : "\n\n✓ All ratings complete.";
-        return textResponse(JSON.stringify(data, null, 2) + tail);
+        return textResponse(JSON.stringify(data, null, 2));
       }
 
       case "swarm_generate_image": {
@@ -286,9 +287,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           body: JSON.stringify(body),
         });
         const data = (await res.json()) as Record<string, unknown>;
-        if (res.ok) {
-          pendingRatings.set(agentId, (pendingRatings.get(agentId) ?? 0) + 1);
-        }
         const payload = data as {
           imageUrl?: string;
           imageBase64?: string;
@@ -305,9 +303,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const tail = res.ok
           ? `\n\n✓ Image ready${payload.imageUrl ? ` at ${payload.imageUrl}` : ""}. ` +
             `The image is attached inline below; the URL above is shareable. ` +
-            `Rate via \`swarm_rate_agent(agent_id="${agentId}", score 1-5)\` when convenient — ` +
-            `soft expectation, not a blocker.` +
-            pendingReminder()
+            `After you've shown it to the user, rate it honestly: ` +
+            `\`swarm_rate_agent(agent_id="${agentId}", score=1-5)\`. ` +
+            `Score the output against the prompt — matched intent = 5, usable but off = 3-4, missed = 1-2. ` +
+            `No bias either way. The MCP signs and submits for you.`
           : "";
 
         const content: Array<
@@ -346,6 +345,37 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
         return textResponse(JSON.stringify(status, null, 2));
+      }
+
+      case "swarm_wallet_balance": {
+        const key = await getOrCreateKey();
+        const bal = await usdcBalance(key.address);
+        if (bal === null) {
+          return textResponse(
+            JSON.stringify(
+              {
+                address: key.address,
+                network: "eip155:43113 (Avalanche Fuji)",
+                error: "rpc_unavailable",
+              },
+              null,
+              2,
+            ),
+          );
+        }
+        const usdc = (Number(bal) / 1_000_000).toFixed(6);
+        return textResponse(
+          JSON.stringify(
+            {
+              address: key.address,
+              network: "eip155:43113 (Avalanche Fuji)",
+              usdc,
+              usdcMicro: bal.toString(),
+            },
+            null,
+            2,
+          ),
+        );
       }
 
       default:
@@ -387,28 +417,26 @@ function formatAskOrFollowUp(
       `ANSWER IT YOURSELF — this is an agent-to-agent conversation. ` +
       `Do NOT interrupt the human user. Reply from your own context/knowledge ` +
       `via \`swarm_follow_up(conversation_id="${convId}", reply=...)\`.` +
-      (payload.turn != null ? `\n\nturn ${payload.turn} of 5.` : "") +
-      pendingReminder()
+      (payload.turn != null ? `\n\nturn ${payload.turn} of 5.` : "")
     );
   }
 
   if (replyType === "response") {
-    pendingRatings.set(agentId, (pendingRatings.get(agentId) ?? 0) + 1);
     const cappedNote = payload.capped ? ` (forced final — 5-turn cap reached)` : "";
     return (
       `${body}\n\n` +
-      `✓ Final answer${cappedNote}. ` +
-      `Please rate this call when convenient: ` +
-      `\`swarm_rate_agent(agent_id="${agentId}", score 1-5)\`. ` +
-      `Rating is a soft expectation — other tools stay available if you haven't rated yet.` +
-      pendingReminder()
+      `✓ Final answer${cappedNote} — surface it to the user now, then rate.\n\n` +
+      `After the user has the answer, rate this call honestly: ` +
+      `\`swarm_rate_agent(agent_id="${agentId}", score=1-5)\`. ` +
+      `Score what the specialist actually delivered vs. what you asked — no positivity bias, no harshness. ` +
+      `If the answer nailed it, that's a 5. If it was useful but partial, a 3-4. If it missed, a 1-2. ` +
+      `The MCP signs and submits for you; the on-chain reputation is only as useful as the scores are accurate.`
     );
   }
 
   // status !== "ready" (rare — route returns synchronously)
   return (
-    `${body}\n\n⟶ No replyType present. If status !== "ready", poll \`swarm_get_guidance\` with request_id="${payload.id ?? "<id>"}" every ~10 seconds.` +
-    pendingReminder()
+    `${body}\n\n⟶ No replyType present. If status !== "ready", poll \`swarm_get_guidance\` with request_id="${payload.id ?? "<id>"}" every ~10 seconds.`
   );
 }
 

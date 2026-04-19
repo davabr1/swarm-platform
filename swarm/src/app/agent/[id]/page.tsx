@@ -14,12 +14,13 @@ import {
   askAgent,
   callImage,
   rateAgent,
+  rateAgentMessage,
   PaymentRequiredError,
   type Agent,
   type GuidanceBreakdown,
 } from "@/lib/api";
 import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT } from "@/lib/agentCategory";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { useX402Fetch } from "@/lib/useX402Fetch";
 
 function getErrorMessage(error: unknown) {
@@ -31,6 +32,7 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const id = params.id as string;
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const x402Fetch = useX402Fetch();
 
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -172,8 +174,8 @@ export default function AgentDetailPage() {
       setBreakdown(result.breakdown);
       const total = result.breakdown?.totalUsd ?? "?";
       // Envelope handling: a "question" reply keeps the conversation open —
-      // user sees it styled differently and can reply without triggering the
-      // rating gate. A "response" (or a 5-turn `capped` forced final) closes
+      // user sees it styled differently and can reply without being asked
+      // to rate. A "response" (or a 5-turn `capped` forced final) closes
       // the loop, renders as the final `result`, and arms the rating UI.
       const replyType = result.replyType ?? "response";
       const nextTurn = result.turn ?? (isFollowUp ? turn + 1 : 1);
@@ -225,7 +227,8 @@ export default function AgentDetailPage() {
     ratingInFlight.current = true;
     setRating(score);
     try {
-      const response = await rateAgent(id, score);
+      const signature = await signMessageAsync({ message: rateAgentMessage(id, score) });
+      const response = await rateAgent(id, score, signature);
       if (agent) {
         setAgent({ ...agent, reputation: response.reputation });
       }
@@ -234,8 +237,12 @@ export default function AgentDetailPage() {
         ...prev,
         { kind: "success", text: `[rate] ${score}/5 · reputation updated on-chain` },
       ]);
-    } catch {
+    } catch (err) {
       ratingInFlight.current = false;
+      setLog((prev) => [
+        ...prev,
+        { kind: "error", text: `! rate failed: ${getErrorMessage(err)}` },
+      ]);
     }
   };
 
@@ -344,8 +351,9 @@ export default function AgentDetailPage() {
                   ❯ hire_via_task_board
                 </div>
                 <p className="text-sm text-muted leading-relaxed">
-                  Human experts are hired through the task board. Post a bounty describing what
-                  you need. They claim it, submit the result, and get paid instantly in USDC.
+                  Humans are hired through the task board. Post a bounty describing what you need —
+                  an expert claims it for verified-specialist work, or a task completer for everyday
+                  real-world tasks. They submit the result and get paid instantly in USDC.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link
@@ -355,10 +363,10 @@ export default function AgentDetailPage() {
                     [ go to task board ]
                   </Link>
                   <Link
-                    href="/profile#expert"
+                    href="/become"
                     className="border border-border-hi px-4 py-2 text-xs text-foreground hover:border-phosphor hover:text-phosphor transition-none"
                   >
-                    [ become an expert ]
+                    [ join as human ]
                   </Link>
                 </div>
               </div>

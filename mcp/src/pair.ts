@@ -6,7 +6,23 @@
  * Invoked as `npx -y swarm-marketplace-mcp pair`.
  */
 
+import { spawn } from "node:child_process";
+
 import { getOrCreateKey, peekSavedKey, swarmApiUrl, usdcBalance } from "./session.js";
+
+function openInBrowser(url: string): void {
+  const platform = process.platform;
+  const cmd =
+    platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+  const args = platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    const child = spawn(cmd, args, { stdio: "ignore", detached: true });
+    child.on("error", () => {});
+    child.unref();
+  } catch {
+    // Silent — the URL is already printed; user can copy/paste.
+  }
+}
 
 const BAR = "━".repeat(64);
 
@@ -49,15 +65,15 @@ export async function runInteractivePair(): Promise<number> {
   console.log("");
   console.log("  Circle Fuji USDC faucet:  https://faucet.circle.com/");
   console.log("");
-  console.log("  Optional — link this MCP to your profile on swarm.com.");
-  console.log("  Open the pair page in your browser and sign one tx with");
-  console.log("  your main wallet; the MCP's balance + spend then show up");
-  console.log("  under /profile. Skip this and everything still works — it's");
-  console.log("  just for tracking.");
+  console.log("  Next: register this MCP on-chain so your profile shows");
+  console.log("  its balance + spend. Opening the pair page in your browser");
+  console.log("  now — sign one tx from your main wallet and you're done.");
   console.log("");
   console.log(`  Pair page:                ${pairUrl}`);
   console.log("");
   console.log(BAR);
+
+  openInBrowser(pairUrl);
 
   // Best-effort: poll for the first USDC transfer so the user sees a clean
   // "funded" signal. Skipped if the RPC is unreachable. Runs up to 90s so

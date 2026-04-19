@@ -120,6 +120,18 @@ export function getCachedKey(): McpKey | null {
   return cachedKey;
 }
 
+/**
+ * Sign an arbitrary message with the MCP's session key using EIP-191.
+ * The server-side rate endpoints verify with `ethers.verifyMessage`, which
+ * expects the same `\x19Ethereum Signed Message:\n...` prefix that viem's
+ * `account.signMessage` emits — the bytes match byte-for-byte.
+ */
+export async function signRateMessage(message: string): Promise<string> {
+  const key = await getOrCreateKey();
+  const account = privateKeyToAccount(key.privateKey);
+  return account.signMessage({ message });
+}
+
 export function swarmApiUrl(): string {
   return SWARM_API;
 }

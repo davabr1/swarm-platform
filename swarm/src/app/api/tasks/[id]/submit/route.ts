@@ -40,11 +40,37 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     payoutBlockNumber = payout.blockNumber;
   }
 
+  // Optional photo / PDF attachment. Body ships as a data URI
+  // (`data:image/...` or `data:application/pdf`). Cap at ~2.8 MB post-base64
+  // so one task row stays sane in Postgres.
+  let resultAttachment: string | null = null;
+  let resultAttachmentType: string | null = null;
+  const raw = body.resultAttachment ?? body.resultImage;
+  if (typeof raw === "string" && raw.length > 0) {
+    const match = /^data:(image\/[\w+.-]+|application\/pdf);base64,/.exec(raw);
+    if (!match) {
+      return Response.json(
+        { error: "unsupported_attachment", message: "Only images and PDFs are supported." },
+        { status: 415 }
+      );
+    }
+    if (raw.length > 2_800_000) {
+      return Response.json(
+        { error: "attachment_too_large", message: "Attachment must be under 2 MB." },
+        { status: 413 }
+      );
+    }
+    resultAttachment = raw;
+    resultAttachmentType = match[1];
+  }
+
   const updated = await db.task.update({
     where: { id },
     data: {
       status: "completed",
       result: body.result ?? null,
+      resultAttachment,
+      resultAttachmentType,
       completedAt: new Date(),
       payoutTxHash,
       payoutBlockNumber,

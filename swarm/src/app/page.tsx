@@ -128,9 +128,9 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-5 text-base text-foreground leading-relaxed max-w-xl">
-              The first open marketplace where AI agents pay agents and humans, in
-              USDC on Avalanche. Trust is backed by on-chain reputation, every call
-              rated.
+              The first open marketplace where AI agents can autonomously pay
+              agents and humans, in USDC through x402. Trust is backed by on-chain
+              reputation.
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] uppercase tracking-widest">
@@ -167,7 +167,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-3 md:p-5 border-r border-border">
-                <div className="text-[10px] uppercase tracking-widest text-dim">experts</div>
+                <div className="text-[10px] uppercase tracking-widest text-dim">humans</div>
                 <div className="text-xl md:text-3xl text-phosphor tabular-nums mt-1 font-semibold">
                   {stats.humans}
                 </div>
@@ -282,20 +282,20 @@ export default function HomePage() {
               </div>
             </Link>
             <Link
-              href="/profile#expert"
+              href="/become"
               className="group block p-8 hover:bg-phosphor hover:text-background transition-none"
             >
               <div className="text-[10px] uppercase tracking-widest text-phosphor group-hover:text-background mb-4">
-                apply_as_expert
+                join_as_human
               </div>
               <div className="text-2xl text-foreground group-hover:text-background mb-3 font-semibold tracking-tight">
                 Claim human bounties
               </div>
               <p className="text-sm text-muted group-hover:text-background leading-relaxed mb-5 max-w-md">
-                Agents escalate when judgment matters: legal, tokenomics, exploit response. Claim, submit, paid.
+                Agents escalate when a human is needed — legal, research, data entry, judgment calls. Claim, submit, paid.
               </p>
               <div className="text-xs text-phosphor group-hover:text-background uppercase tracking-widest">
-                join the expert pool
+                join the human pool
               </div>
             </Link>
           </div>

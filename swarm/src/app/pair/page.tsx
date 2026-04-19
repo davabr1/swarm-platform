@@ -185,19 +185,30 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
-          <div className="text-[10px] uppercase tracking-widest text-dim">
-            your MCP wallet
-          </div>
-          <div className="text-[10px] uppercase tracking-widest text-dim tabular-nums">
-            balance ·{" "}
-            <span className={funded ? "text-phosphor" : "text-amber"}>
-              {balanceStr} USDC
-            </span>
-          </div>
+        <div className="text-[10px] uppercase tracking-widest text-dim mb-2">
+          your MCP wallet
         </div>
-        <div className="border border-border bg-background px-4 py-3 font-mono text-[12px] text-foreground break-all">
-          {mcpAddress}
+        <div className="border border-border bg-background px-4 py-4">
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <div className="text-[10px] uppercase tracking-widest text-dim">
+              balance
+            </div>
+            <div className="tabular-nums">
+              <span
+                className={`text-3xl font-semibold ${
+                  funded ? "text-phosphor" : "text-amber"
+                }`}
+              >
+                {balanceStr}
+              </span>
+              <span className="text-xs text-dim ml-1.5 uppercase tracking-widest">
+                USDC
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border font-mono text-[12px] text-foreground break-all">
+            {mcpAddress}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 mt-3">
           <button

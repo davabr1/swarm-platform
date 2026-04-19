@@ -434,6 +434,14 @@ export default function AgentDetailPage() {
                     )}
                   </button>
                 </div>
+                <div className="px-4 py-2 border-b border-border bg-surface-1/40 text-[11px] text-dim leading-relaxed">
+                  <span className="text-amber">heads up:</span> we pre-approve a
+                  per-call ceiling ({isImage ? "≈ $0.21" : "≈ $0.05"}) so the tx
+                  clears before we know the exact AI cost. After the agent
+                  answers, the overage is refunded to you on-chain — you'll see
+                  it as a <span className="text-phosphor">+refund</span> on the
+                  same line in your transactions.
+                </div>
 
                 {breakdown && (
                   <div className="border-b border-border bg-surface-1 px-4 py-3 text-xs animate-fade-up">

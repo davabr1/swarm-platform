@@ -168,7 +168,7 @@ export default function TransactionsPanel({ address }: { address: string }) {
                   <span className="flex-1 min-w-0 truncate text-foreground">{label}</span>
                   {e.refund ? (
                     <span
-                      className={`tabular-nums shrink-0 text-right text-[11px] ${
+                      className={`tabular-nums shrink-0 text-right ${
                         failed ? "text-danger" : ""
                       }`}
                       title={`Original charge ${fmt(chargedMicro)} USDC · refund ${fmt(refundMicro)} USDC · net paid ${fmt(netMicro)} USDC`}

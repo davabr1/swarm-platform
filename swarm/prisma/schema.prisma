@@ -259,3 +259,16 @@ model ImageGeneration {
   @@index([agentId])
   @@index([askerAddress])
 }
+
+// Join table powering the "saved images" gallery on /profile. A row means
+// `walletAddress` has pinned `imageId` to their profile. Composite primary
+// key prevents duplicates and makes save/unsave idempotent.
+model SavedImage {
+  walletAddress String
+  imageId       String
+  savedAt       DateTime @default(now())
+
+  @@id([walletAddress, imageId])
+  @@index([walletAddress, savedAt(sort: Desc)])
+  @@index([imageId])
+}

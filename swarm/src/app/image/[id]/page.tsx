@@ -2,8 +2,10 @@
 
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
+import { fetchSavedState, saveImage, unsaveImage } from "@/lib/api";
 
 interface ImageMeta {
   id: string;
@@ -34,8 +36,12 @@ export default function ImageViewerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { address: connected } = useAccount();
+  const viewer = connected?.toLowerCase() ?? null;
   const [meta, setMeta] = useState<ImageMeta | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [saved, setSaved] = useState<boolean | null>(null);
+  const [savingToggle, setSavingToggle] = useState(false);
 
   useEffect(() => {
     fetch(`/api/image/${id}/meta`)
@@ -48,6 +54,29 @@ export default function ImageViewerPage({
       })
       .catch(() => setNotFound(true));
   }, [id]);
+
+  useEffect(() => {
+    if (!viewer) {
+      setSaved(null);
+      return;
+    }
+    fetchSavedState(id, viewer).then(setSaved).catch(() => setSaved(false));
+  }, [id, viewer]);
+
+  const onToggleSave = async () => {
+    if (!viewer || saved === null || savingToggle) return;
+    const next = !saved;
+    setSaved(next);
+    setSavingToggle(true);
+    try {
+      if (next) await saveImage(id, viewer);
+      else await unsaveImage(id, viewer);
+    } catch {
+      setSaved(!next);
+    } finally {
+      setSavingToggle(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -67,16 +96,45 @@ export default function ImageViewerPage({
               <div className="text-[11px] text-dim uppercase tracking-widest">
                 swarm://image/{id.slice(0, 8)}…
               </div>
-              <a
-                href={`/api/image/${id}?download=1`}
-                download
-                className="border border-amber bg-amber text-background text-[11px] px-4 py-2 hover:bg-amber-hi transition-none uppercase tracking-widest"
-              >
-                [ download PNG ↓ ]
-              </a>
+              <div className="flex items-center gap-2">
+                {viewer ? (
+                  <button
+                    onClick={onToggleSave}
+                    disabled={saved === null || savingToggle}
+                    className={`border text-[11px] px-4 py-2 transition-none uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-40 ${
+                      saved
+                        ? "border-phosphor text-phosphor hover:bg-phosphor hover:text-background"
+                        : "border-border-hi text-foreground hover:border-phosphor hover:text-phosphor"
+                    }`}
+                    title={
+                      saved
+                        ? "Remove from your profile gallery"
+                        : "Pin to your profile gallery"
+                    }
+                  >
+                    <FloppyIcon filled={Boolean(saved)} />
+                    {saved ? "[ saved ]" : "[ save to profile ]"}
+                  </button>
+                ) : (
+                  <span
+                    className="border border-border text-dim text-[11px] px-4 py-2 uppercase tracking-widest flex items-center gap-1.5 cursor-not-allowed"
+                    title="Connect your wallet to save this image to your profile"
+                  >
+                    <FloppyIcon filled={false} />
+                    [ connect to save ]
+                  </span>
+                )}
+                <a
+                  href={`/api/image/${id}?download=1`}
+                  download
+                  className="border border-amber bg-amber text-background text-[11px] px-4 py-2 hover:bg-amber-hi transition-none uppercase tracking-widest"
+                >
+                  [ download PNG ↓ ]
+                </a>
+              </div>
             </div>
 
-            <div className="w-full flex items-center justify-center bg-surface border border-border p-4">
+            <div className="w-full flex items-center justify-center">
               <img
                 src={`/api/image/${id}`}
                 alt={meta?.prompt ?? "generated image"}
@@ -142,6 +200,31 @@ export default function ImageViewerPage({
         )}
       </div>
     </div>
+  );
+}
+
+function FloppyIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden
+    >
+      <path d="M1.5 1.5h10L14.5 4.5v10h-13z" fill={filled ? "currentColor" : "none"} />
+      <path d="M4.5 1.5v3.5h6v-3.5" stroke={filled ? "var(--background)" : "currentColor"} />
+      <rect
+        x="4.5"
+        y="9"
+        width="7"
+        height="5.5"
+        stroke={filled ? "var(--background)" : "currentColor"}
+        fill="none"
+      />
+    </svg>
   );
 }
 

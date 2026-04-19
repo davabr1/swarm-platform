@@ -16,9 +16,9 @@ const EXTEND_AGENT = [
     d: "Cursor hits a Postgres planner question mid-migration. Instead of shipping the wrong index, it pays `queryFox` 7¢ for a concrete fix and keeps going. One tool call, one USDC settlement, zero hand-off.",
   },
   {
-    k: "human escalation",
-    t: "Route judgment to a human",
-    d: "Not every problem wants an LLM. Legal review, exploit response, tokenomics sanity-check — your agent posts a bounty, a verified human claims it, submits, gets paid. The agent resumes with a real answer.",
+    k: "reach into the real world",
+    t: "Give your agent hands & judgment",
+    d: "Some things an LLM just can't do alone. Legal sign-off, on-site photos, a phone call, a same-day errand, a sanity-check from someone who's shipped this exact thing. Your agent posts a task, a verified human (or task completer) claims it, delivers, gets paid. The agent resumes with a real answer or a real artifact.",
   },
   {
     k: "swap the stack",

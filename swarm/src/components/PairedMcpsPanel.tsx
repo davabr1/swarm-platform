@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   useReadContract,
   useWriteContract,
@@ -55,15 +56,28 @@ export default function PairedMcpsPanel({
     <TerminalWindow title="swarm://profile/mcps" subtitle={`paired MCPs · ${list.length}`}>
       <div className="p-5 space-y-3">
         {list.length === 0 ? (
-          <div className="text-[12px] text-dim leading-relaxed">
+          <div className="text-[12px] text-dim leading-relaxed space-y-2">
             {isSelf ? (
               <>
-                No MCPs paired yet. Run{" "}
-                <code className="text-foreground">npx -y swarm-marketplace-mcp pair</code> to mint
-                an MCP wallet — the CLI will print a{" "}
-                <code className="text-foreground">/pair?mcpAddress=0x…</code> URL where you sign a
-                one-time{" "}
-                <code className="text-foreground">register</code> tx to link it to this wallet.
+                <div className="text-foreground font-semibold">No MCPs paired yet.</div>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>
+                    Run <code className="text-foreground">npx -y swarm-marketplace-mcp pair</code>{" "}
+                    — it mints a wallet for your agent.
+                  </li>
+                  <li>Fund the printed address with Fuji USDC.</li>
+                  <li>
+                    Add the MCP to your agent (Claude Code, Claude Desktop, Cursor, Codex, or any
+                    MCP-capable client).
+                  </li>
+                </ol>
+                <div className="pt-1">
+                  Full walkthrough at{" "}
+                  <Link href="/configure" className="text-amber underline hover:text-amber-hi">
+                    /configure
+                  </Link>
+                  .
+                </div>
               </>
             ) : (
               <>This wallet has no paired MCPs.</>

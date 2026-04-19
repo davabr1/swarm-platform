@@ -231,6 +231,36 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
 
 const PAIR_COMMAND = "npx -y swarm-marketplace-mcp pair";
 
+// One-liner summaries shown in the collapsed <details> row. Hand-written so
+// the fold preview is a readable 5-second pitch, not a slice of the full
+// agent-facing description (which is tuned for LLMs, not humans skimming).
+// If a tool name isn't in this map we fall back to the first sentence of
+// the server-provided description.
+const TOOL_SUMMARIES: Record<string, string> = {
+  swarm_list_agents:
+    "Browse the marketplace. Lists AI specialists, image generators, and humans — filter by skill or reputation before picking.",
+  swarm_ask_agent:
+    "Ask an AI specialist a question. Synchronous — the reply comes back in the tool response.",
+  swarm_follow_up:
+    "Continue a specialist conversation when it asked a clarifying question. Same thread, capped at 5 turns.",
+  swarm_get_guidance:
+    "Poll a pending ask-agent request. Returns the response once status flips to ready.",
+  swarm_rate_agent:
+    "Rate an agent 1-5 after a call. The MCP auto-signs — you pass only agent id + score. Writes on-chain via ERC-8004.",
+  swarm_post_human_task:
+    "Post a task for a human. Async — returns a task id immediately; the bounty is escrowed upfront via x402.",
+  swarm_get_human_task:
+    "Poll a human task. Returns status, the submitted text result, and any image/PDF attachment the claimer added.",
+  swarm_rate_human_task:
+    "Rate a completed human task 1-5. MCP auto-signs — credits the claimer's reputation on-chain.",
+  swarm_generate_image:
+    "Generate an image in one of 8 styles (photoreal, anime, pixel, watercolor, etc). Returns a PNG URL.",
+  swarm_check_version:
+    "Check if the MCP binary is outdated against npm. Never installs anything.",
+  swarm_wallet_balance:
+    "Read the MCP wallet's USDC balance on Fuji. Call before posting a human task bounty.",
+};
+
 export default function ConfigurePage() {
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [pingMs, setPingMs] = useState<number | null>(null);
@@ -557,12 +587,32 @@ export default function ConfigurePage() {
               const required = Array.isArray((t.inputSchema as { required?: string[] }).required)
                 ? (t.inputSchema as { required?: string[] }).required ?? []
                 : [];
+              // Prefer the hand-written summary; fall back to the first
+              // sentence of the agent-facing description for any tool the
+              // map doesn't cover.
+              const firstSentenceEnd = t.description.search(/\. (?=[A-Z])|\n/);
+              const hook =
+                TOOL_SUMMARIES[t.name] ??
+                (firstSentenceEnd > 0
+                  ? t.description.slice(0, firstSentenceEnd + 1)
+                  : t.description);
               return (
-                <div key={t.name} className="p-5 grid gap-4 lg:grid-cols-[260px_1fr]">
-                  <div>
-                    <div className="text-amber font-mono text-sm">{t.name}</div>
+                <details key={t.name} className="group">
+                  <summary className="list-none cursor-pointer px-5 py-3 flex items-start gap-3 hover:bg-surface-1 transition-none">
+                    <span className="inline-block w-3 text-amber transition-transform group-open:rotate-90 mt-[2px] shrink-0">
+                      ▸
+                    </span>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-4">
+                      <div className="text-amber font-mono text-sm shrink-0 lg:w-60">{t.name}</div>
+                      <div className="text-xs text-muted leading-relaxed">{hook}</div>
+                    </div>
+                  </summary>
+                  <div className="px-5 pb-5 pt-1 pl-11 grid gap-3">
+                    <p className="text-sm text-muted leading-relaxed whitespace-pre-line">
+                      {t.description}
+                    </p>
                     {required.length > 0 && (
-                      <div className="mt-2 text-[11px] text-dim">
+                      <div className="text-[11px] text-dim">
                         <div className="uppercase tracking-widest mb-1">required</div>
                         <div className="space-x-2">
                           {required.map((r) => (
@@ -574,8 +624,7 @@ export default function ConfigurePage() {
                       </div>
                     )}
                   </div>
-                  <p className="text-sm text-muted leading-relaxed">{t.description}</p>
-                </div>
+                </details>
               );
             })}
             {!status?.toolDefs.length && (

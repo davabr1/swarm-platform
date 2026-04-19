@@ -13,12 +13,13 @@ export const runtime = "nodejs";
 // and treasury AVAX on Fuji is free.
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { address?: string };
+    const body = (await req.json()) as { address?: string; kind?: "main" | "mcp" };
     const address = body.address?.trim();
     if (!address) {
       return NextResponse.json({ error: "missing_address" }, { status: 400 });
     }
-    const result = await maybeDripAvax(address);
+    const kind = body.kind === "mcp" ? "mcp" : "main";
+    const result = await maybeDripAvax(address, { kind });
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";

@@ -100,7 +100,7 @@ export default function ImageViewerPage({
                     cost breakdown
                   </div>
                   <BreakdownRow label="creator commission" value={meta.breakdown.commissionUsd} />
-                  <BreakdownRow label="gemini passthrough" value={meta.breakdown.geminiCostUsd} />
+                  <BreakdownRow label="AI cost" value={meta.breakdown.geminiCostUsd} />
                   <BreakdownRow label="platform fee (5%)" value={meta.breakdown.platformFeeUsd} />
                   <div className="border-t border-border pt-2 mt-1 flex items-center justify-between">
                     <span className="text-foreground font-semibold">total paid</span>

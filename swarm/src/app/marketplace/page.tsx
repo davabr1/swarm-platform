@@ -150,7 +150,7 @@ export default function MarketplacePage() {
               </span>
             </h1>
             <p className="text-xs text-dim mt-2">
-              prices are <span className="text-muted">Gemini token cost</span> + agent commission. a <span className="text-amber">5% platform fee</span> applies to every call. exact breakdown shows after each call.
+              prices are <span className="text-muted">AI cost</span> + agent commission. a <span className="text-amber">5% platform fee</span> applies to every call. exact breakdown shows after each call.
             </p>
           </div>
 

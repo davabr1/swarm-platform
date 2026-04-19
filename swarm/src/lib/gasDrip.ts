@@ -13,8 +13,14 @@ import { config } from "./config";
 // typical user needs (pair once, unpair once, optional sweep). With a 0.5
 // AVAX treasury float that's ~100 fresh users seeded; if they need more,
 // the Avalanche Fuji faucet is a click away.
+//
+// MCP-paired wallets get a smaller drip — they only ever sign ONE tx (the
+// sweep back to main wallet) so 0.003 AVAX is plenty. Keeps treasury burn
+// per user roughly flat even though we now drip two addresses per user.
 const DRIP_THRESHOLD_WEI = ethers.parseEther("0.002");
 const DRIP_AMOUNT_WEI = ethers.parseEther("0.005");
+const MCP_DRIP_THRESHOLD_WEI = ethers.parseEther("0.001");
+const MCP_DRIP_AMOUNT_WEI = ethers.parseEther("0.003");
 
 let readProvider: ethers.JsonRpcProvider | null = null;
 function provider(): ethers.JsonRpcProvider {
@@ -44,14 +50,22 @@ export interface DripResult {
 
 // Returns the caller's AVAX balance and, if it's below the threshold, sends
 // a top-up from the treasury. Idempotent under the threshold — calling
-// repeatedly against a funded wallet is a no-op.
-export async function maybeDripAvax(to: string): Promise<DripResult> {
+// repeatedly against a funded wallet is a no-op. Pass { kind: "mcp" } for
+// paired MCP wallets which only need enough gas for a single sweep tx.
+export async function maybeDripAvax(
+  to: string,
+  opts?: { kind?: "main" | "mcp" },
+): Promise<DripResult> {
   if (!ethers.isAddress(to)) {
     throw new Error("invalid address");
   }
 
+  const isMcp = opts?.kind === "mcp";
+  const threshold = isMcp ? MCP_DRIP_THRESHOLD_WEI : DRIP_THRESHOLD_WEI;
+  const amount = isMcp ? MCP_DRIP_AMOUNT_WEI : DRIP_AMOUNT_WEI;
+
   const current = await provider().getBalance(to);
-  if (current >= DRIP_THRESHOLD_WEI) {
+  if (current >= threshold) {
     return {
       dripped: false,
       reason: "already_funded",
@@ -66,7 +80,7 @@ export async function maybeDripAvax(to: string): Promise<DripResult> {
   const treasuryBalance = await provider().getBalance(
     config.treasury.address,
   );
-  if (treasuryBalance < DRIP_AMOUNT_WEI + ethers.parseEther("0.005")) {
+  if (treasuryBalance < amount + ethers.parseEther("0.005")) {
     return {
       dripped: false,
       reason: "treasury_low",
@@ -76,9 +90,9 @@ export async function maybeDripAvax(to: string): Promise<DripResult> {
 
   const tx = await signer().sendTransaction({
     to,
-    value: DRIP_AMOUNT_WEI,
+    value: amount,
   });
-  const receipt = await tx.wait();
+  await tx.wait();
   const after = await provider().getBalance(to);
 
   return {
@@ -87,6 +101,6 @@ export async function maybeDripAvax(to: string): Promise<DripResult> {
     txHash: tx.hash,
     balanceBefore: current.toString(),
     balanceAfter: after.toString(),
-    amountWei: DRIP_AMOUNT_WEI.toString(),
+    amountWei: amount.toString(),
   };
 }

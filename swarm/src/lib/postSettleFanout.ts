@@ -84,6 +84,70 @@ export async function fanoutSplit(args: FanoutSplitArgs): Promise<FanoutOutcome>
   }
 }
 
+// Refunds the delta between the x402 ceiling (what actually settled) and the
+// measured actual cost. The x402 authorization is signed against a fixed
+// amount before the Gemini call runs — so we reserve a conservative ceiling,
+// settle that ceiling, then wire the overage back to the payer from the
+// treasury. Non-fatal if it fails — the user already got their service; the
+// failed refund row is visible in the profile ledger and can be retried.
+//
+// Skipped when:
+//   - overageMicroUsd <= 0 (actual met or exceeded the ceiling — no refund owed)
+export async function refundOverage(args: {
+  payer: string;
+  ceilingMicroUsd: bigint;
+  actualMicroUsd: bigint;
+  settlementTxHash: string;
+  refType: "guidance" | "image" | "task";
+  refId: string;
+  description: string;
+}): Promise<FanoutOutcome> {
+  const overage = args.ceilingMicroUsd - args.actualMicroUsd;
+  if (overage <= BigInt(0)) {
+    return { ok: true, status: "skipped" };
+  }
+
+  const payer = args.payer.toLowerCase();
+
+  try {
+    const result = await treasuryTransfer(payer, overage);
+    await db.transaction.create({
+      data: {
+        walletAddress: payer,
+        kind: "refund",
+        deltaMicroUsd: overage,
+        grossMicroUsd: overage,
+        description: `overage refunded · ${args.description}`,
+        refType: args.refType,
+        refId: args.refId,
+        txHash: result.txHash,
+        blockNumber: result.blockNumber,
+        status: "confirmed",
+      },
+    });
+    await logActivity(
+      "payment",
+      `overage refund · ${truncate(payer)} · $${formatMicro(overage)}`,
+    );
+    return { ok: true, status: "confirmed", txHash: result.txHash };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await db.transaction.create({
+      data: {
+        walletAddress: payer,
+        kind: "refund",
+        deltaMicroUsd: overage,
+        grossMicroUsd: overage,
+        description: `overage refunded · ${args.description} (chain failed: ${message.slice(0, 80)})`,
+        refType: args.refType,
+        refId: args.refId,
+        status: "failed",
+      },
+    });
+    return { ok: false, status: "failed", message };
+  }
+}
+
 // Records the primary x402 settlement as an on-ledger row tied to the payer.
 // The underlying USDC move is MCP → platform (via x402 facilitator); this
 // just mirrors it into our audit log for the Transactions panel. Returns

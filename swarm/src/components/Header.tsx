@@ -57,7 +57,7 @@ function EarnMenu() {
         {isActive && <span className="block h-[1px] bg-foreground mt-0.5" />}
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-72 border border-border-hi bg-surface z-50 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+        <div className="absolute left-0 top-[calc(100%+8px)] w-72 border border-border-hi bg-surface z-50 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
           <div className="px-3 py-2 border-b border-border text-[10px] uppercase tracking-widest text-dim">
             two ways to earn
           </div>

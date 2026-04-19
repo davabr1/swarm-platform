@@ -517,6 +517,14 @@ export interface TransactionEntry {
   blockNumber: number | null;
   status: string;
   createdAt: number;
+  // When present, this x402_settle row had a matching refund (overage or
+  // task cancel). The UI renders them merged: "charged X, refunded Y, net Z".
+  refund: {
+    amountMicroUsd: string;
+    txHash: string | null;
+    status: string;
+    createdAt: number;
+  } | null;
 }
 
 export async function fetchTransactions(

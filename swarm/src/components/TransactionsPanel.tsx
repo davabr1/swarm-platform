@@ -62,10 +62,10 @@ function filterBlurb(filter: FilterKind): string {
     case "earning":
       return "Commissions fanned out from the platform to your wallet after an x402 settle on an agent or task you listed. Snowtrace-linked.";
     case "refund":
-      return "Bounties refunded when a posted task was cancelled before anyone claimed it.";
+      return "x402 payments where part of the amount came back to you — overage refunds (ceiling over-charge returned post-call) and task-cancel refunds. Original charge and refund shown on one line.";
     case "all":
     default:
-      return "x402 settlements, creator commissions, task refunds, and legacy pre-x402 rows — unified ledger, newest first. Snowtrace-linked.";
+      return "x402 settlements, creator commissions, and legacy pre-x402 rows — unified ledger, newest first. When a charge was partially refunded (overage or task cancel), you'll see charged − refunded = net on one line. Snowtrace-linked.";
   }
 }
 
@@ -152,7 +152,11 @@ export default function TransactionsPanel({ address }: { address: string }) {
               const s = kindStyle(e.kind);
               const failed = e.status === "failed" || e.status === "failed_settlement";
               const simulated = e.status === "simulated";
-              const amountUsd = Math.abs(Number(e.deltaMicroUsd) / 1_000_000).toFixed(4);
+              const chargedMicro = BigInt(e.grossMicroUsd);
+              const refundMicro = e.refund ? BigInt(e.refund.amountMicroUsd) : BigInt(0);
+              const netMicro = chargedMicro - refundMicro;
+              const fmt = (micro: bigint) =>
+                (Number(micro < BigInt(0) ? -micro : micro) / 1_000_000).toFixed(4);
               const label = e.agentName || e.description || e.refType || "—";
               return (
                 <div key={e.id} className="py-2.5 flex items-center gap-3 text-xs">
@@ -162,13 +166,29 @@ export default function TransactionsPanel({ address }: { address: string }) {
                     {s.badge}
                   </span>
                   <span className="flex-1 min-w-0 truncate text-foreground">{label}</span>
-                  <span
-                    className={`tabular-nums shrink-0 ${failed ? "text-danger" : s.color}`}
-                  >
-                    {s.sign}
-                    {amountUsd} USDC
-                  </span>
-                  <span className="shrink-0 w-32 text-right">
+                  {e.refund ? (
+                    <span
+                      className={`tabular-nums shrink-0 text-right text-[11px] ${
+                        failed ? "text-danger" : ""
+                      }`}
+                      title={`Original charge ${fmt(chargedMicro)} USDC · refund ${fmt(refundMicro)} USDC · net paid ${fmt(netMicro)} USDC`}
+                    >
+                      <span className="text-dim">−{fmt(chargedMicro)}</span>
+                      <span className="text-phosphor mx-1">+{fmt(refundMicro)}</span>
+                      <span className="text-dim mx-1">=</span>
+                      <span className={failed ? "text-danger" : s.color}>
+                        −{fmt(netMicro)} USDC
+                      </span>
+                    </span>
+                  ) : (
+                    <span
+                      className={`tabular-nums shrink-0 ${failed ? "text-danger" : s.color}`}
+                    >
+                      {s.sign}
+                      {fmt(chargedMicro)} USDC
+                    </span>
+                  )}
+                  <span className="shrink-0 w-32 text-right flex flex-col items-end gap-0.5">
                     {e.txHash ? (
                       <button
                         onClick={() => openTx(e.txHash!)}
@@ -182,6 +202,15 @@ export default function TransactionsPanel({ address }: { address: string }) {
                       <span className="text-dim text-[11px]">simulated</span>
                     ) : (
                       <span className="text-dim text-[11px]">—</span>
+                    )}
+                    {e.refund?.txHash && (
+                      <button
+                        onClick={() => openTx(e.refund!.txHash!)}
+                        className="text-dim hover:text-phosphor text-[10px] font-mono bg-transparent border-0 p-0 cursor-pointer"
+                        title="Refund transaction"
+                      >
+                        ↺ {e.refund.txHash.slice(0, 6)}…{e.refund.txHash.slice(-4)} ↗
+                      </button>
                     )}
                   </span>
                   <span className="shrink-0 w-10 text-right text-dim text-[10px] tabular-nums">

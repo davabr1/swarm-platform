@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   useAccount,
@@ -189,8 +189,25 @@ function McpRow({
   }, [mcp]);
 
   const [sweepOpen, setSweepOpen] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState(false);
 
-  const onUnlink = () => {
+  // Fire-and-forget: ensure the MCP wallet has enough AVAX to sign one sweep.
+  // The sweep runs from the CLI (MCP's local keypair) so it needs its own gas.
+  // The drip endpoint is idempotent; the ref guard stops duplicate calls per
+  // mount.
+  const gasDripped = useRef(false);
+  useEffect(() => {
+    if (!isSelf || gasDripped.current) return;
+    gasDripped.current = true;
+    fetch("/api/gas-drip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: mcp, kind: "mcp" }),
+    }).catch(() => {});
+  }, [isSelf, mcp]);
+
+  const doUnlink = () => {
+    setUnlinkConfirm(false);
     writeUnlink({
       address: REGISTRY_ADDRESS as `0x${string}`,
       abi: MCPRegistryABI,
@@ -198,6 +215,17 @@ function McpRow({
       args: [mcp],
       chainId: FUJI_CHAIN_ID,
     });
+  };
+
+  const onUnlinkClick = () => {
+    const hasBalance = (balance?.value ?? BigInt(0)) > BigInt(0);
+    if (hasBalance) {
+      // USDC stranded unless the user sweeps first — surface the warning
+      // inline instead of silently signing the on-chain unregister.
+      setUnlinkConfirm(true);
+    } else {
+      doUnlink();
+    }
   };
 
   const onTopUp = (usd: number) => {
@@ -259,7 +287,7 @@ function McpRow({
               </button>
             )}
             <button
-              onClick={onUnlink}
+              onClick={onUnlinkClick}
               disabled={unlinkPending || unlinkConfirming}
               className="border border-danger text-danger text-[10px] px-3 py-1 hover:bg-danger hover:text-background disabled:opacity-50 transition-none"
             >
@@ -272,6 +300,59 @@ function McpRow({
           </div>
         )}
       </div>
+      {unlinkConfirm && (
+        <div className="mt-3 border border-danger bg-danger/5 p-3 text-[11px] space-y-2">
+          <div className="text-danger font-semibold uppercase tracking-widest text-[10px]">
+            ⚠ wait — this MCP still holds {balanceStr} USDC
+          </div>
+          <div className="text-foreground leading-relaxed">
+            Unlink only removes the on-chain link. The USDC stays at the MCP
+            address, but after unlinking it won&rsquo;t show up here anymore and
+            you&rsquo;ll need the CLI to recover it. Two safer steps first:
+          </div>
+          <ol className="list-decimal list-inside text-foreground space-y-0.5 leading-relaxed">
+            <li>
+              <span className="text-phosphor">Sweep</span> the USDC back to your
+              main wallet.
+            </li>
+            <li>
+              <span className="text-amber">Unpair</span> the MCP on your machine
+              via{" "}
+              <code className="text-foreground bg-background/40 px-1">
+                npx -y swarm-marketplace-mcp unpair
+              </code>{" "}
+              so the local keypair in{" "}
+              <code className="text-foreground bg-background/40 px-1">
+                ~/.swarm-mcp/session.json
+              </code>{" "}
+              is cleared.
+            </li>
+          </ol>
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <button
+              onClick={() => {
+                setUnlinkConfirm(false);
+                setSweepOpen(true);
+              }}
+              className="border border-phosphor text-phosphor text-[10px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none"
+            >
+              [ sweep first ]
+            </button>
+            <button
+              onClick={doUnlink}
+              className="border border-danger text-danger text-[10px] px-3 py-1 hover:bg-danger hover:text-background transition-none"
+            >
+              [ unlink anyway ]
+            </button>
+            <button
+              onClick={() => setUnlinkConfirm(false)}
+              className="text-dim hover:text-foreground text-[10px] px-2 py-1"
+            >
+              [ cancel ]
+            </button>
+          </div>
+        </div>
+      )}
       {sweepOpen && connected && (
         <SweepDialog
           mcp={mcp}

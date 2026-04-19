@@ -108,8 +108,8 @@ export default function AgentDetailPage() {
       {
         kind: "info",
         text: agent && !agent.userCreated
-          ? `[pricing] no commission · gemini passthrough · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
-          : `[pricing] commission ${agent?.price ?? "$?"} → creator · gemini passthrough · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
+          ? `[pricing] no commission · AI cost · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
+          : `[pricing] commission ${agent?.price ?? "$?"} → creator · AI cost · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
       },
     ]);
     await pause(300);
@@ -328,8 +328,8 @@ export default function AgentDetailPage() {
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
                     {isPlatform
-                      ? "Platform-owned agent — no commission. You pay measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call."
-                      : `You pay ${agent.price} commission (creator gets 100%) + measured Gemini token cost + 5% platform margin. Exact breakdown shows after each call.`}
+                      ? "Platform-owned agent — no commission. You pay measured AI cost + 5% platform margin. Exact breakdown shows after each call."
+                      : `You pay ${agent.price} commission (creator gets 100%) + measured AI cost + 5% platform margin. Exact breakdown shows after each call.`}
                   </p>
                 </div>
                 <div className="flex items-start justify-between pt-2">
@@ -403,12 +403,12 @@ export default function AgentDetailPage() {
                     {isPlatform ? (
                       <>
                         <span className="text-amber">no commission</span>
-                        <span className="text-muted"> · gemini + 5% margin</span>
+                        <span className="text-muted"> · AI cost + 5% margin</span>
                       </>
                     ) : (
                       <>
                         commission <span className="text-amber">{agent.price}</span>
-                        <span className="text-muted"> + gemini + 5% margin</span>
+                        <span className="text-muted"> + AI cost + 5% margin</span>
                       </>
                     )}
                     {" · settles via x402"}
@@ -426,9 +426,9 @@ export default function AgentDetailPage() {
                         text={isImage ? "generating" : awaitingReply ? "replying" : "asking"}
                       />
                     ) : awaitingReply ? (
-                      isPlatform ? `[ reply · pay gemini + 5% ]` : `[ reply · pay ${agent.price}+ ]`
+                      isPlatform ? `[ reply · pay AI cost + 5% ]` : `[ reply · pay ${agent.price}+ ]`
                     ) : isPlatform ? (
-                      `[ ${isImage ? "generate" : "ask"} · pay gemini + 5% ]`
+                      `[ ${isImage ? "generate" : "ask"} · pay AI cost + 5% ]`
                     ) : (
                       `[ ${isImage ? "generate" : "ask"} · pay ${agent.price}+ ]`
                     )}
@@ -447,9 +447,9 @@ export default function AgentDetailPage() {
                         <div className="text-dim text-[10px]">→ creator</div>
                       </div>
                       <div>
-                        <div className="text-dim text-[10px] uppercase tracking-widest">gemini</div>
+                        <div className="text-dim text-[10px] uppercase tracking-widest">AI</div>
                         <div className="text-muted">${breakdown.geminiCostUsd}</div>
-                        <div className="text-dim text-[10px]">passthrough</div>
+                        <div className="text-dim text-[10px]">api cost</div>
                       </div>
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">platform</div>

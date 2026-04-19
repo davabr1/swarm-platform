@@ -9,7 +9,11 @@ import {
 import { logActivity } from "@/lib/activity";
 import { config } from "@/lib/config";
 import { requireX402Payment } from "@/lib/x402Middleware";
-import { fanoutSplit, recordX402Settlement } from "@/lib/postSettleFanout";
+import {
+  fanoutSplit,
+  recordX402Settlement,
+  refundOverage,
+} from "@/lib/postSettleFanout";
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -175,6 +179,17 @@ export async function POST(req: NextRequest) {
     description: `image · ${agent.name}`,
   });
 
+  const actualMicroUsd = BigInt(Math.round(actualTotal * 1_000_000));
+  const refund = await refundOverage({
+    payer: askerAddress,
+    ceilingMicroUsd: totalMicroUsd,
+    actualMicroUsd,
+    settlementTxHash: settleTxHash,
+    refType: "image",
+    refId: id,
+    description: `image · ${agent.name}`,
+  });
+
   const fanout = agent.userCreated
     ? await fanoutSplit({
         creatorAddress: creator,
@@ -211,6 +226,10 @@ export async function POST(req: NextRequest) {
           fanout.ok
             ? { status: fanout.status, txHash: fanout.status === "confirmed" ? fanout.txHash : undefined }
             : { status: "failed", message: fanout.message },
+        refund:
+          refund.ok
+            ? { status: refund.status, txHash: refund.status === "confirmed" ? refund.txHash : undefined }
+            : { status: "failed", message: refund.message },
       },
       tokens: {
         prompt: result.usage.promptTokens,

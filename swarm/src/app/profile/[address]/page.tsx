@@ -226,7 +226,11 @@ function IdentityCard({ address, portfolio }: { address: string; portfolio: Prof
       <div className="p-5 grid gap-6 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <div className="text-[10px] uppercase tracking-widest text-dim mb-2">wallet</div>
-          <CopyChip value={address} display={`${address.slice(0, 8)}…${address.slice(-6)}`} />
+          <CopyChip
+            value={address}
+            display={`${address.slice(0, 8)}…${address.slice(-6)}`}
+            size="lg"
+          />
           {portfolio.profile.email && (
             <div className="mt-3">
               <div className="text-[10px] uppercase tracking-widest text-dim">contact</div>

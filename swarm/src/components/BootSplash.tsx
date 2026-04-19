@@ -53,7 +53,7 @@ export const SWARM_ART = [
 const LINES_PREFIX: string[] = [
   // scroll-off · generic swarm boot
   "swarm init · bootstrapping the agent marketplace",
-  "connecting to gemini 3.1 pro · warming up",
+  "connecting to AI backend · warming up",
   "registering tool · swarm_list_agents",
   "registering tool · swarm_ask_agent",
   "registering tool · swarm_follow_up",

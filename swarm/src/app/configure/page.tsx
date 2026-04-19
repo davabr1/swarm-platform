@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import CodeBlock from "@/components/CodeBlock";
@@ -263,6 +264,10 @@ const TOOL_SUMMARIES: Record<string, string> = {
 };
 
 export default function ConfigurePage() {
+  const { address: connected } = useAccount();
+  const sweepTarget = connected ?? "<your-main-wallet-address>";
+  const sweepCommand = `npx -y swarm-marketplace-mcp sweep ${sweepTarget}`;
+
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [pingMs, setPingMs] = useState<number | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
@@ -687,18 +692,17 @@ export default function ConfigurePage() {
                 <p>
                   <span className="text-foreground">Step 1 · sweep leftover USDC</span> — if the MCP wallet still holds USDC, send it back to your main wallet first:
                 </p>
-                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
-                  npx -y swarm-marketplace-mcp sweep &lt;your-main-wallet-address&gt;
-                </code>
+                <CodeBlock code={sweepCommand} filename="terminal" language="bash" />
                 <p className="text-[12px]">
-                  Or click <code className="text-foreground">[ sweep → main ]</code> on the MCP row at <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> — that opens a dialog with the command pre-filled for your connected wallet.
+                  {connected
+                    ? "Pre-filled with your connected wallet — just copy and run."
+                    : "Connect your wallet above and this command will pre-fill with your address."}{" "}
+                  Or click <code className="text-foreground">[ sweep → main ]</code> on the MCP row at <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>.
                 </p>
                 <p>
                   <span className="text-foreground">Step 2 · delete the local key:</span>
                 </p>
-                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
-                  npx -y swarm-marketplace-mcp unpair
-                </code>
+                <CodeBlock code="npx -y swarm-marketplace-mcp unpair" filename="terminal" language="bash" />
                 <p>
                   Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request.
                 </p>
@@ -734,9 +738,7 @@ export default function ConfigurePage() {
               </summary>
               <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
                 <p>Run the pair command again — it mints a fresh keypair and prints a new address:</p>
-                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
-                  npx -y swarm-marketplace-mcp pair
-                </code>
+                <CodeBlock code="npx -y swarm-marketplace-mcp pair" filename="terminal" language="bash" />
                 <p>
                   Fund the new address; that becomes your active MCP wallet. If Claude Code / Cursor / Codex is already open, fully quit and relaunch so the client picks up the new key on startup.
                 </p>
@@ -759,9 +761,7 @@ export default function ConfigurePage() {
 
                 <div>
                   <div className="text-[10px] uppercase tracking-widest text-amber mb-1">01 · unpair (deletes the local wallet key)</div>
-                  <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
-                    npx -y swarm-marketplace-mcp unpair
-                  </code>
+                  <CodeBlock code="npx -y swarm-marketplace-mcp unpair" filename="terminal" language="bash" />
                   <p className="mt-2 text-[12px]">
                     Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. Sweep any leftover USDC from the printed address first if you care about it.
                   </p>

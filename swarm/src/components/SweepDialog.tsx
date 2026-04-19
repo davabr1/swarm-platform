@@ -103,9 +103,11 @@ export default function SweepDialog({
           </div>
 
           <div className="pt-3 border-t border-border text-[10px] text-dim leading-relaxed">
-            ⚠ The MCP wallet needs a tiny amount of Fuji AVAX for gas. If the
-            CLI errors with &ldquo;insufficient funds for gas&rdquo;, send ~0.01
-            AVAX to the MCP address first (
+            The MCP needs a tiny bit of Fuji AVAX for gas; we auto-drip
+            ~0.003 AVAX to paired MCPs from the treasury when this panel
+            loads, so the sweep tx usually just works. If you still see
+            &ldquo;insufficient funds for gas&rdquo;, wait a few seconds and
+            retry — or top up manually at the{" "}
             <a
               href="https://faucet.avax.network/"
               target="_blank"
@@ -114,7 +116,7 @@ export default function SweepDialog({
             >
               Avalanche Fuji faucet ↗
             </a>
-            ), then retry.
+            .
           </div>
         </div>
       </div>

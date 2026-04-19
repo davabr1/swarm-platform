@@ -13,6 +13,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
+import PostPairSetup from "@/components/PostPairSetup";
 import MCPRegistryABI from "@/abis/MCPRegistry.json";
 import {
   FUJI_CHAIN_ID,
@@ -184,8 +185,16 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-dim mb-2">
-          your MCP wallet
+        <div className="flex items-baseline justify-between gap-3 mb-2 flex-wrap">
+          <div className="text-[10px] uppercase tracking-widest text-dim">
+            your MCP wallet
+          </div>
+          <div className="text-[10px] uppercase tracking-widest text-dim tabular-nums">
+            balance ·{" "}
+            <span className={funded ? "text-phosphor" : "text-amber"}>
+              {balanceStr} USDC
+            </span>
+          </div>
         </div>
         <div className="border border-border bg-background px-4 py-3 font-mono text-[12px] text-foreground break-all">
           {mcpAddress}
@@ -267,59 +276,52 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
               tx so Swarm can show this MCP on your profile and attribute its spend to you.
             </div>
           </div>
-          <button
-            onClick={onRegister}
-            disabled={registerPending || confirming}
-            className="border border-amber text-background bg-amber text-[11px] px-4 py-2 hover:bg-amber-hi disabled:opacity-50 disabled:cursor-not-allowed transition-none"
-          >
-            {registerPending
-              ? "[ waiting for signature… ]"
-              : confirming
-                ? "[ confirming on Fuji… ]"
-                : "[ link MCP → my wallet ]"}
-          </button>
+          <div>
+            <button
+              onClick={onRegister}
+              disabled={registerPending || confirming}
+              className="border border-amber text-background bg-amber text-[11px] px-4 py-2 hover:bg-amber-hi disabled:opacity-50 disabled:cursor-not-allowed transition-none"
+            >
+              {registerPending
+                ? "[ waiting for signature… ]"
+                : confirming
+                  ? "[ confirming on Fuji… ]"
+                  : "[ link MCP → my wallet ]"}
+            </button>
+          </div>
           {registerError && (
             <div className="text-[11px] text-danger">
               {registerError.message.slice(0, 200)}
             </div>
           )}
           {registerHash && (
-            <a
-              href={`https://testnet.snowtrace.io/tx/${registerHash}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] text-dim hover:text-amber underline"
-            >
-              tx: {truncate(registerHash)} ↗
-            </a>
+            <div>
+              <a
+                href={`https://testnet.snowtrace.io/tx/${registerHash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] text-dim hover:text-amber underline break-all"
+              >
+                tx: {truncate(registerHash)} ↗
+              </a>
+            </div>
           )}
         </div>
       )}
 
-      {/* Funding — border dims while linking is still pending so only one
-          step shouts amber at a time. Flips phosphor once the MCP is
-          actually funded. */}
-      <div
-        className={`border px-4 py-3 ${
-          funded
-            ? "border-phosphor"
-            : registryDeployed && isConnected && !ownedByConnected && !ownedByOther
-              ? "border-border-hi"
-              : "border-amber"
-        }`}
-      >
-        <div className="text-[10px] uppercase tracking-widest text-dim">
-          {registryDeployed ? "step 2 · MCP USDC balance (Fuji)" : "MCP USDC balance (Fuji)"}
+      {funded && ownedByConnected && <PostPairSetup />}
+
+      {funded && !ownedByConnected && (
+        <div className="border border-phosphor bg-surface px-4 py-3">
+          <div className="text-[10px] uppercase tracking-widest text-phosphor">
+            ✓ funded — ready for agent calls
+          </div>
+          <div className="text-[11px] text-dim mt-1 leading-relaxed">
+            Every paid call signs an EIP-3009 transfer and settles via x402 in ~2s. Page polls every
+            5s; balance updates automatically.
+          </div>
         </div>
-        <div className={`text-2xl font-mono tabular-nums mt-1 ${funded ? "text-phosphor" : "text-amber"}`}>
-          {balanceStr} <span className="text-sm">USDC</span>
-        </div>
-        <div className="text-[11px] text-dim mt-1">
-          {funded
-            ? "✓ funded — your MCP can pay for agents. Every paid call signs an EIP-3009 transfer and settles via x402 in ~2s."
-            : "Fund this address with Fuji USDC. Page polls every 5s; balance updates automatically."}
-        </div>
-      </div>
+      )}
 
       {!funded && isConnected && mainHasUsdc && (
         <div className="border border-amber bg-surface px-4 py-3 space-y-3">

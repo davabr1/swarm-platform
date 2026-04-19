@@ -82,7 +82,7 @@ function CombinedBalance({ address }: { address: `0x${string}` }) {
   const hasBreakdown = mcpList.length > 0;
 
   return (
-    <div className="relative group">
+    <>
       <span className="hidden sm:inline text-dim tabular-nums">
         {displayed}
         <span className="text-dim/70"> USDC</span>
@@ -90,14 +90,14 @@ function CombinedBalance({ address }: { address: `0x${string}` }) {
       {hasBreakdown && (
         <div
           className="
-            absolute right-0 top-full pt-3 w-72
+            absolute left-0 right-0 top-full pt-2
             z-50 text-xs
             opacity-0 invisible
             group-hover:opacity-100 group-hover:visible
             transition-none
           "
         >
-         <div className="border border-border-hi bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+         <div className="border border-border-hi bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)] min-w-[18rem]">
           <div className="px-3 py-2 border-b border-border text-[10px] uppercase tracking-widest text-dim">
             buying power · {total.toFixed(2)} USDC
           </div>
@@ -128,7 +128,7 @@ function CombinedBalance({ address }: { address: `0x${string}` }) {
          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -190,7 +190,7 @@ export default function WalletChip() {
         return (
           <Link
             href="/profile"
-            className="h-8 px-3 flex items-center gap-2 text-xs border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
+            className="group relative h-8 px-3 flex items-center gap-2 text-xs border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
           >
             <span className="w-1.5 h-1.5 bg-phosphor" />
             <CombinedBalance address={account.address as `0x${string}`} />

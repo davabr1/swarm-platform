@@ -7,9 +7,16 @@ interface CopyChipProps {
   display?: string;
   className?: string;
   compact?: boolean;
+  size?: "default" | "lg";
 }
 
-export default function CopyChip({ value, display, className = "", compact = false }: CopyChipProps) {
+export default function CopyChip({
+  value,
+  display,
+  className = "",
+  compact = false,
+  size = "default",
+}: CopyChipProps) {
   const [flashing, setFlashing] = useState(false);
 
   const copy = async () => {
@@ -38,10 +45,15 @@ export default function CopyChip({ value, display, className = "", compact = fal
     );
   }
 
+  const sizeClasses =
+    size === "lg"
+      ? "gap-3 px-3 py-2 text-base"
+      : "gap-2 px-2 py-1 text-xs";
+
   return (
     <button
       onClick={copy}
-      className={`inline-flex items-center gap-2 px-2 py-1 border border-border bg-surface-1 text-xs font-mono text-foreground hover:border-amber hover:text-amber transition-none ${
+      className={`inline-flex items-center border border-border bg-surface-1 font-mono text-foreground hover:border-amber hover:text-amber transition-none ${sizeClasses} ${
         flashing ? "flash-green" : ""
       } ${className}`}
     >

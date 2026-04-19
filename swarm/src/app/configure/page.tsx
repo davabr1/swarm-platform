@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import CodeBlock from "@/components/CodeBlock";
 import FaucetHelp from "@/components/FaucetHelp";
+import InlineUnlinkMcps from "@/components/InlineUnlinkMcps";
 import SubmittingLabel from "@/components/SubmittingLabel";
 import { getMcpStatus, pingMcp, type McpStatus } from "@/lib/api";
 
@@ -706,22 +707,23 @@ export default function ConfigurePage() {
                 <p>
                   Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request.
                 </p>
-                <div className="border-2 border-amber bg-amber/10 p-3 mt-2">
-                  <div className="text-amber font-semibold text-[12px] uppercase tracking-widest mb-2">
-                    ⚠ unpairing unfinished — one more step
+                <div className="border-2 border-amber bg-amber/10 p-3 mt-2 space-y-3">
+                  <div className="text-amber font-semibold text-[12px] uppercase tracking-widest">
+                    step 3 · unlink on-chain
                   </div>
                   <p className="text-[12px] text-foreground leading-relaxed">
-                    <span className="font-semibold">Step 3 · unlink on-chain.</span>{" "}
                     Running <code className="bg-background px-1">unpair</code> only deletes the local
                     key — the on-chain <code className="bg-background px-1">MCPRegistry</code> link
                     is <span className="text-amber font-semibold">still live</span>, so this MCP
-                    will keep showing under your profile and the nav-bar combined balance.
+                    will keep showing under your profile and the nav-bar combined balance until you
+                    sign <code className="bg-background px-1">MCPRegistry.unregister</code> from the
+                    wallet that paired it.
                   </p>
-                  <p className="text-[12px] text-foreground leading-relaxed mt-2">
-                    → Go to <Link href="/profile" className="underline text-amber hover:text-amber-hi font-semibold">/profile</Link>, connect your main wallet, and click <code className="bg-background px-1 text-amber font-semibold">[ unlink ]</code> next to this MCP. That signs <code className="bg-background px-1">MCPRegistry.unregister</code> from the wallet that owns the pairing.
-                  </p>
-                  <p className="text-[11px] text-dim leading-relaxed mt-2">
-                    The CLI can&apos;t do this for you because it doesn&apos;t hold your main-wallet key.
+                  <InlineUnlinkMcps />
+                  <p className="text-[11px] text-dim leading-relaxed">
+                    Shows MCPs paired to the wallet you have connected (top-right). Click{" "}
+                    <code className="text-foreground">[ unlink on-chain ]</code> to send the
+                    <code className="text-foreground mx-1">MCPRegistry.unregister</code>tx.
                   </p>
                 </div>
               </div>

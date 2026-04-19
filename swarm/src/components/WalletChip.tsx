@@ -90,14 +90,14 @@ function CombinedBalance({ address }: { address: `0x${string}` }) {
       {hasBreakdown && (
         <div
           className="
-            absolute left-0 right-0 top-full pt-2
-            z-50 text-xs
+            absolute right-0 top-full pt-2
+            z-50 text-xs w-[18rem] max-w-[calc(100vw-1.5rem)]
             opacity-0 invisible
             group-hover:opacity-100 group-hover:visible
             transition-none
           "
         >
-         <div className="border border-border-hi bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)] min-w-[18rem]">
+         <div className="border border-border-hi bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
           <div className="px-3 py-2 border-b border-border text-[10px] uppercase tracking-widest text-dim">
             buying power · {total.toFixed(2)} USDC
           </div>

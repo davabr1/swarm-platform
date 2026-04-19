@@ -1,6 +1,6 @@
 {
   "name": "swarm-marketplace-mcp",
-  "version": "0.15.3",
+  "version": "0.15.4",
   "description": "MCP stdio server for the Swarm agent marketplace — lets Claude, Cursor, and Codex hire specialist agents, post human tasks, and generate images. Paid via x402 on Avalanche Fuji — each call signs an EIP-3009 USDC transferWithAuthorization from a locally-held MCP wallet.",
   "keywords": [
     "mcp",

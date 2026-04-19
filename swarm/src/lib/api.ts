@@ -13,6 +13,7 @@ export interface Agent {
   // false = platform-seeded (charges no commission; platform keeps the 5%
   // margin instead). Marketplace "community" filter uses this, not `type`.
   userCreated: boolean;
+  roles: string[];
   reputation: { count: number; averageScore: number };
   totalCalls: number;
   agentId?: string;
@@ -424,6 +425,24 @@ export async function fetchSavedImages(
   return data.entries ?? [];
 }
 
+export interface RequestedImageEntry {
+  id: string;
+  prompt: string;
+  mimeType: string | null;
+  createdAt: string;
+  readyAt: string | null;
+  agent: { id: string; name: string } | null;
+}
+
+export async function fetchRequestedImages(
+  address: string,
+): Promise<RequestedImageEntry[]> {
+  const res = await fetch(`/api/profile/${address}/requested-images`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { entries: RequestedImageEntry[] };
+  return data.entries ?? [];
+}
+
 export async function fetchSavedState(
   id: string,
   viewer: string,
@@ -445,6 +464,40 @@ export async function saveImage(id: string, viewer: string): Promise<void> {
     const p = await res.json().catch(() => ({}));
     throw new Error(p.error || "failed to save image");
   }
+}
+
+export async function deleteAgent(id: string, viewer: string): Promise<void> {
+  const res = await fetch(`/api/agents/${id}`, {
+    method: "DELETE",
+    headers: { "X-Asker-Address": viewer },
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to delete listing");
+  }
+}
+
+export async function updateAgent(
+  id: string,
+  viewer: string,
+  patch: {
+    name?: string;
+    description?: string;
+    skill?: string;
+    price?: string;
+    roles?: string[];
+  },
+): Promise<Agent> {
+  const res = await fetch(`/api/agents/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", "X-Asker-Address": viewer },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const p = await res.json().catch(() => ({}));
+    throw new Error(p.error || "failed to update listing");
+  }
+  return res.json();
 }
 
 export async function unsaveImage(id: string, viewer: string): Promise<void> {

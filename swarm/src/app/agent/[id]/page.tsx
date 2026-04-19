@@ -15,6 +15,9 @@ import {
   callImage,
   rateAgent,
   rateAgentMessage,
+  saveImage,
+  unsaveImage,
+  fetchSavedState,
   PaymentRequiredError,
   type Agent,
   type GuidanceBreakdown,
@@ -33,11 +36,16 @@ export default function AgentDetailPage() {
   const id = params.id as string;
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const x402Fetch = useX402Fetch();
+  const { fetch: x402Fetch, hooksRef: x402HooksRef } = useX402Fetch();
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [input, setInput] = useState("");
-  const [log, setLog] = useState<{ kind: string; text: string }[]>([]);
+  const [log, setLog] = useState<{ kind: string; text: string; imageId?: string }[]>([]);
+  // Track save state per image-id. The marketplace chat can produce more
+  // than one image per session (repeated prompts), so we key on id and let
+  // each entry toggle independently.
+  const [savedImages, setSavedImages] = useState<Record<string, boolean>>({});
+  const [savingImage, setSavingImage] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [rating, setRating] = useState(0);
@@ -75,6 +83,46 @@ export default function AgentDetailPage() {
 
   const isImage = agent?.skill?.startsWith("Image") ?? false;
 
+  // Toggle a generated image's pin on the caller's profile. Uses the same
+  // X-Asker-Address header contract as the /image/[id] viewer's save button,
+  // so behavior stays consistent between the viewer and the inline chat.
+  const handleToggleSave = async (imageId: string) => {
+    if (!address || savingImage[imageId]) return;
+    const currentlySaved = !!savedImages[imageId];
+    setSavingImage((p) => ({ ...p, [imageId]: true }));
+    setSavedImages((p) => ({ ...p, [imageId]: !currentlySaved }));
+    try {
+      if (currentlySaved) {
+        await unsaveImage(imageId, address.toLowerCase());
+      } else {
+        await saveImage(imageId, address.toLowerCase());
+      }
+    } catch {
+      setSavedImages((p) => ({ ...p, [imageId]: currentlySaved }));
+    } finally {
+      setSavingImage((p) => ({ ...p, [imageId]: false }));
+    }
+  };
+
+  // Refresh pin state when a new image lands so the button label reflects
+  // reality even if the user had pre-saved it via the viewer page.
+  useEffect(() => {
+    if (!address) return;
+    const pending = log
+      .filter((l): l is { kind: string; text: string; imageId: string } =>
+        l.kind === "image" && typeof l.imageId === "string",
+      )
+      .map((l) => l.imageId)
+      .filter((id) => savedImages[id] === undefined);
+    if (pending.length === 0) return;
+    pending.forEach((id) => {
+      fetchSavedState(id, address.toLowerCase())
+        .then((saved) => setSavedImages((p) => ({ ...p, [id]: saved })))
+        .catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log, address]);
+
   const askForGuidance = async () => {
     const message = input.trim();
     if (!message || loading) return;
@@ -102,7 +150,7 @@ export default function AgentDetailPage() {
     } else {
       setLog((prev) => [...prev, { kind: "prompt", text: `❯ ${message}` }]);
     }
-    await pause(300);
+    await pause(200);
     setLog((prev) => [
       ...prev,
       {
@@ -112,16 +160,41 @@ export default function AgentDetailPage() {
           : `[pricing] commission ${agent?.price ?? "$?"} → creator · AI cost · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
       },
     ]);
-    await pause(300);
+    await pause(200);
     setLog((prev) => [
       ...prev,
       {
         kind: "info",
-        text: "[402] server returned 402 Payment Required · signing EIP-3009 transferWithAuthorization",
+        text: "[request] calling agent endpoint · expecting 402 ceiling quote",
       },
     ]);
-    await pause(400);
-    setThinking(true);
+
+    // Hook into the x402 handshake so the log mirrors reality: we only show
+    // "signing" when the wallet actually prompts, "approved" when the
+    // signature lands, and "thinking" once the agent has started work.
+    x402HooksRef.current = {
+      onSigningStart: ({ amountMicroUsd }) => {
+        const usd = (Number(amountMicroUsd) / 1_000_000).toFixed(4);
+        setLog((prev) => [
+          ...prev,
+          {
+            kind: "info",
+            text: `[402] server asked for ${usd} USDC ceiling · approve EIP-3009 hold in your wallet…`,
+          },
+        ]);
+      },
+      onSigned: ({ amountMicroUsd }) => {
+        const usd = (Number(amountMicroUsd) / 1_000_000).toFixed(4);
+        setLog((prev) => [
+          ...prev,
+          {
+            kind: "success",
+            text: `[approved] ${usd} USDC hold signed · agent starting work (overage refunds after)`,
+          },
+        ]);
+        setThinking(true);
+      },
+    };
 
     try {
       if (isImage) {
@@ -150,7 +223,7 @@ export default function AgentDetailPage() {
           ...prev,
           { kind: "success", text: `[settled] ${total} USDC charged${txTag}` },
           { kind: "info", text: `[stream] image from ${agent?.name ?? "agent"}` },
-          { kind: "image", text: data.imageUrl! },
+          { kind: "image", text: data.imageUrl!, imageId: data.id },
         ]);
         const updated = await fetchAgent(id);
         setAgent(updated);
@@ -186,7 +259,7 @@ export default function AgentDetailPage() {
         setAwaitingReply(true);
         setLog((prev) => [
           ...prev,
-          { kind: "success", text: `[settled] $${total} charged · turn ${nextTurn}/${TURN_CAP}` },
+          { kind: "success", text: `[settled] ${total} USDC charged · turn ${nextTurn}/${TURN_CAP}` },
           { kind: "info", text: `[stream] ${agent?.name ?? "agent"} asked a clarifying question` },
           { kind: "question", text: result.response ?? "" },
         ]);
@@ -196,7 +269,7 @@ export default function AgentDetailPage() {
         setAwaitingReply(false);
         setLog((prev) => [
           ...prev,
-          { kind: "success", text: `[settled] $${total} total charged${capped ? ` · turn ${nextTurn}/${TURN_CAP} (final)` : ""}` },
+          { kind: "success", text: `[settled] ${total} USDC total charged${capped ? ` · turn ${nextTurn}/${TURN_CAP} (final)` : ""}` },
           { kind: "info", text: `[stream] response from ${agent?.name ?? "agent"}` },
           { kind: "result", text: result.response ?? "" },
         ]);
@@ -219,6 +292,8 @@ export default function AgentDetailPage() {
       }
     } finally {
       setLoading(false);
+      // Don't leak hook closures across calls — the next ask builds its own.
+      x402HooksRef.current = null;
     }
   };
 
@@ -511,22 +586,51 @@ export default function AgentDetailPage() {
                               </div>
                             </div>
                           ) : line.kind === "image" ? (
-                            <a
-                              href={line.text}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block border border-border bg-surface-1 p-2 hover:border-amber transition-none"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={line.text}
-                                alt="generated image"
-                                className="block max-w-full h-auto"
-                              />
-                              <div className="mt-2 text-[10px] text-dim font-mono truncate">
-                                {line.text}
+                            <div className="border border-border bg-surface-1 p-2">
+                              <a
+                                href={line.imageId ? `/image/${line.imageId}` : line.text}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block hover:opacity-90 transition-none"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={line.text}
+                                  alt="generated image"
+                                  className="block max-w-full h-auto"
+                                />
+                              </a>
+                              <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                                <div className="text-[10px] text-dim font-mono truncate min-w-0 flex-1">
+                                  {line.text}
+                                </div>
+                                {line.imageId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleSave(line.imageId!)}
+                                    disabled={!isConnected || !!savingImage[line.imageId]}
+                                    className={`shrink-0 text-[11px] px-3 py-1.5 border transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                                      savedImages[line.imageId]
+                                        ? "border-phosphor bg-phosphor/10 text-phosphor hover:bg-phosphor/20"
+                                        : "border-amber text-amber hover:bg-amber hover:text-background"
+                                    }`}
+                                    title={
+                                      !isConnected
+                                        ? "connect to save"
+                                        : savedImages[line.imageId]
+                                          ? "click to unsave"
+                                          : "pin to your profile"
+                                    }
+                                  >
+                                    {!isConnected
+                                      ? "[ connect to save ]"
+                                      : savedImages[line.imageId]
+                                        ? "[ ✓ saved to profile ]"
+                                        : "[ save to profile ]"}
+                                  </button>
+                                )}
                               </div>
-                            </a>
+                            </div>
                           ) : (
                             <span className="font-mono text-xs">{line.text}</span>
                           )}

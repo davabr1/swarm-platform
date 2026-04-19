@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
@@ -11,7 +11,7 @@ import TerminalWindow from "@/components/TerminalWindow";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
 import SubmittingLabel from "@/components/SubmittingLabel";
-import { becomeHuman } from "@/lib/api";
+import { becomeHuman, fetchProfile, type Agent } from "@/lib/api";
 
 type Role = "expert" | "completer";
 
@@ -44,6 +44,30 @@ export default function BecomePage() {
   const [roles, setRoles] = useState<Set<Role>>(new Set(["completer"]));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Enforce "one human listing per wallet" here in the UI — the backend
+  // returns 409 on duplicate submissions, but we check proactively so the
+  // user doesn't fill out a whole form only to get rejected at submit. `null`
+  // means still loading; `undefined` means confirmed-not-listed.
+  const [existing, setExisting] = useState<Agent | null | undefined>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setExisting(undefined);
+      return;
+    }
+    let alive = true;
+    fetchProfile(address)
+      .then((p) => {
+        if (!alive) return;
+        setExisting(p.agents.find((a) => a.type === "human_expert") ?? undefined);
+      })
+      .catch(() => {
+        if (alive) setExisting(undefined);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [address]);
 
   const toggleRole = (r: Role) =>
     setRoles((prev) => {
@@ -112,6 +136,81 @@ export default function BecomePage() {
                 </p>
                 <div className="flex items-center justify-center">
                   <ConnectButton />
+                </div>
+              </div>
+            </TerminalWindow>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // While we're still checking whether the wallet already has a listing, avoid
+  // rendering the full form — it would briefly show the signup UI, then flip
+  // to "already listed" a moment later, which feels glitchy.
+  if (existing === null) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <CommandPalette />
+        <div className="px-6 lg:px-10 py-16 text-center text-sm text-muted">
+          checking your listing status…
+        </div>
+      </div>
+    );
+  }
+
+  if (existing) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <CommandPalette />
+        <div className="px-6 lg:px-10 py-12 flex items-center justify-center">
+          <div className="w-full max-w-2xl">
+            <TerminalWindow title="swarm://become" subtitle="already listed">
+              <div className="p-6 space-y-4">
+                <div className="text-[10px] uppercase tracking-widest text-phosphor">
+                  ❯ this wallet already has a human listing
+                </div>
+                <div className="text-xl text-foreground">
+                  You&apos;re listed as{" "}
+                  <span className="text-phosphor">{existing.name}</span>
+                </div>
+                <div className="text-sm text-muted leading-relaxed">
+                  One wallet = one human profile. To change your skill, roles, bio, or
+                  rate — or to unlist and re-list — edit on your profile. The backend
+                  rejects duplicate submissions anyway.
+                </div>
+                <div className="border border-border bg-surface-1 p-3 text-xs">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-dim">
+                        roles
+                      </div>
+                      <div className="text-phosphor">
+                        {existing.roles.length > 0
+                          ? existing.roles.join(" + ")
+                          : "— none"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-dim">
+                        skill
+                      </div>
+                      <div className="text-amber">{existing.skill}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <Link
+                    href={`/profile/${address}`}
+                    className="border border-phosphor bg-phosphor text-background text-xs font-bold px-4 py-2 hover:bg-foreground hover:border-foreground transition-none"
+                  >
+                    [ edit on profile → ]
+                  </Link>
+                  <Link href="/tasks" className="text-xs text-muted hover:text-foreground">
+                    → browse open tasks
+                  </Link>
                 </div>
               </div>
             </TerminalWindow>

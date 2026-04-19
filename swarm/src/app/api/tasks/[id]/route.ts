@@ -1,10 +1,16 @@
 import { db } from "@/lib/db";
 import { serializeTask } from "@/lib/serializeAgent";
+import { resolveAgentAddress } from "@/lib/session";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]">) {
   const { id } = await ctx.params;
-  const viewer = req.nextUrl.searchParams.get("viewer") ?? undefined;
+  // Browser sends ?viewer=; MCP attaches X-Asker-Address. Without either the
+  // viewer can't be identified and result/payload stay redacted — which is
+  // what hit 0.14.x clients that never passed ?viewer= and made the server
+  // drop the task body.
+  const viewer =
+    req.nextUrl.searchParams.get("viewer") ?? resolveAgentAddress(req) ?? undefined;
   const task = await db.task.findUnique({ where: { id } });
   if (!task) return Response.json({ error: "Task not found" }, { status: 404 });
   return Response.json(serializeTask(task, { viewerAddress: viewer }));

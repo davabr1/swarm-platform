@@ -31,6 +31,21 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     select: { skill: true, type: true, roles: true },
   });
 
+  // Baseline: only wallets that have listed themselves via /become (creating a
+  // `type=human_expert` agent row — the legacy column name; UI just calls them
+  // "humans") may claim. Posting an AI agent or a custom-skill bot doesn't
+  // make you eligible — this is human work.
+  const isListedHuman = claimerAgents.some((a) => a.type === "human_expert");
+  if (!isListedHuman) {
+    return Response.json(
+      {
+        error:
+          "You need to list yourself as a human before claiming tasks. Visit /become to list yourself.",
+      },
+      { status: 403 },
+    );
+  }
+
   if (task.expertOnly) {
     // Legacy human_expert rows (roles[] empty) count as expert.
     const isExpert = claimerAgents.some(

@@ -37,7 +37,7 @@ export async function POST(
   if (!image) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (image.status !== "completed") {
+  if (image.status !== "ready") {
     return NextResponse.json(
       { error: "image_not_ready" },
       { status: 409 },

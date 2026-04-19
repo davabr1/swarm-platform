@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Header from "@/components/Header";
@@ -22,6 +23,7 @@ import {
   rateTask,
   rateTaskMessage,
   fetchBalance,
+  fetchProfile,
   type Task,
   type Balance,
 } from "@/lib/api";
@@ -79,9 +81,13 @@ function Stars({
 }
 
 export default function TaskBoardPage() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const x402Fetch = useX402Fetch();
+  const { fetch: x402Fetch } = useX402Fetch();
+  // null = unknown (loading / disconnected), true/false = answered. Used to
+  // redirect unlisted wallets to /become before they waste a click on claim.
+  const [isListed, setIsListed] = useState<boolean | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "open" | "claimed" | "completed" | "cancelled">(
@@ -138,6 +144,29 @@ export default function TaskBoardPage() {
   }, [loadBalance]);
 
   useEffect(() => {
+    if (!address) {
+      setIsListed(null);
+      return;
+    }
+    let cancelled = false;
+    fetchProfile(address)
+      .then((p) => {
+        if (cancelled) return;
+        // A "listed" human is anyone who posted themselves via /become — those
+        // rows land as `type=human_expert` on the agent table. Other agent
+        // types (ai, custom_skill) don't count; listing a bot doesn't make you
+        // eligible to claim human work.
+        setIsListed(p.agents.some((a) => a.type === "human_expert"));
+      })
+      .catch(() => {
+        if (!cancelled) setIsListed(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  useEffect(() => {
     // First fetch toggles the loading state so the empty slot reads
     // "loading tasks…" instead of "no tasks" on cold page load. The 5s
     // poll afterwards reuses `load()` without flipping loading back, so
@@ -164,6 +193,13 @@ export default function TaskBoardPage() {
 
   const handleClaim = async (id: string) => {
     if (!address || claimingId) return;
+    // Unlisted wallets bounce to /become. We already show a banner above the
+    // table, but the redirect makes the action concrete: one click takes you
+    // to the list form, you list yourself, you come back and claim.
+    if (isListed === false) {
+      router.push("/become");
+      return;
+    }
     setClaimError((p) => ({ ...p, [id]: "" }));
     setClaimingId(id);
     try {
@@ -472,23 +508,40 @@ export default function TaskBoardPage() {
             <ConnectButton />
           </div>
         ) : (
-          <div className="border border-border bg-surface p-3 mb-5 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-[10px] uppercase tracking-widest text-dim">payout wallet</span>
-              <span className="text-phosphor">{address?.slice(0, 8)}…{address?.slice(-6)}</span>
+          <>
+            <div className="border border-border bg-surface p-3 mb-5 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-[10px] uppercase tracking-widest text-dim">payout wallet</span>
+                <span className="text-phosphor">{address?.slice(0, 8)}…{address?.slice(-6)}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowPost((v) => !v)}
+                  className="text-xs border border-amber bg-amber text-background px-3 py-1.5 hover:bg-amber-hi transition-none"
+                >
+                  {showPost ? "✕ close" : "+ post task"}
+                </button>
+                <Link href="/become" className="text-xs text-phosphor hover:text-foreground">
+                  → list yourself
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowPost((v) => !v)}
-                className="text-xs border border-amber bg-amber text-background px-3 py-1.5 hover:bg-amber-hi transition-none"
-              >
-                {showPost ? "✕ close" : "+ post task"}
-              </button>
-              <Link href="/become" className="text-xs text-phosphor hover:text-foreground">
-                → list yourself
-              </Link>
-            </div>
-          </div>
+
+            {isListed === false && (
+              <div className="border border-amber/50 bg-amber/5 p-3 mb-5 flex items-center justify-between gap-4 flex-wrap">
+                <div className="text-sm text-muted">
+                  <span className="text-amber mr-1">❯</span>
+                  you haven't listed yourself as a human yet — claim is gated until you do
+                </div>
+                <Link
+                  href="/become"
+                  className="text-xs border border-amber bg-amber text-background px-3 py-1.5 hover:bg-amber-hi transition-none"
+                >
+                  [ list yourself → ]
+                </Link>
+              </div>
+            )}
+          </>
         )}
 
         {isConnected && showPost && (
@@ -849,10 +902,12 @@ export default function TaskBoardPage() {
                           >
                             {claimingId === t.id ? (
                               <SubmittingLabel text="claiming" />
-                            ) : isConnected ? (
-                              "[ claim task ]"
-                            ) : (
+                            ) : !isConnected ? (
                               "[ connect wallet to claim ]"
+                            ) : isListed === false ? (
+                              "[ list yourself to claim → ]"
+                            ) : (
+                              "[ claim task ]"
                             )}
                           </button>
                         )}

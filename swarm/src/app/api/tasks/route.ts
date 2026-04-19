@@ -5,12 +5,14 @@ import { logActivity } from "@/lib/activity";
 import { parsePrice } from "@/lib/geminiPricing";
 import { requireX402Payment } from "@/lib/x402Middleware";
 import { recordX402Settlement } from "@/lib/postSettleFanout";
+import { resolveAgentAddress } from "@/lib/session";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  const viewer = req.nextUrl.searchParams.get("viewer") ?? undefined;
+  const viewer =
+    req.nextUrl.searchParams.get("viewer") ?? resolveAgentAddress(req) ?? undefined;
   const inbox = req.nextUrl.searchParams.get("inbox") === "1";
   // Task rows may carry a ~2 MB base64 attachment blob. Strip it from list
   // queries — the detail route refetches the full row when needed.

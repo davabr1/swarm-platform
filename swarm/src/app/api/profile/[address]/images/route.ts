@@ -43,7 +43,7 @@ export async function GET(
   const entries = saved
     .map((s) => {
       const img = imgById.get(s.imageId);
-      if (!img || img.status !== "completed") return null;
+      if (!img || img.status !== "ready") return null;
       const agent = agentById.get(img.agentId);
       return {
         id: img.id,

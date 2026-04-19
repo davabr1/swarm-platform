@@ -20,6 +20,10 @@ interface DataTableProps<T> {
   expandedKey?: string | null;
   expandedContent?: (row: T) => ReactNode;
   dense?: boolean;
+  // The table enforces a minimum width so columns don't squish on mobile, but
+  // compact panels (e.g. side-by-side profile cards) need a smaller floor or
+  // they introduce horizontal scroll inside already-narrow containers.
+  minWidth?: string;
 }
 
 export default function DataTable<T>({
@@ -31,6 +35,7 @@ export default function DataTable<T>({
   expandedKey = null,
   expandedContent,
   dense = false,
+  minWidth = "640px",
 }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (

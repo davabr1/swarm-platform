@@ -11,24 +11,49 @@ import TerminalWindow from "@/components/TerminalWindow";
 import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
 import SubmittingLabel from "@/components/SubmittingLabel";
-import { applyAsExpert } from "@/lib/api";
+import { becomeHuman } from "@/lib/api";
 
-export default function ApplyExpertPage() {
+type Role = "expert" | "completer";
+
+const ROLE_COPY: Record<Role, { title: string; sub: string }> = {
+  expert: {
+    title: "expert",
+    sub: "Verified specialist — claim expert-only bounties (legal, security, domain audits).",
+  },
+  completer: {
+    title: "task completer",
+    sub: "Real-world tasks — photos, short calls, lookups, errands. Lower bar, more volume.",
+  },
+};
+
+export default function BecomePage() {
   const { address, isConnected } = useAccount();
   const router = useRouter();
 
   const [form, setForm] = useState({ name: "", skill: "", description: "", rate: "" });
+  const [roles, setRoles] = useState<Set<Role>>(new Set(["completer"]));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const set = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  const toggleRole = (r: Role) =>
+    setRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(r)) next.delete(r);
+      else next.add(r);
+      return next;
+    });
 
   const submit = async () => {
     if (!address || submitting) return;
+    if (roles.size === 0) {
+      setError("Pick at least one role — expert or task completer.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
-      await applyAsExpert({ ...form, walletAddress: address });
+      await becomeHuman({ ...form, walletAddress: address, roles: Array.from(roles) });
       router.push(`/profile/${address}?viewer=${address}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "unknown error");
@@ -43,10 +68,10 @@ export default function ApplyExpertPage() {
         <CommandPalette />
         <div className="px-6 lg:px-10 py-16 flex items-center justify-center">
           <div className="w-full max-w-lg">
-            <TerminalWindow title="swarm://apply-expert" subtitle="locked">
+            <TerminalWindow title="swarm://become" subtitle="locked">
               <div className="p-8 text-center">
                 <div className="text-[10px] uppercase tracking-widest text-phosphor mb-4">
-                  ❯ connect_wallet_to_apply
+                  ❯ connect_wallet_to_continue
                 </div>
                 <div className="text-xl text-foreground mb-3">Connect your wallet</div>
                 <p className="text-sm text-muted leading-relaxed mb-8 max-w-sm mx-auto">
@@ -63,6 +88,8 @@ export default function ApplyExpertPage() {
     );
   }
 
+  const formValid = form.name && form.skill && form.description && form.rate && roles.size > 0;
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -70,22 +97,62 @@ export default function ApplyExpertPage() {
 
       <div className="px-6 lg:px-10 py-8">
         <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-widest text-dim">swarm://apply-expert</div>
+          <div className="text-[11px] uppercase tracking-widest text-dim">swarm://become</div>
           <h1 className="text-2xl text-foreground mt-1">
-            apply as an expert · <span className="text-phosphor">claim human-only tasks</span>
+            become a <span className="text-phosphor">specialist</span>
           </h1>
           <p className="text-sm text-muted mt-1 max-w-2xl">
-            List yourself on the marketplace. Agents escalate to humans when real-world judgment is
-            needed — you see bounties, claim what fits, get paid USDC.
+            Get matched with work agents post. Pick one role, both, or both —
+            you can be an expert and a task completer on the same wallet.
           </p>
         </div>
 
-        <TerminalWindow title="swarm://apply-expert" subtitle="form">
+        <TerminalWindow title="swarm://become" subtitle="form">
           <div className="p-5 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
               <div>
                 <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
-                  expert name
+                  i want to
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(Object.keys(ROLE_COPY) as Role[]).map((r) => {
+                    const selected = roles.has(r);
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => toggleRole(r)}
+                        className={`text-left border p-3 transition-none ${
+                          selected
+                            ? "border-phosphor bg-phosphor/10"
+                            : "border-border hover:border-phosphor/60 bg-surface"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex w-4 h-4 items-center justify-center border text-[10px] font-bold ${
+                              selected
+                                ? "border-phosphor bg-phosphor text-background"
+                                : "border-border-hi text-dim"
+                            }`}
+                          >
+                            {selected ? "✓" : ""}
+                          </span>
+                          <span className="text-[11px] uppercase tracking-widest text-foreground">
+                            {ROLE_COPY[r].title}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted mt-1.5 leading-relaxed">
+                          {ROLE_COPY[r].sub}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-phosphor mb-2">
+                  display name
                 </div>
                 <PromptInput
                   value={form.name}
@@ -111,7 +178,7 @@ export default function ApplyExpertPage() {
                 <PromptTextarea
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
-                  placeholder="Describe the judgment, verification, or domain expertise you provide…"
+                  placeholder="Describe the judgment, verification, or real-world action you provide…"
                   rows={5}
                   required
                 />
@@ -136,20 +203,18 @@ export default function ApplyExpertPage() {
                   → what happens next
                 </div>
                 <ol className="space-y-1.5 list-decimal list-inside">
-                  <li>You're listed on the marketplace as a human expert.</li>
-                  <li>Agents post bounties when automation isn't enough.</li>
-                  <li>Claim tasks that match your skill, submit results, paid in USDC.</li>
+                  <li>Your profile is listed on the marketplace.</li>
+                  <li>Agents post bounties — matching tasks land in your inbox.</li>
+                  <li>Claim, deliver, get paid in USDC on accept.</li>
                 </ol>
               </div>
 
               <button
                 onClick={submit}
-                disabled={
-                  submitting || !form.name || !form.skill || !form.description || !form.rate
-                }
+                disabled={submitting || !formValid}
                 className="w-full border border-phosphor bg-phosphor text-background text-xs font-bold py-2.5 hover:bg-foreground hover:border-foreground transition-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? <SubmittingLabel text="submitting" /> : "[ submit application ]"}
+                {submitting ? <SubmittingLabel text="creating profile" /> : "[ become a specialist ]"}
               </button>
               {error && (
                 <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">
@@ -157,7 +222,7 @@ export default function ApplyExpertPage() {
                 </div>
               )}
               <div className="text-xs text-dim pt-2 border-t border-border">
-                already applied?{" "}
+                already joined?{" "}
                 <Link
                   href={`/profile/${address}?viewer=${address}`}
                   className="text-phosphor hover:text-foreground"

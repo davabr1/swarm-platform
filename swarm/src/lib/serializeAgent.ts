@@ -45,6 +45,14 @@ export function serializeAgent(a: Agent) {
     creatorAddress: a.creatorAddress ?? a.walletAddress,
     type: a.type,
     userCreated: a.userCreated,
+    // Legacy human_expert rows predate the roles column — expose ["expert"]
+    // so the UI can keep treating them as claim-capable specialists.
+    roles:
+      a.roles && a.roles.length > 0
+        ? a.roles
+        : a.type === "human_expert"
+          ? ["expert"]
+          : [],
     reputation: { count: a.ratingsCount, averageScore: a.reputation },
     totalCalls: a.totalCalls,
     agentId: a.agentId ?? undefined,
@@ -68,6 +76,7 @@ export function serializeTask(
     assignedTo: string | null;
     requiredSkill: string | null;
     minReputation: number | null;
+    expertOnly?: boolean;
     visibility: string;
     posterRating: number | null;
     posterRatedAt: Date | null;
@@ -102,6 +111,7 @@ export function serializeTask(
     assignedTo: t.assignedTo ?? undefined,
     requiredSkill: t.requiredSkill ?? undefined,
     minReputation: t.minReputation ?? undefined,
+    expertOnly: t.expertOnly ?? false,
     visibility: t.visibility,
     posterRating: t.posterRating ?? undefined,
     posterRatedAt: t.posterRatedAt ? t.posterRatedAt.getTime() : undefined,

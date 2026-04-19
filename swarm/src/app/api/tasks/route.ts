@@ -17,13 +17,18 @@ export async function GET(req: NextRequest) {
     const vLower = viewer.toLowerCase();
     const myAgents = await db.agent.findMany({
       where: { creatorAddress: { equals: viewer, mode: "insensitive" } },
-      select: { skill: true, reputation: true },
+      select: { skill: true, reputation: true, type: true, roles: true },
     });
     const mySkills = new Set(myAgents.map((a) => a.skill.toLowerCase()));
     const bestRep = myAgents.reduce((m, a) => Math.max(m, a.reputation ?? 0), 0);
+    // Treat legacy human_expert rows (roles[] empty) as holding "expert".
+    const effectiveRoles = (a: { type: string; roles: string[] }) =>
+      a.roles.length > 0 ? a.roles : a.type === "human_expert" ? ["expert"] : [];
+    const isExpert = myAgents.some((a) => effectiveRoles(a).includes("expert"));
     const matching = tasks.filter((t) => {
       if (t.status !== "open") return false;
       if (t.assignedTo && t.assignedTo.toLowerCase() === vLower) return true;
+      if (t.expertOnly && !isExpert) return false;
       if (
         t.requiredSkill &&
         mySkills.has(t.requiredSkill.toLowerCase()) &&
@@ -49,6 +54,7 @@ export async function POST(req: NextRequest) {
     assignedTo,
     requiredSkill,
     minReputation,
+    expertOnly,
     visibility,
   } = body;
   if (!description || !bounty || !skill) {
@@ -112,6 +118,7 @@ export async function POST(req: NextRequest) {
         typeof requiredSkill === "string" && requiredSkill.length ? requiredSkill : null,
       minReputation:
         typeof minReputation === "number" && !Number.isNaN(minReputation) ? minReputation : null,
+      expertOnly: expertOnly === true,
       visibility: vis,
     },
   });

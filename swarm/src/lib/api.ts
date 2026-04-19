@@ -35,6 +35,7 @@ export interface Task {
   assignedTo?: string;
   requiredSkill?: string;
   minReputation?: number;
+  expertOnly?: boolean;
   visibility: "public" | "private";
   posterRating?: number;
   posterRatedAt?: number;
@@ -252,6 +253,7 @@ export async function postTask(
     assignedTo?: string;
     requiredSkill?: string;
     minReputation?: number;
+    expertOnly?: boolean;
     visibility?: "public" | "private";
   },
   opts?: { fetchImpl?: typeof fetch },
@@ -401,14 +403,15 @@ export async function createCustomAgent(data: {
   return res.json();
 }
 
-export async function applyAsExpert(data: {
+export async function becomeHuman(data: {
   name: string;
   skill: string;
   description: string;
   rate: string;
   walletAddress: string;
+  roles: string[];
 }): Promise<Agent> {
-  const res = await fetch(`/api/experts/apply`, {
+  const res = await fetch(`/api/humans/become`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -416,7 +419,7 @@ export async function applyAsExpert(data: {
 
   if (!res.ok) {
     const payload = await res.json().catch(() => ({}));
-    throw new Error(payload.error || "Failed to apply as expert");
+    throw new Error(payload.error || "Could not create your profile");
   }
 
   return res.json();

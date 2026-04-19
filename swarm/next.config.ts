@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: rootDir,
   },
+  async redirects() {
+    return [
+      { source: "/apply-expert", destination: "/become", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

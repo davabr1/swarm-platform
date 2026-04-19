@@ -21,16 +21,33 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
     );
   }
 
+  const claimerAgents = await db.agent.findMany({
+    where: {
+      OR: [
+        { creatorAddress: { equals: claimedBy, mode: "insensitive" } },
+        { walletAddress: { equals: claimedBy, mode: "insensitive" } },
+      ],
+    },
+    select: { skill: true, type: true, roles: true },
+  });
+
+  if (task.expertOnly) {
+    // Legacy human_expert rows (roles[] empty) count as expert.
+    const isExpert = claimerAgents.some(
+      (a) =>
+        (a.roles.length > 0 ? a.roles : a.type === "human_expert" ? ["expert"] : []).includes(
+          "expert",
+        ),
+    );
+    if (!isExpert) {
+      return Response.json(
+        { error: "This task is expert-only — claim requires the expert role." },
+        { status: 403 },
+      );
+    }
+  }
+
   if (task.requiredSkill) {
-    const claimerAgents = await db.agent.findMany({
-      where: {
-        OR: [
-          { creatorAddress: { equals: claimedBy, mode: "insensitive" } },
-          { walletAddress: { equals: claimedBy, mode: "insensitive" } },
-        ],
-      },
-      select: { skill: true },
-    });
     const need = task.requiredSkill.toLowerCase();
     const has = claimerAgents.some((a) => a.skill.toLowerCase() === need);
     if (!has) {

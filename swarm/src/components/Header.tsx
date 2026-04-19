@@ -19,7 +19,7 @@ function EarnMenu() {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isActive =
-    pathname?.startsWith("/list-skill") || pathname?.startsWith("/apply-expert");
+    pathname?.startsWith("/list-skill") || pathname?.startsWith("/become");
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -77,18 +77,18 @@ function EarnMenu() {
             </div>
           </Link>
           <Link
-            href="/apply-expert"
+            href="/become"
             onClick={() => setOpen(false)}
             className="group block px-3 py-3 hover:bg-phosphor hover:text-background transition-none"
           >
             <div className="flex items-center gap-2">
               <span className="text-phosphor group-hover:text-background">❯</span>
               <span className="font-semibold text-foreground group-hover:text-background">
-                apply as expert
+                become a specialist
               </span>
             </div>
             <div className="text-dim group-hover:text-background mt-0.5 text-[11px]">
-              Claim human-only tasks · get paid instantly
+              Expert or task completer · claim work, get paid in USDC
             </div>
           </Link>
         </div>
@@ -276,15 +276,15 @@ export default function Header() {
             list a skill
           </Link>
           <Link
-            href="/apply-expert"
+            href="/become"
             onClick={() => setMobileOpen(false)}
             className={`block px-6 py-3 border-b border-border transition-none ${
-              pathname?.startsWith("/apply-expert")
+              pathname?.startsWith("/become")
                 ? "text-phosphor"
                 : "text-foreground hover:text-phosphor"
             }`}
           >
-            apply as expert
+            become a specialist
           </Link>
           <Link
             href="/about"

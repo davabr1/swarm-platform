@@ -22,6 +22,12 @@ model Agent {
   creatorAddress  String?
   systemPrompt    String?
   type            String
+  // For human rows (`type = "human_expert"`) only. Any non-empty subset of
+  // ["expert", "completer"]. "expert" = verified specialist who takes
+  // bounties gated with `Task.expertOnly`; "completer" = anyone who claims
+  // the simpler real-world tasks. A single human can hold both roles.
+  // Empty for non-human agents.
+  roles           String[] @default([])
   userCreated     Boolean  @default(false)
   agentId         String?
   reputation      Float    @default(0)
@@ -53,6 +59,9 @@ model Task {
   assignedTo     String?
   requiredSkill  String?
   minReputation  Float?
+  // When true, only claimers with "expert" in Agent.roles may claim this
+  // task. Default false = anyone with the skill (expert or completer) can.
+  expertOnly     Boolean   @default(false)
   visibility     String    @default("private")
   posterRating   Int?
   posterRatedAt  DateTime?

@@ -106,6 +106,7 @@ export default function TaskBoardPage() {
     assignedTo: "",
     requiredSkill: "",
     minReputation: "",
+    expertOnly: false,
     visibility: "private" as "private" | "public",
   });
   const [postingErr, setPostingErr] = useState("");
@@ -251,6 +252,7 @@ export default function TaskBoardPage() {
           minReputation: postForm.minReputation.trim()
             ? Number(postForm.minReputation)
             : undefined,
+          expertOnly: postForm.expertOnly,
           visibility: postForm.visibility,
         },
         { fetchImpl: x402Fetch },
@@ -263,6 +265,7 @@ export default function TaskBoardPage() {
         assignedTo: "",
         requiredSkill: "",
         minReputation: "",
+        expertOnly: false,
         visibility: "private",
       });
       setShowPost(false);
@@ -432,8 +435,8 @@ export default function TaskBoardPage() {
               >
                 {showPost ? "✕ close" : "+ post task"}
               </button>
-              <Link href="/apply-expert" className="text-xs text-amber hover:text-amber-hi">
-                → become an expert
+              <Link href="/become" className="text-xs text-amber hover:text-amber-hi">
+                → become a specialist
               </Link>
             </div>
           </div>
@@ -559,6 +562,24 @@ export default function TaskBoardPage() {
                           placeholder="e.g. 4.0"
                         />
                       </div>
+                      <label className="flex items-start gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={postForm.expertOnly}
+                          onChange={(e) =>
+                            setPostForm((p) => ({ ...p, expertOnly: e.target.checked }))
+                          }
+                          className="mt-0.5 accent-phosphor"
+                        />
+                        <span>
+                          <span className="text-[10px] uppercase tracking-widest text-foreground block">
+                            expert-only
+                          </span>
+                          <span className="text-dim leading-relaxed block mt-0.5">
+                            Lock out task completers — only verified experts can claim.
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   </div>
                   <div className="border border-border bg-surface-1 p-3 text-xs">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useAccount, useDisconnect } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
@@ -171,14 +171,32 @@ export default function PublicProfilePage() {
 }
 
 function DisconnectPanel() {
-  const { disconnect } = useDisconnect();
-  const router = useRouter();
-  // The profile URL is keyed by the path param, not the connected wallet —
-  // disconnecting alone leaves the page on-screen with no self-edit power
-  // (confusing). Kick the user home so the disconnect is visibly effective.
-  const onClick = () => {
-    disconnect();
-    router.push("/");
+  const { disconnectAsync } = useDisconnect();
+  // Disconnect must: (1) actually drop the connector, (2) leave the
+  // profile page (the URL is path-keyed so disconnect alone doesn't
+  // unload it), and (3) not silently auto-reconnect on the next refresh.
+  // Cookie-backed wagmi state can race with client-side navigation, so we
+  // await the disconnect and then do a full-page replace — that forces
+  // WagmiProvider to hydrate from the post-disconnect cookie state.
+  const onClick = async () => {
+    try {
+      await disconnectAsync();
+    } catch {
+      // Even if wagmi rejects (already-disconnected, etc.), still bail out.
+    }
+    // Clear any residual wagmi storage the cookie path may have missed so
+    // `reconnectOnMount` has nothing to rehydrate from.
+    if (typeof window !== "undefined") {
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const key = window.localStorage.key(i);
+          if (key && (key.startsWith("wagmi") || key.startsWith("wc@2") || key.startsWith("rk-"))) {
+            window.localStorage.removeItem(key);
+          }
+        }
+      } catch {}
+      window.location.replace("/");
+    }
   };
   return (
     <div className="flex justify-end pt-4 border-t border-border">

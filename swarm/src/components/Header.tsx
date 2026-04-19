@@ -121,7 +121,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background">
-      <div className="px-6 h-12 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
+      <div className="px-6 h-12 grid grid-cols-[1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center">
         {/* Logo — same pixel ❯ + SWARM figlet as the boot splash, shrunk
             to fit the 48px header. Courier New keeps the box-drawing
             chars flush with the █ blocks. */}
@@ -167,7 +167,7 @@ export default function Header() {
         </Link>
 
         {/* Navigation — desktop */}
-        <nav className="hidden md:flex items-center gap-6 text-xs justify-self-center">
+        <nav className="hidden lg:flex items-center gap-6 text-xs justify-self-center">
           {navItems.map((item, i) => {
             const isActive =
               item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
@@ -214,7 +214,7 @@ export default function Header() {
           aria-label={mobileOpen ? "close menu" : "open menu"}
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((v) => !v)}
-          className="md:hidden justify-self-center inline-flex items-center justify-center w-9 h-9 border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
+          className="lg:hidden justify-self-center inline-flex items-center justify-center w-9 h-9 border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
         >
           {mobileOpen ? (
             <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -228,14 +228,14 @@ export default function Header() {
         </button>
 
         {/* Wallet — desktop only; mobile shows it inside the drawer */}
-        <div className="hidden md:flex items-center gap-3 justify-self-end">
+        <div className="hidden lg:flex items-center gap-3 justify-self-end">
           <WalletChip />
         </div>
       </div>
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <nav className="md:hidden border-t border-border bg-background text-sm">
+        <nav className="lg:hidden border-t border-border bg-background text-sm">
           <div className="px-6 py-3 border-b border-border space-y-1">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[10px] uppercase tracking-widest text-dim">wallet</span>

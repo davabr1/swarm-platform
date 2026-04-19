@@ -94,7 +94,7 @@ export default function ImageGalleryPanel({
                   legend
                 </div>
                 <LegendKey color="amber" label="you requested" />
-                <LegendKey color="phosphor" label="your autonomous agent requested" />
+                <LegendKey color="phosphor" label="mcp requested" />
               </div>
               {canEdit && (
                 <button
@@ -149,7 +149,7 @@ function GalleryTile({
   const dotColor = entry.source === "agent" ? "bg-phosphor" : "bg-amber";
   const dotTitle =
     entry.source === "agent"
-      ? "your autonomous agent requested"
+      ? "mcp requested"
       : "you requested";
 
   const content = (

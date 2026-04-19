@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
@@ -47,7 +48,7 @@ function Stars({ rating, count }: { rating: number; count: number }) {
 export default function PublicProfilePage() {
   const params = useParams<{ address: string }>();
   const address = params.address;
-  const { address: connected } = useAccount();
+  const { address: connected, isConnected } = useAccount();
   const viewer = connected?.toLowerCase();
   const isSelf = !!viewer && viewer === address.toLowerCase();
 
@@ -66,10 +67,48 @@ export default function PublicProfilePage() {
   }, [address, viewer]);
 
   useEffect(() => {
+    if (!isConnected) return;
     load();
     const iv = setInterval(load, 10000);
     return () => clearInterval(iv);
-  }, [load]);
+  }, [load, isConnected]);
+
+  // Profile pages expose wallet-scoped controls (unlink MCP, edit bio, top-up,
+  // transactions). Gating the whole page behind a connected wallet makes the
+  // "is this me?" check unambiguous and prevents the ghost-state where an
+  // unconnected viewer sees their own profile minus every interactive element.
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <CommandPalette />
+        <div className="px-6 lg:px-10 py-16 flex items-center justify-center">
+          <div className="w-full max-w-lg">
+            <TerminalWindow title="swarm://profile/auth" subtitle="locked">
+              <div className="p-8 text-center">
+                <div className="text-[10px] uppercase tracking-widest text-amber mb-4">
+                  ❯ authentication_required
+                </div>
+                <div className="text-xl text-foreground mb-3">Connect your wallet to view profiles</div>
+                <p className="text-sm text-muted leading-relaxed mb-8 max-w-sm mx-auto">
+                  Your wallet is your identity on Swarm. Connect to view profiles, manage
+                  paired MCPs, and see transactions.
+                </p>
+                <div className="flex items-center justify-center">
+                  <ConnectButton />
+                </div>
+                <div className="mt-6 pt-6 border-t border-border text-[11px] text-dim">
+                  <Link href="/marketplace" className="text-amber underline hover:text-amber-hi">
+                    ← back to marketplace
+                  </Link>
+                </div>
+              </div>
+            </TerminalWindow>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (err) {
     return (

@@ -8,7 +8,7 @@
  * before nuking the file.
  */
 
-import { clearKey, peekSavedKey, usdcBalance } from "./session.js";
+import { clearKey, peekSavedKey, swarmApiUrl, usdcBalance } from "./session.js";
 
 const BAR = "━".repeat(64);
 
@@ -59,13 +59,27 @@ export async function runInteractiveUnpair(): Promise<number> {
 
   await clearKey();
 
-  console.log(`  ✓ Unpaired ${formatAddress(saved.address)} — session.json deleted.`);
+  console.log(`  ✓ Local session.json deleted (${formatAddress(saved.address)}).`);
   console.log("");
-  console.log("  Note: deleting the local key does NOT revoke the on-chain");
-  console.log("  MCPRegistry link. If you want the MCP off your /profile,");
-  console.log("  visit the Swarm site and click [ unlink ] next to it.");
-  console.log("  Leftover USDC at the address is still yours — sweep it by");
-  console.log("  importing the private key shown above into any wallet.");
+  console.log(BAR);
+  console.log(" ⚠  UNPAIRING UNFINISHED — one more step");
+  console.log(BAR);
+  console.log("");
+  console.log("  The on-chain MCPRegistry link still points at this MCP,");
+  console.log("  so the Swarm site and your /profile will keep showing it");
+  console.log("  until you unlink from your main wallet.");
+  console.log("");
+  console.log("  → Open Swarm, connect your main wallet, and click [ unlink ]:");
+  console.log(`      ${swarmApiUrl()}/profile`);
+  console.log("");
+  console.log("  That sends the on-chain `unpair` tx from the wallet that");
+  console.log("  owns the pairing — the CLI can't do it for you because it");
+  console.log("  doesn't hold your main-wallet key.");
+  console.log("");
+  console.log(BAR);
+  console.log("");
+  console.log("  Leftover USDC at the MCP address is still yours — sweep it");
+  console.log("  by importing the private key shown above into any wallet.");
   console.log("");
   console.log("  Mint a new MCP wallet with:");
   console.log("    npx -y swarm-marketplace-mcp pair");

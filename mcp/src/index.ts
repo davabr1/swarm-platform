@@ -491,6 +491,10 @@ if (process.argv[2] === "pair") {
   const { runInteractiveUnpair } = await import("./unpair.js");
   const exitCode = await runInteractiveUnpair();
   process.exit(exitCode);
+} else if (process.argv[2] === "sweep") {
+  const { runInteractiveSweep } = await import("./sweep.js");
+  const exitCode = await runInteractiveSweep(process.argv[3]);
+  process.exit(exitCode);
 } else {
   main().catch((err: unknown) => {
     console.error("Fatal error:", getErrorMessage(err));

@@ -10,6 +10,7 @@ import {
   useBalance,
 } from "wagmi";
 import TerminalWindow from "./TerminalWindow";
+import SweepDialog from "./SweepDialog";
 import MCPRegistryABI from "@/abis/MCPRegistry.json";
 import {
   FUJI_CHAIN_ID,
@@ -187,6 +188,8 @@ function McpRow({
     } catch {}
   }, [mcp]);
 
+  const [sweepOpen, setSweepOpen] = useState(false);
+
   const onUnlink = () => {
     writeUnlink({
       address: REGISTRY_ADDRESS as `0x${string}`,
@@ -246,19 +249,36 @@ function McpRow({
           </div>
         </div>
         {isSelf && (
-          <button
-            onClick={onUnlink}
-            disabled={unlinkPending || unlinkConfirming}
-            className="border border-danger text-danger text-[10px] px-3 py-1 hover:bg-danger hover:text-background disabled:opacity-50 transition-none"
-          >
-            {unlinkPending
-              ? "[ signing… ]"
-              : unlinkConfirming
-                ? "[ confirming… ]"
-                : "[ unlink ]"}
-          </button>
+          <div className="flex items-center gap-2">
+            {microUsd > BigInt(0) && (
+              <button
+                onClick={() => setSweepOpen(true)}
+                className="border border-phosphor text-phosphor text-[10px] px-3 py-1 hover:bg-phosphor hover:text-background transition-none"
+              >
+                [ sweep → main ]
+              </button>
+            )}
+            <button
+              onClick={onUnlink}
+              disabled={unlinkPending || unlinkConfirming}
+              className="border border-danger text-danger text-[10px] px-3 py-1 hover:bg-danger hover:text-background disabled:opacity-50 transition-none"
+            >
+              {unlinkPending
+                ? "[ signing… ]"
+                : unlinkConfirming
+                  ? "[ confirming… ]"
+                  : "[ unlink ]"}
+            </button>
+          </div>
         )}
       </div>
+      {sweepOpen && connected && (
+        <SweepDialog
+          mcp={mcp}
+          destination={connected}
+          onClose={() => setSweepOpen(false)}
+        />
+      )}
       {/* Top-up row · only for the wallet's own profile. Sends a plain
           ERC-20 USDC.transfer from the browser wallet to the MCP address
           on Fuji. Not x402 — the user is funding *their own* MCP. */}

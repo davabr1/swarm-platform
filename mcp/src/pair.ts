@@ -7,6 +7,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { createInterface } from "node:readline/promises";
 
 import { getOrCreateKey, peekSavedKey, swarmApiUrl, usdcBalance } from "./session.js";
 
@@ -21,6 +22,25 @@ function openInBrowser(url: string): void {
     child.unref();
   } catch {
     // Silent — the URL is already printed; user can copy/paste.
+  }
+}
+
+// Wait for the user to press Enter. Returns true if they consented to open
+// the browser, false if stdin isn't a TTY (scripted / piped invocation —
+// skip the prompt and don't auto-open).
+async function promptToOpenBrowser(): Promise<boolean> {
+  if (!process.stdin.isTTY) return false;
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    const answer = await rl.question(
+      "  Press Enter to open the pair page in your browser (or s + Enter to skip) › ",
+    );
+    return answer.trim().toLowerCase() !== "s";
+  } finally {
+    rl.close();
   }
 }
 
@@ -72,8 +92,17 @@ export async function runInteractivePair(): Promise<number> {
   console.log(`  Pair page:                ${pairUrl}`);
   console.log("");
   console.log(BAR);
+  console.log("");
 
-  openInBrowser(pairUrl);
+  const shouldOpen = await promptToOpenBrowser();
+  if (shouldOpen) {
+    openInBrowser(pairUrl);
+    console.log("");
+    console.log("  Opening browser…");
+  } else {
+    console.log("");
+    console.log("  Skipped — open the URL above in your browser when ready.");
+  }
 
   // Best-effort: poll for the first USDC transfer so the user sees a clean
   // "funded" signal. Skipped if the RPC is unreachable. Runs up to 90s so

@@ -4,13 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import TerminalWindow from "./TerminalWindow";
 import { fetchTransactions, type TransactionEntry } from "@/lib/api";
 
-type FilterKind = "all" | "x402_settle" | "earning" | "refund";
+// "autonomous" isn't a real Transaction.kind — it's a virtual filter meaning
+// "any kind, but only rows signed by a paired MCP". Mapped to `scope=autonomous`
+// at fetch time; every other filter maps to `kind=<value>` with no scope.
+type FilterKind =
+  | "all"
+  | "x402_settle"
+  | "earning"
+  | "refund"
+  | "autonomous";
 
 const FILTERS: Array<{ key: FilterKind; label: string }> = [
   { key: "all", label: "all" },
   { key: "x402_settle", label: "x402 spends" },
   { key: "earning", label: "earnings" },
   { key: "refund", label: "refunds" },
+  { key: "autonomous", label: "your agent" },
 ];
 
 function openTx(hash: string) {
@@ -63,10 +72,18 @@ function filterBlurb(filter: FilterKind): string {
       return "Commissions fanned out from the platform to your wallet after an x402 settle on an agent or task you listed. Snowtrace-linked.";
     case "refund":
       return "x402 payments where part of the amount came back to you — overage refunds (ceiling over-charge returned post-call) and task-cancel refunds. Original charge and refund shown on one line.";
+    case "autonomous":
+      return "Only transactions signed autonomously by your paired MCP agent (Claude / Cursor / Codex) — what your agent spent or earned on your behalf, using its own budgeted keypair.";
     case "all":
     default:
       return "x402 settlements, creator commissions, and legacy pre-x402 rows — unified ledger, newest first. When a charge was partially refunded (overage or task cancel), you'll see charged − refunded = net on one line. Snowtrace-linked.";
   }
+}
+
+function requestOpts(filter: FilterKind) {
+  return filter === "autonomous"
+    ? { kind: "all" as const, scope: "autonomous" as const }
+    : { kind: filter };
 }
 
 export default function TransactionsPanel({ address }: { address: string }) {
@@ -78,7 +95,7 @@ export default function TransactionsPanel({ address }: { address: string }) {
   const [err, setErr] = useState("");
 
   const loadFirst = useCallback(() => {
-    fetchTransactions(address, { kind: filter, limit: 25 })
+    fetchTransactions(address, { ...requestOpts(filter), limit: 25 })
       .then((r) => {
         setEntries(r.entries);
         setCursor(r.nextCursor);
@@ -98,7 +115,11 @@ export default function TransactionsPanel({ address }: { address: string }) {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const r = await fetchTransactions(address, { kind: filter, limit: 25, cursor });
+      const r = await fetchTransactions(address, {
+        ...requestOpts(filter),
+        limit: 25,
+        cursor,
+      });
       setEntries((prev) => [...(prev ?? []), ...r.entries]);
       setCursor(r.nextCursor);
       setHasMore(r.hasMore);
@@ -165,7 +186,17 @@ export default function TransactionsPanel({ address }: { address: string }) {
                   >
                     {s.badge}
                   </span>
-                  <span className="flex-1 min-w-0 truncate text-foreground">{label}</span>
+                  <span className="flex-1 min-w-0 truncate text-foreground">
+                    {label}
+                    {e.isAutonomous && (
+                      <span
+                        className="ml-2 text-[9px] uppercase tracking-widest text-phosphor"
+                        title="signed by your autonomous agent (paired MCP), not your main wallet"
+                      >
+                        [bot]
+                      </span>
+                    )}
+                  </span>
                   {e.refund ? (
                     <span
                       className={`tabular-nums shrink-0 text-right ${

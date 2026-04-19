@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { serializeAgent, serializeTask } from "@/lib/serializeAgent";
 import { TASK_LIST_SELECT } from "@/lib/taskSelect";
+import { listMcps } from "@/lib/mcpRegistry";
 import type { NextRequest } from "next/server";
 
 function isAddress(s: string): boolean {
@@ -23,6 +24,14 @@ type ProfileRow = {
 
 async function loadPortfolio(address: string, viewer?: string) {
   const addrLower = address.toLowerCase();
+  // Paired MCPs post tasks (and claim them) under their own keypair, not the
+  // wallet's main address. Widen the ownership set to include every MCP the
+  // wallet has registered on-chain so the profile reflects "me and my agent".
+  const paired = await listMcps(addrLower);
+  const mcpAddresses = paired.map((p) => p.address.toLowerCase());
+  const ownedAddresses = Array.from(new Set([addrLower, ...mcpAddresses]));
+  const ownedSet = new Set(ownedAddresses);
+
   const [profile, agents, tasks] = await Promise.all([
     db.userProfile.findUnique({ where: { walletAddress: addrLower } }),
     db.agent.findMany({
@@ -37,8 +46,8 @@ async function loadPortfolio(address: string, viewer?: string) {
     db.task.findMany({
       where: {
         OR: [
-          { postedBy: { equals: address, mode: "insensitive" } },
-          { claimedBy: { equals: address, mode: "insensitive" } },
+          { postedBy: { in: ownedAddresses, mode: "insensitive" } },
+          { claimedBy: { in: ownedAddresses, mode: "insensitive" } },
         ],
       },
       orderBy: { createdAt: "desc" },
@@ -46,8 +55,12 @@ async function loadPortfolio(address: string, viewer?: string) {
     }),
   ]);
 
-  const postedTasks = tasks.filter((t) => t.postedBy?.toLowerCase() === addrLower);
-  const claimedTasks = tasks.filter((t) => t.claimedBy?.toLowerCase() === addrLower);
+  const postedTasks = tasks.filter(
+    (t) => t.postedBy && ownedSet.has(t.postedBy.toLowerCase()),
+  );
+  const claimedTasks = tasks.filter(
+    (t) => t.claimedBy && ownedSet.has(t.claimedBy.toLowerCase()),
+  );
 
   let inbox: typeof tasks = [];
   const openTasks = await db.task.findMany({
@@ -57,7 +70,7 @@ async function loadPortfolio(address: string, viewer?: string) {
   const mySkills = new Set(agents.map((a) => a.skill.toLowerCase()));
   const bestRep = agents.reduce((m, a) => Math.max(m, a.reputation ?? 0), 0);
   inbox = openTasks.filter((t) => {
-    if (t.postedBy?.toLowerCase() === addrLower) return false;
+    if (t.postedBy && ownedSet.has(t.postedBy.toLowerCase())) return false;
     if (t.assignedTo && t.assignedTo.toLowerCase() === addrLower) return true;
     if (
       t.requiredSkill &&

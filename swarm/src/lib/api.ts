@@ -571,6 +571,8 @@ export interface TransactionEntry {
     | "deposit"
     | "autonomous_spend"
     | "manual_spend";
+  walletAddress: string;
+  isAutonomous: boolean;
   deltaMicroUsd: string;
   grossMicroUsd: string;
   usd: string;
@@ -594,12 +596,18 @@ export interface TransactionEntry {
 
 export async function fetchTransactions(
   address: string,
-  opts?: { kind?: string; limit?: number; cursor?: string | null },
+  opts?: {
+    kind?: string;
+    limit?: number;
+    cursor?: string | null;
+    scope?: "user" | "autonomous";
+  },
 ): Promise<{ entries: TransactionEntry[]; nextCursor: string | null; hasMore: boolean }> {
   const qs = new URLSearchParams();
   if (opts?.kind && opts.kind !== "all") qs.set("kind", opts.kind);
   if (opts?.limit) qs.set("limit", String(opts.limit));
   if (opts?.cursor) qs.set("cursor", opts.cursor);
+  if (opts?.scope) qs.set("scope", opts.scope);
   const url = `/api/profile/${address}/transactions${qs.toString() ? `?${qs}` : ""}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error("failed to load transactions");

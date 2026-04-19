@@ -193,14 +193,14 @@ export default function PublicProfilePage() {
 
           <WalletPanel address={address} isSelf={isSelf} />
 
+          <PairedMcpsPanel address={address} isSelf={isSelf} />
+
           <MyListingsPanel
             agents={portfolio.agents}
             viewer={viewer}
             isSelf={isSelf}
             onChanged={load}
           />
-
-          <PairedMcpsPanel address={address} isSelf={isSelf} />
 
           {isSelf && portfolio.inbox.length > 0 && <InboxPanel inbox={portfolio.inbox} />}
 
@@ -774,105 +774,60 @@ function EditListingForm({
 }
 
 function AgentsPanel({ agents }: { agents: Agent[] }) {
-  const columns: Column<Agent>[] = [
-    {
-      key: "name",
-      header: "name",
-      width: "minmax(120px, 1.3fr)",
-      render: (a) => (
-        <Link href={`/agent/${a.id}`} className="text-foreground hover:text-amber">
-          {a.name}
-        </Link>
-      ),
-    },
-    {
-      key: "skill",
-      header: "skill",
-      width: "minmax(100px, 1fr)",
-      render: (a) => <span className="text-muted text-xs truncate block">{a.skill}</span>,
-    },
-    {
-      key: "calls",
-      header: "calls",
-      width: "60px",
-      align: "right",
-      render: (a) => <span className="tabular-nums text-muted text-xs">{a.totalCalls}</span>,
-    },
-    {
-      key: "stars",
-      header: "★",
-      width: "120px",
-      align: "right",
-      render: (a) => <Stars rating={a.reputation.averageScore} count={a.reputation.count} />,
-    },
-  ];
-
   return (
     <TerminalWindow title="swarm://profile/agents" subtitle={`${agents.length} listed`} dots={false}>
       {agents.length === 0 ? (
         <div className="p-6 text-sm text-muted">no AI agents listed yet.</div>
       ) : (
-        <DataTable<Agent>
-          rows={agents}
-          columns={columns}
-          rowKey={(a) => a.id}
-          dense
-          minWidth="360px"
-        />
+        <ul className="divide-y divide-border">
+          {agents.map((a) => (
+            <li key={a.id} className="px-4 py-3 hover:bg-surface-1">
+              <Link href={`/agent/${a.id}`} className="block">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-foreground text-sm truncate">{a.name}</span>
+                  <Stars rating={a.reputation.averageScore} count={a.reputation.count} />
+                </div>
+                <div className="mt-1 flex items-baseline justify-between gap-3 text-[11px]">
+                  <span className="text-muted truncate">{a.skill}</span>
+                  <span className="text-dim tabular-nums shrink-0">
+                    {a.totalCalls} {a.totalCalls === 1 ? "call" : "calls"}
+                  </span>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </TerminalWindow>
   );
 }
 
 function CompletedTasksPanel({ tasks }: { tasks: Task[] }) {
-  const columns: Column<Task>[] = [
-    {
-      key: "skill",
-      header: "skill",
-      width: "minmax(120px, 1.2fr)",
-      render: (t) => <span className="text-amber text-xs truncate block">{t.skill}</span>,
-    },
-    {
-      key: "desc",
-      header: "task",
-      width: "minmax(160px, 2fr)",
-      render: (t) => (
-        <span className="text-muted text-xs truncate block">{t.description}</span>
-      ),
-    },
-    {
-      key: "bounty",
-      header: "paid",
-      width: "80px",
-      align: "right",
-      render: (t) => <span className="text-amber tabular-nums text-xs">{t.bounty}</span>,
-    },
-    {
-      key: "rating",
-      header: "★",
-      width: "80px",
-      align: "right",
-      render: (t) =>
-        t.posterRating ? (
-          <span className="tabular-nums text-amber text-xs">{t.posterRating}/5</span>
-        ) : (
-          <span className="text-dim text-xs">—</span>
-        ),
-    },
-  ];
-
   return (
     <TerminalWindow title="swarm://profile/completed" subtitle={`${tasks.length} tasks`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no completed tasks yet.</div>
       ) : (
-        <DataTable<Task>
-          rows={tasks}
-          columns={columns}
-          rowKey={(t) => t.id}
-          dense
-          minWidth="360px"
-        />
+        <ul className="divide-y divide-border">
+          {tasks.map((t) => (
+            <li key={t.id} className="px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-amber text-xs truncate">{t.skill}</span>
+                <span className="text-amber tabular-nums text-xs shrink-0">{t.bounty}</span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between gap-3 text-[11px]">
+                <span className="text-muted truncate">{t.description}</span>
+                <span className="shrink-0 tabular-nums">
+                  {t.posterRating ? (
+                    <span className="text-amber">{t.posterRating}/5 ★</span>
+                  ) : (
+                    <span className="text-dim">—</span>
+                  )}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </TerminalWindow>
   );

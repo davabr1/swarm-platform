@@ -38,14 +38,31 @@ export async function GET(
   const cursor = url.searchParams.get("cursor");
 
   const pairedMcps = await listMcps(wallet);
-  const wallets = Array.from(
-    new Set([wallet, ...pairedMcps.map((m) => m.address.toLowerCase())]),
-  );
+  const mcpAddresses = pairedMcps.map((m) => m.address.toLowerCase());
+  const mcpSet = new Set(mcpAddresses);
+  const allWallets = Array.from(new Set([wallet, ...mcpAddresses]));
+
+  // `scope=autonomous` = only paired-MCP rows. `scope=user` = only the main
+  // wallet. Default = both. Lets the panel split autonomous agent spend into
+  // its own section.
+  const scope = url.searchParams.get("scope");
+  const scopedWallets =
+    scope === "autonomous"
+      ? mcpAddresses
+      : scope === "user"
+        ? [wallet]
+        : allWallets;
+
+  // Early-out for a profile with no paired MCPs asking for the autonomous
+  // slice — no rows can possibly match.
+  if (scopedWallets.length === 0) {
+    return Response.json({ entries: [], nextCursor: null, hasMore: false });
+  }
 
   const walletFilter =
-    wallets.length === 1
-      ? { walletAddress: wallets[0] }
-      : { walletAddress: { in: wallets } };
+    scopedWallets.length === 1
+      ? { walletAddress: scopedWallets[0] }
+      : { walletAddress: { in: scopedWallets } };
 
   const where: Record<string, unknown> = {};
 
@@ -175,6 +192,8 @@ export async function GET(
       return {
         id: r.id,
         kind: r.kind,
+        walletAddress: r.walletAddress,
+        isAutonomous: mcpSet.has(r.walletAddress.toLowerCase()),
         deltaMicroUsd: r.deltaMicroUsd.toString(),
         grossMicroUsd: r.grossMicroUsd.toString(),
         usd: (Number(r.deltaMicroUsd) / 1_000_000).toFixed(6),

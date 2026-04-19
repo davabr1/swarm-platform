@@ -23,17 +23,26 @@ export default function ImageGalleryPanel({
 
   useEffect(() => {
     let alive = true;
-    fetchGallery(address)
-      .then((list) => {
-        if (alive) setEntries(list);
-      })
-      .catch(() => {
-        if (alive) setEntries([]);
-      });
+    const load = () => {
+      fetchGallery(address)
+        .then((list) => {
+          if (alive) setEntries(list);
+        })
+        .catch(() => {
+          if (alive) setEntries((prev) => prev ?? []);
+        });
+    };
+    load();
+    // Mirror the profile page's 10s portfolio poll. Pause while editing so
+    // images can't jump into (or out of) the grid while the user is clicking
+    // × on tiles — the edit snapshot stays stable until they hit [done].
+    if (editing) return () => { alive = false; };
+    const iv = setInterval(load, 10000);
     return () => {
       alive = false;
+      clearInterval(iv);
     };
-  }, [address]);
+  }, [address, editing]);
 
   const onHide = async (id: string) => {
     if (!isSelf || hiding[id]) return;
@@ -84,8 +93,8 @@ export default function ImageGalleryPanel({
                 <div className="text-[10px] uppercase tracking-widest text-dim">
                   legend
                 </div>
-                <LegendKey color="amber" label="you made" />
-                <LegendKey color="phosphor" label="your agent made" />
+                <LegendKey color="amber" label="you requested" />
+                <LegendKey color="phosphor" label="your autonomous agent requested" />
               </div>
               {canEdit && (
                 <button
@@ -139,7 +148,9 @@ function GalleryTile({
 }) {
   const dotColor = entry.source === "agent" ? "bg-phosphor" : "bg-amber";
   const dotTitle =
-    entry.source === "agent" ? "your agent made" : "you made";
+    entry.source === "agent"
+      ? "your autonomous agent requested"
+      : "you requested";
 
   const content = (
     <div className="relative aspect-square bg-background">

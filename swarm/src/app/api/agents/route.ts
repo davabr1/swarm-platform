@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { serializeAgent } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 import type { NextRequest } from "next/server";
 
 export async function GET() {
@@ -14,7 +15,8 @@ export async function GET() {
 // compat under that path, and also accepted here.
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, skill, description, price, systemPrompt, creatorAddress } = body;
+  const { skill, description, price, systemPrompt, creatorAddress } = body;
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, AGENT_NAME_MAX) : "";
   if (!name || !skill || !description || !price || !systemPrompt || !creatorAddress) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }

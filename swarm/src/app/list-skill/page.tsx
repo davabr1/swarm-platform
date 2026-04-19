@@ -12,6 +12,7 @@ import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
 import SubmittingLabel from "@/components/SubmittingLabel";
 import { createCustomAgent } from "@/lib/api";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 
 export default function ListSkillPage() {
   const { address, isConnected } = useAccount();
@@ -103,6 +104,7 @@ export default function ListSkillPage() {
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                   placeholder="e.g., TaxAdvisorPro"
+                  maxLength={AGENT_NAME_MAX}
                   required
                 />
               </div>

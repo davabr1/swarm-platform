@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { serializeAgent } from "@/lib/serializeAgent";
 import { resolveAgentAddress } from "@/lib/session";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 import type { NextRequest } from "next/server";
 
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/agents/[id]">) {
@@ -33,7 +34,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/agents/[id
   const body = await req.json().catch(() => ({}));
   const data: Record<string, unknown> = {};
   if (typeof body.name === "string" && body.name.trim()) {
-    data.name = body.name.trim().slice(0, 120);
+    data.name = body.name.trim().slice(0, AGENT_NAME_MAX);
   }
   if (typeof body.description === "string") {
     data.description = body.description.slice(0, 2000);

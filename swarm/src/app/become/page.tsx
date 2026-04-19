@@ -12,6 +12,7 @@ import { PromptInput, PromptTextarea } from "@/components/Prompt";
 import SkillPicker from "@/components/SkillPicker";
 import SubmittingLabel from "@/components/SubmittingLabel";
 import { becomeHuman, fetchProfile, type Agent } from "@/lib/api";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 
 type Role = "expert" | "completer";
 
@@ -299,6 +300,7 @@ export default function BecomePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Ava Security Lead"
+                  maxLength={AGENT_NAME_MAX}
                   required
                 />
               </div>

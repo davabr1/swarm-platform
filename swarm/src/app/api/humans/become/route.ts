@@ -1,13 +1,15 @@
 import { db } from "@/lib/db";
 import { serializeAgent } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 import type { NextRequest } from "next/server";
 
 const VALID_ROLES = new Set(["expert", "completer"]);
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, skill, description, rate, walletAddress, roles } = body;
+  const { skill, description, rate, walletAddress, roles } = body;
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, AGENT_NAME_MAX) : "";
   if (!name || !skill || !description || !rate || !walletAddress) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }

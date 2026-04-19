@@ -26,6 +26,7 @@ import {
   type ProfilePortfolio,
   type Task,
 } from "@/lib/api";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -699,7 +700,7 @@ function EditListingForm({
       <div className="space-y-3">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-phosphor mb-1">name</div>
-          <PromptInput value={name} onChange={(e) => setName(e.target.value)} />
+          <PromptInput value={name} onChange={(e) => setName(e.target.value)} maxLength={AGENT_NAME_MAX} />
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-widest text-phosphor mb-1">skill</div>

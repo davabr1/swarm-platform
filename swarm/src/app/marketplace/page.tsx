@@ -28,12 +28,14 @@ function AgentCard({ agent }: { agent: Agent }) {
       href={`/agent/${agent.id}`}
       className="group block border border-border bg-surface-1 hover:border-amber transition-none p-6 flex flex-col gap-4 min-w-0"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-2.5 min-w-0">
-          <span className={`inline-block w-2 h-2 shrink-0 ${CATEGORY_BG[category]}`} />
-          <span className="text-foreground text-base font-semibold truncate">{agent.name}</span>
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex items-start gap-2.5 min-w-0 flex-1">
+          <span className={`inline-block w-2 h-2 shrink-0 mt-[0.5em] ${CATEGORY_BG[category]}`} />
+          <span className="text-foreground text-base font-semibold leading-snug break-words">
+            {agent.name}
+          </span>
         </span>
-        <span className={`text-[10px] uppercase tracking-widest shrink-0 ${CATEGORY_TEXT[category]}`}>
+        <span className={`text-[10px] uppercase tracking-widest shrink-0 mt-[0.3em] ${CATEGORY_TEXT[category]}`}>
           {CATEGORY_LABEL[category]}
         </span>
       </div>

@@ -3,6 +3,7 @@ import { serializeAgent } from "@/lib/serializeAgent";
 import { logActivity } from "@/lib/activity";
 import { config } from "@/lib/config";
 import { registerAgent } from "@/lib/erc8004";
+import { AGENT_NAME_MAX } from "@/lib/agentLimits";
 import type { NextRequest } from "next/server";
 
 export const maxDuration = 60;
@@ -28,7 +29,8 @@ Your specific role and expertise follows below. Treat it as the authoritative de
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, skill, description, price, systemPrompt, creatorAddress, useSwarmWrapper } = body;
+  const { skill, description, price, systemPrompt, creatorAddress, useSwarmWrapper } = body;
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, AGENT_NAME_MAX) : "";
   if (!name || !skill || !description || !price || !systemPrompt || !creatorAddress) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }

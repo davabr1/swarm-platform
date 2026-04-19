@@ -882,7 +882,7 @@ function PostedTasksPanel({ tasks }: { tasks: Task[] }) {
   ];
 
   return (
-    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} posted by you or your agent`} dots={false}>
+    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} human ${tasks.length === 1 ? "task" : "tasks"}`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no tasks posted yet.</div>
       ) : (

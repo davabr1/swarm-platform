@@ -167,7 +167,7 @@ export async function runInteractiveUnpair(): Promise<number> {
 
   console.log(`  MCP wallet:  ${saved.address}`);
   console.log(
-    `  USDC:        ${balanceKnown ? "$" + formatUsd(balance) + " USDC" : "— (RPC unavailable)"}`,
+    `  USDC:        ${balanceKnown ? formatUsd(balance) + " USDC" : "— (RPC unavailable)"}`,
   );
   if (stillLinkedOnChain) {
     console.log(`  Paired to:   ${onChainOwner} (on-chain)`);
@@ -184,8 +184,8 @@ export async function runInteractiveUnpair(): Promise<number> {
       console.log("");
       console.log(
         stillLinkedOnChain
-          ? `    [1] Sweep $${formatUsd(balance)} to your main wallet (${formatAddress(onChainOwner!)})`
-          : `    [1] Sweep $${formatUsd(balance)} to a destination address you'll provide`,
+          ? `    [1] Sweep ${formatUsd(balance)} USDC to your main wallet (${formatAddress(onChainOwner!)})`
+          : `    [1] Sweep ${formatUsd(balance)} USDC to a destination address you'll provide`,
       );
       console.log("    [2] Keep the USDC here — print the private key so I can import it later");
       console.log("    [3] Cancel");
@@ -219,7 +219,7 @@ export async function runInteractiveUnpair(): Promise<number> {
         }
 
         console.log(
-          `  Sweeping $${formatUsd(balance)} USDC → ${formatAddress(destination)}…`,
+          `  Sweeping ${formatUsd(balance)} USDC → ${formatAddress(destination)}…`,
         );
         const result = await sweepInline(saved.privateKey, destination);
         if (!result.ok) {
@@ -235,7 +235,7 @@ export async function runInteractiveUnpair(): Promise<number> {
           return 1;
         }
         console.log(
-          `  ✓ Swept $${formatUsd(result.amount)} USDC. tx: ${result.txHash}`,
+          `  ✓ Swept ${formatUsd(result.amount)} USDC. tx: ${result.txHash}`,
         );
         console.log(
           `    https://testnet.snowtrace.io/tx/${result.txHash}`,

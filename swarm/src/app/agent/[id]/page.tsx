@@ -15,9 +15,6 @@ import {
   callImage,
   rateAgent,
   rateAgentMessage,
-  saveImage,
-  unsaveImage,
-  fetchSavedState,
   PaymentRequiredError,
   type Agent,
   type GuidanceBreakdown,
@@ -41,11 +38,6 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [input, setInput] = useState("");
   const [log, setLog] = useState<{ kind: string; text: string; imageId?: string }[]>([]);
-  // Track save state per image-id. The marketplace chat can produce more
-  // than one image per session (repeated prompts), so we key on id and let
-  // each entry toggle independently.
-  const [savedImages, setSavedImages] = useState<Record<string, boolean>>({});
-  const [savingImage, setSavingImage] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [rating, setRating] = useState(0);
@@ -82,46 +74,6 @@ export default function AgentDetailPage() {
   }, [log, rated]);
 
   const isImage = agent?.skill?.startsWith("Image") ?? false;
-
-  // Toggle a generated image's pin on the caller's profile. Uses the same
-  // X-Asker-Address header contract as the /image/[id] viewer's save button,
-  // so behavior stays consistent between the viewer and the inline chat.
-  const handleToggleSave = async (imageId: string) => {
-    if (!address || savingImage[imageId]) return;
-    const currentlySaved = !!savedImages[imageId];
-    setSavingImage((p) => ({ ...p, [imageId]: true }));
-    setSavedImages((p) => ({ ...p, [imageId]: !currentlySaved }));
-    try {
-      if (currentlySaved) {
-        await unsaveImage(imageId, address.toLowerCase());
-      } else {
-        await saveImage(imageId, address.toLowerCase());
-      }
-    } catch {
-      setSavedImages((p) => ({ ...p, [imageId]: currentlySaved }));
-    } finally {
-      setSavingImage((p) => ({ ...p, [imageId]: false }));
-    }
-  };
-
-  // Refresh pin state when a new image lands so the button label reflects
-  // reality even if the user had pre-saved it via the viewer page.
-  useEffect(() => {
-    if (!address) return;
-    const pending = log
-      .filter((l): l is { kind: string; text: string; imageId: string } =>
-        l.kind === "image" && typeof l.imageId === "string",
-      )
-      .map((l) => l.imageId)
-      .filter((id) => savedImages[id] === undefined);
-    if (pending.length === 0) return;
-    pending.forEach((id) => {
-      fetchSavedState(id, address.toLowerCase())
-        .then((saved) => setSavedImages((p) => ({ ...p, [id]: saved })))
-        .catch(() => {});
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, address]);
 
   const askForGuidance = async () => {
     const message = input.trim();
@@ -587,49 +539,41 @@ export default function AgentDetailPage() {
                             </div>
                           ) : line.kind === "image" ? (
                             <div className="border border-border bg-surface-1 p-2">
-                              <a
-                                href={line.imageId ? `/image/${line.imageId}` : line.text}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block hover:opacity-90 transition-none"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                              {line.imageId ? (
+                                <Link
+                                  href={`/image/${line.imageId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block hover:opacity-90 transition-none"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={line.text}
+                                    alt="generated image"
+                                    className="block max-w-full h-auto"
+                                  />
+                                </Link>
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={line.text}
                                   alt="generated image"
                                   className="block max-w-full h-auto"
                                 />
-                              </a>
-                              <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
-                                <div className="text-[10px] text-dim font-mono truncate min-w-0 flex-1">
-                                  {line.text}
-                                </div>
-                                {line.imageId && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleSave(line.imageId!)}
-                                    disabled={!isConnected || !!savingImage[line.imageId]}
-                                    className={`shrink-0 text-[11px] px-3 py-1.5 border transition-none disabled:opacity-40 disabled:cursor-not-allowed ${
-                                      savedImages[line.imageId]
-                                        ? "border-phosphor bg-phosphor/10 text-phosphor hover:bg-phosphor/20"
-                                        : "border-amber text-amber hover:bg-amber hover:text-background"
-                                    }`}
-                                    title={
-                                      !isConnected
-                                        ? "connect to save"
-                                        : savedImages[line.imageId]
-                                          ? "click to unsave"
-                                          : "pin to your profile"
-                                    }
+                              )}
+                              {line.imageId && (
+                                <div className="mt-2 flex items-center justify-end gap-2 flex-wrap">
+                                  <Link
+                                    href={`/image/${line.imageId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="shrink-0 text-[11px] px-3 py-1.5 border border-border-hi text-foreground hover:border-phosphor hover:text-phosphor transition-none uppercase tracking-widest"
+                                    title="open full-screen viewer with prompt, cost, and download"
                                   >
-                                    {!isConnected
-                                      ? "[ connect to save ]"
-                                      : savedImages[line.imageId]
-                                        ? "[ ✓ saved to profile ]"
-                                        : "[ save to profile ]"}
-                                  </button>
-                                )}
-                              </div>
+                                    [ view in full ↗ ]
+                                  </Link>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="font-mono text-xs">{line.text}</span>

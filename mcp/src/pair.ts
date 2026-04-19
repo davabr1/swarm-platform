@@ -120,7 +120,7 @@ export async function runInteractivePair(): Promise<number> {
 
   if (bal > BigInt(0)) {
     console.log("");
-    console.log(`  ✓ Balance:  $${formatUsd(bal)} USDC — ready to spend.`);
+    console.log(`  ✓ Balance:  ${formatUsd(bal)} USDC — ready to spend.`);
     console.log("");
     console.log("  Add the MCP to your host:");
     console.log("    claude mcp add swarm -- npx -y swarm-marketplace-mcp");
@@ -146,7 +146,7 @@ export async function runInteractivePair(): Promise<number> {
 
   if (funded) {
     console.log("");
-    console.log(`  ✓ Funded!  $${formatUsd(funded)} USDC detected at ${formatAddress(key.address)}.`);
+    console.log(`  ✓ Funded!  ${formatUsd(funded)} USDC detected at ${formatAddress(key.address)}.`);
   } else {
     console.log("");
     console.log("  ⏳ No USDC detected yet — the MCP still works, it just can't pay");

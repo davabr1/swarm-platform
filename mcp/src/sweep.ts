@@ -94,7 +94,7 @@ export async function runInteractiveSweep(dest: string | undefined): Promise<num
 
   console.log(`  From:    ${saved.address}`);
   console.log(`  To:      ${dest}`);
-  console.log(`  Amount:  $${formatUsd(balance)} USDC (entire balance)`);
+  console.log(`  Amount:  ${formatUsd(balance)} USDC (entire balance)`);
   console.log("");
 
   if (balance === BigInt(0)) {
@@ -155,7 +155,7 @@ export async function runInteractiveSweep(dest: string | undefined): Promise<num
 
   console.log("");
   console.log(
-    `  Swept $${formatUsd(balance)} USDC from ${formatAddress(saved.address)} → ${formatAddress(dest)}.`,
+    `  Swept ${formatUsd(balance)} USDC from ${formatAddress(saved.address)} → ${formatAddress(dest)}.`,
   );
   console.log("");
   console.log(`  Snowtrace:  https://testnet.snowtrace.io/tx/${txHash}`);

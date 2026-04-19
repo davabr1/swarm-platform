@@ -406,26 +406,7 @@ export async function updateProfile(
   return res.json();
 }
 
-export interface SavedImageEntry {
-  id: string;
-  prompt: string;
-  mimeType: string | null;
-  createdAt: string;
-  readyAt: string | null;
-  savedAt: string;
-  agent: { id: string; name: string } | null;
-}
-
-export async function fetchSavedImages(
-  address: string,
-): Promise<SavedImageEntry[]> {
-  const res = await fetch(`/api/profile/${address}/images`);
-  if (!res.ok) return [];
-  const data = (await res.json()) as { entries: SavedImageEntry[] };
-  return data.entries ?? [];
-}
-
-export interface RequestedImageEntry {
+export interface GalleryImageEntry {
   id: string;
   prompt: string;
   mimeType: string | null;
@@ -434,35 +415,23 @@ export interface RequestedImageEntry {
   agent: { id: string; name: string } | null;
 }
 
-export async function fetchRequestedImages(
+export async function fetchGallery(
   address: string,
-): Promise<RequestedImageEntry[]> {
-  const res = await fetch(`/api/profile/${address}/requested-images`);
+): Promise<GalleryImageEntry[]> {
+  const res = await fetch(`/api/profile/${address}/gallery`);
   if (!res.ok) return [];
-  const data = (await res.json()) as { entries: RequestedImageEntry[] };
+  const data = (await res.json()) as { entries: GalleryImageEntry[] };
   return data.entries ?? [];
 }
 
-export async function fetchSavedState(
-  id: string,
-  viewer: string,
-): Promise<boolean> {
-  const res = await fetch(`/api/image/${id}/save`, {
-    headers: { "X-Asker-Address": viewer },
-  });
-  if (!res.ok) return false;
-  const data = (await res.json()) as { saved: boolean };
-  return Boolean(data.saved);
-}
-
-export async function saveImage(id: string, viewer: string): Promise<void> {
-  const res = await fetch(`/api/image/${id}/save`, {
+export async function hideImage(id: string, viewer: string): Promise<void> {
+  const res = await fetch(`/api/image/${id}/hide`, {
     method: "POST",
     headers: { "X-Asker-Address": viewer },
   });
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "failed to save image");
+    throw new Error(p.error || "failed to hide image");
   }
 }
 
@@ -498,17 +467,6 @@ export async function updateAgent(
     throw new Error(p.error || "failed to update listing");
   }
   return res.json();
-}
-
-export async function unsaveImage(id: string, viewer: string): Promise<void> {
-  const res = await fetch(`/api/image/${id}/save`, {
-    method: "DELETE",
-    headers: { "X-Asker-Address": viewer },
-  });
-  if (!res.ok) {
-    const p = await res.json().catch(() => ({}));
-    throw new Error(p.error || "failed to unsave image");
-  }
 }
 
 export async function createCustomAgent(data: {

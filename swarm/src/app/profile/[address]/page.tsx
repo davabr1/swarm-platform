@@ -16,8 +16,7 @@ import WalletPanel from "@/components/WalletPanel";
 import PairedMcpsPanel from "@/components/PairedMcpsPanel";
 import TransactionsPanel from "@/components/TransactionsPanel";
 import FaucetHelp from "@/components/FaucetHelp";
-import SavedImagesPanel from "@/components/SavedImagesPanel";
-import RequestedImagesPanel from "@/components/RequestedImagesPanel";
+import ImageGalleryPanel from "@/components/ImageGalleryPanel";
 import {
   fetchProfile,
   updateProfile,
@@ -192,14 +191,14 @@ export default function PublicProfilePage() {
 
           <IdentityCard address={address} portfolio={portfolio} />
 
+          <WalletPanel address={address} isSelf={isSelf} />
+
           <MyListingsPanel
             agents={portfolio.agents}
             viewer={viewer}
             isSelf={isSelf}
             onChanged={load}
           />
-
-          <WalletPanel address={address} isSelf={isSelf} />
 
           <PairedMcpsPanel address={address} isSelf={isSelf} />
 
@@ -216,9 +215,7 @@ export default function PublicProfilePage() {
 
           {isSelf && <TransactionsPanel address={address} />}
 
-          <RequestedImagesPanel address={address} isSelf={isSelf} />
-
-          <SavedImagesPanel address={address} isSelf={isSelf} />
+          <ImageGalleryPanel address={address} isSelf={isSelf} />
 
           {isSelf && <FaucetHelp />}
         </div>
@@ -228,14 +225,15 @@ export default function PublicProfilePage() {
 }
 
 function IdentityCard({ address, portfolio }: { address: string; portfolio: ProfilePortfolio }) {
-  const agentCount = portfolio.agents.length;
+  const aiAgents = portfolio.agents.filter((a) => a.type !== "human_expert");
+  const agentCount = aiAgents.length;
   const avgRep = useMemo(() => {
-    const withRatings = portfolio.agents.filter((a) => a.reputation.count > 0);
+    const withRatings = aiAgents.filter((a) => a.reputation.count > 0);
     if (withRatings.length === 0) return 0;
     return (
       withRatings.reduce((s, a) => s + a.reputation.averageScore, 0) / withRatings.length
     );
-  }, [portfolio.agents]);
+  }, [aiAgents]);
   const completedCount = portfolio.claimedTasks.filter((t) => t.status === "completed").length;
 
   return (
@@ -256,7 +254,7 @@ function IdentityCard({ address, portfolio }: { address: string; portfolio: Prof
           )}
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-dim mb-2">agents listed</div>
+          <div className="text-[10px] uppercase tracking-widest text-dim mb-2">ai agents listed</div>
           <div className="text-lg text-foreground tabular-nums">{agentCount}</div>
         </div>
         <div>
@@ -279,10 +277,10 @@ function IdentityCard({ address, portfolio }: { address: string; portfolio: Prof
 }
 
 // Top-of-profile card summarizing the wallet's human listing (from /become).
-// A wallet can have at most one human listing — the row's `roles` array holds
-// both expert + completer hats, which is why the UI surfaces them as two
-// badges driven off the same underlying record. Only the listing owner sees
-// the edit / delete controls; other visitors see the roles as status chips.
+// A wallet has at most one human listing. The row's `roles` array holds both
+// expert + completer hats — the UI exposes them as switchable tabs so each
+// role gets its own framed view of the same underlying listing record. Only
+// the listing owner sees edit / delete / activate-role controls.
 function MyListingsPanel({
   agents,
   viewer,
@@ -297,10 +295,24 @@ function MyListingsPanel({
   const human = agents.find((a) => a.type === "human_expert");
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [togglingRole, setTogglingRole] = useState(false);
   const [err, setErr] = useState("");
+  const [activeTab, setActiveTab] = useState<"expert" | "completer">("expert");
 
   const hasExpert = (human?.roles ?? []).includes("expert");
   const hasCompleter = (human?.roles ?? []).includes("completer");
+
+  // Default to whichever role is active so the opening view isn't a "not
+  // activated" prompt when the user has only one role. Re-run when roles
+  // change so deactivating the currently-open role slides you to the other.
+  useEffect(() => {
+    if (!human) return;
+    const current = activeTab === "expert" ? hasExpert : hasCompleter;
+    if (current) return;
+    if (hasExpert) setActiveTab("expert");
+    else if (hasCompleter) setActiveTab("completer");
+  }, [human, hasExpert, hasCompleter, activeTab]);
 
   // No listing → on your own profile we nudge you to list yourself; on other
   // people's profiles the card stays silent so we don't advertise emptiness.
@@ -331,16 +343,11 @@ function MyListingsPanel({
 
   const onDelete = async () => {
     if (!viewer || deleting) return;
-    const ok =
-      typeof window !== "undefined" &&
-      window.confirm(
-        "Remove your human listing? This unlists you from the marketplace — you can re-list any time from /become.",
-      );
-    if (!ok) return;
     setDeleting(true);
     setErr("");
     try {
       await deleteAgent(human.id, viewer);
+      setConfirmDelete(false);
       onChanged();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "delete failed");
@@ -349,77 +356,95 @@ function MyListingsPanel({
     }
   };
 
+  const toggleRole = async (role: "expert" | "completer", turnOn: boolean) => {
+    if (!viewer || togglingRole) return;
+    const current = human.roles ?? [];
+    const next = turnOn
+      ? Array.from(new Set([...current, role]))
+      : current.filter((r) => r !== role);
+    if (next.length === 0) {
+      setErr(
+        "Can't turn off your last role — delete the listing instead if you want to remove both.",
+      );
+      return;
+    }
+    setTogglingRole(true);
+    setErr("");
+    try {
+      await updateAgent(human.id, viewer, { roles: next });
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "update failed");
+    } finally {
+      setTogglingRole(false);
+    }
+  };
+
+  const currentRoleActive = activeTab === "expert" ? hasExpert : hasCompleter;
+  const otherRoleActive = activeTab === "expert" ? hasCompleter : hasExpert;
+
   return (
     <TerminalWindow
       title="swarm://profile/listings"
-      subtitle={`${human.roles.length || 1} role${(human.roles.length || 1) === 1 ? "" : "s"} active`}
+      subtitle={`${human.roles.length} active`}
       dots={false}
     >
-      <div className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex flex-wrap gap-2">
-            <RoleBadge label="expert" active={hasExpert} />
-            <RoleBadge label="task completer" active={hasCompleter} />
-          </div>
-          {isSelf && !editing && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setEditing(true)}
-                className="border border-amber text-amber bg-transparent text-xs px-3 py-1.5 hover:bg-amber hover:text-background transition-none"
-              >
-                [ edit ]
-              </button>
-              <button
-                onClick={onDelete}
-                disabled={deleting}
-                className="border border-danger/60 text-danger bg-transparent text-xs px-3 py-1.5 hover:bg-danger hover:text-background transition-none disabled:opacity-40"
-              >
-                {deleting ? "[ removing… ]" : "[ delete ]"}
-              </button>
-            </div>
-          )}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[10px] uppercase tracking-widest text-dim">
+          your human listing
         </div>
-
-        {!editing && (
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
-                display name
-              </div>
-              <div className="text-foreground break-words">{human.name}</div>
-              <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-                primary skill
-              </div>
-              <div className="text-amber text-sm break-words">{human.skill}</div>
-              {human.description && (
-                <>
-                  <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-                    bio
-                  </div>
-                  <div className="text-sm text-muted whitespace-pre-wrap break-words">
-                    {human.description}
-                  </div>
-                </>
-              )}
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
-                rate
-              </div>
-              <div className="text-foreground tabular-nums">{human.price}</div>
-              <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-                reputation
-              </div>
-              <div className="text-amber tabular-nums text-sm">
-                {human.reputation.count > 0
-                  ? `${human.reputation.averageScore.toFixed(1)} ★ (${human.reputation.count})`
-                  : "— unrated"}
-              </div>
-            </div>
+        {isSelf && !editing && !confirmDelete && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              className="border border-amber text-amber bg-transparent text-xs px-3 py-1.5 hover:bg-amber hover:text-background transition-none"
+            >
+              [ edit ]
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="border border-danger/60 text-danger bg-transparent text-xs px-3 py-1.5 hover:bg-danger hover:text-background transition-none"
+            >
+              [ delete ]
+            </button>
           </div>
         )}
+      </div>
 
-        {editing && viewer && (
+      {confirmDelete && (
+        <div className="border-b border-border bg-danger/5 p-4 space-y-3">
+          <div className="text-sm text-foreground">
+            Remove your human listing?
+          </div>
+          <div className="text-xs text-muted max-w-xl">
+            This unlists you from the marketplace — you won&apos;t be able to claim
+            tasks until you re-list from{" "}
+            <Link href="/become" className="text-amber underline">
+              /become
+            </Link>
+            .
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onDelete}
+              disabled={deleting}
+              className="border border-danger bg-danger text-background text-xs font-bold px-3 py-1.5 hover:opacity-80 transition-none disabled:opacity-40"
+            >
+              {deleting ? "[ removing… ]" : "[ yes, unlist me ]"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+              className="border border-border text-muted bg-transparent text-xs px-3 py-1.5 hover:text-foreground transition-none"
+            >
+              [ cancel ]
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editing && viewer ? (
+        <div className="p-5">
           <EditListingForm
             agent={human}
             viewer={viewer}
@@ -429,35 +454,196 @@ function MyListingsPanel({
             }}
             onCancel={() => setEditing(false)}
           />
-        )}
-
-        {err && (
-          <div className="border border-danger/40 bg-danger/10 text-danger text-xs p-2">
-            {err}
+        </div>
+      ) : (
+        <>
+          <div className="flex border-b border-border">
+            <TabButton
+              selected={activeTab === "expert"}
+              roleActive={hasExpert}
+              onClick={() => setActiveTab("expert")}
+              label="expert"
+            />
+            <TabButton
+              selected={activeTab === "completer"}
+              roleActive={hasCompleter}
+              onClick={() => setActiveTab("completer")}
+              label="task completer"
+            />
           </div>
-        )}
-      </div>
+
+          <div className="p-5">
+            {currentRoleActive ? (
+              <ActiveRoleView
+                human={human}
+                role={activeTab}
+                isSelf={isSelf}
+                canDeactivate={otherRoleActive}
+                toggling={togglingRole}
+                onDeactivate={() => toggleRole(activeTab, false)}
+              />
+            ) : (
+              <InactiveRoleView
+                role={activeTab}
+                isSelf={isSelf}
+                toggling={togglingRole}
+                onActivate={() => toggleRole(activeTab, true)}
+              />
+            )}
+          </div>
+        </>
+      )}
+
+      {err && (
+        <div className="border-t border-border bg-danger/10 text-danger text-xs p-3">
+          {err}
+        </div>
+      )}
     </TerminalWindow>
   );
 }
 
-function RoleBadge({ label, active }: { label: string; active: boolean }) {
+function TabButton({
+  selected,
+  roleActive,
+  onClick,
+  label,
+}: {
+  selected: boolean;
+  roleActive: boolean;
+  onClick: () => void;
+  label: string;
+}) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11px] uppercase tracking-widest ${
-        active
-          ? "border-phosphor text-phosphor bg-phosphor/10"
-          : "border-border text-dim"
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-4 py-3 text-[11px] uppercase tracking-widest border-r border-border last:border-r-0 transition-none ${
+        selected
+          ? "bg-surface-1 text-foreground"
+          : "text-muted hover:text-foreground hover:bg-surface-1/50"
       }`}
     >
-      <span
-        className={`inline-block w-1.5 h-1.5 ${
-          active ? "bg-phosphor" : "bg-dim"
-        }`}
-      />
-      {label}
-      <span className="text-[10px] opacity-70">{active ? "· active" : "· inactive"}</span>
-    </span>
+      <span className="inline-flex items-center gap-2 justify-center">
+        <span
+          className={`inline-block w-1.5 h-1.5 ${
+            roleActive ? "bg-phosphor" : "bg-border-hi"
+          }`}
+        />
+        <span>{label}</span>
+        <span className="text-dim text-[10px]">
+          · {roleActive ? "active" : "inactive"}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function ActiveRoleView({
+  human,
+  role,
+  isSelf,
+  canDeactivate,
+  toggling,
+  onDeactivate,
+}: {
+  human: Agent;
+  role: "expert" | "completer";
+  isSelf: boolean;
+  canDeactivate: boolean;
+  toggling: boolean;
+  onDeactivate: () => void;
+}) {
+  const blurb =
+    role === "expert"
+      ? "Experts claim expert-only bounties and give high-signal answers in their skill."
+      : "Task completers take on real-world errands, research, and assigned work.";
+  const roleLabel = role === "expert" ? "expert" : "task completer";
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs text-muted">{blurb}</div>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
+            display name
+          </div>
+          <div className="text-foreground break-words">{human.name}</div>
+          <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
+            primary skill
+          </div>
+          <div className="text-amber text-sm break-words">{human.skill}</div>
+          {human.description && (
+            <>
+              <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
+                bio
+              </div>
+              <div className="text-sm text-muted whitespace-pre-wrap break-words">
+                {human.description}
+              </div>
+            </>
+          )}
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
+            rate
+          </div>
+          <div className="text-foreground tabular-nums">{human.price}</div>
+          <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
+            reputation
+          </div>
+          <div className="text-amber tabular-nums text-sm">
+            {human.reputation.count > 0
+              ? `${human.reputation.averageScore.toFixed(1)} ★ (${human.reputation.count})`
+              : "— unrated"}
+          </div>
+        </div>
+      </div>
+      {isSelf && canDeactivate && (
+        <div className="pt-3 border-t border-border">
+          <button
+            onClick={onDeactivate}
+            disabled={toggling}
+            className="text-[11px] text-dim hover:text-danger transition-none disabled:opacity-40"
+          >
+            {toggling ? "updating…" : `[ deactivate ${roleLabel} role ]`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InactiveRoleView({
+  role,
+  isSelf,
+  toggling,
+  onActivate,
+}: {
+  role: "expert" | "completer";
+  isSelf: boolean;
+  toggling: boolean;
+  onActivate: () => void;
+}) {
+  const roleLabel = role === "expert" ? "expert" : "task completer";
+  const blurb =
+    role === "expert"
+      ? "You haven't activated the expert role. Experts get access to expert-only bounties and give high-signal answers."
+      : "You haven't activated the task completer role. Completers take real-world errands and assigned work from other wallets.";
+
+  return (
+    <div className="py-8 text-center space-y-3">
+      <div className="text-sm text-muted max-w-md mx-auto">{blurb}</div>
+      {isSelf && (
+        <button
+          onClick={onActivate}
+          disabled={toggling}
+          className="border border-phosphor text-phosphor bg-transparent text-xs font-bold px-4 py-2 hover:bg-phosphor hover:text-background transition-none disabled:opacity-40"
+        >
+          {toggling ? "activating…" : `[ activate ${roleLabel} role ]`}
+        </button>
+      )}
+    </div>
   );
 }
 

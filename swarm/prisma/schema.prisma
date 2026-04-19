@@ -260,9 +260,10 @@ model ImageGeneration {
   @@index([askerAddress])
 }
 
-// Join table powering the "saved images" gallery on /profile. A row means
-// `walletAddress` has pinned `imageId` to their profile. Composite primary
-// key prevents duplicates and makes save/unsave idempotent.
+// Retired: the explicit save-to-profile flow was removed in favor of an
+// auto-gallery keyed on `ImageGeneration.askerAddress`. Existing rows are
+// orphaned — kept so we don't drop data, but no runtime path reads or
+// writes this table anymore.
 model SavedImage {
   walletAddress String
   imageId       String
@@ -270,5 +271,19 @@ model SavedImage {
 
   @@id([walletAddress, imageId])
   @@index([walletAddress, savedAt(sort: Desc)])
+  @@index([imageId])
+}
+
+// A wallet's per-profile "hide from my gallery" opt-out. Images are surfaced
+// by `ImageGeneration.askerAddress`; a row here suppresses that image from
+// the owning wallet's gallery without deleting the underlying generation
+// (which is shared/public). Composite PK makes the hide toggle idempotent.
+model HiddenImage {
+  walletAddress String
+  imageId       String
+  hiddenAt      DateTime @default(now())
+
+  @@id([walletAddress, imageId])
+  @@index([walletAddress, hiddenAt(sort: Desc)])
   @@index([imageId])
 }

@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useMemo, useState, use } from "react";
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
-import { fetchSavedState, saveImage, unsaveImage } from "@/lib/api";
+import {
+  fetchGallery,
+  type GalleryImageEntry,
+} from "@/lib/api";
 
 interface ImageMeta {
   id: string;
@@ -36,12 +39,70 @@ export default function ImageViewerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { address: connected } = useAccount();
-  const viewer = connected?.toLowerCase() ?? null;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // `?gallery=<profileAddress>` means this viewer was opened from a profile
+  // grid — we fetch that profile's merged gallery and render prev/next arrows
+  // so the user can flip through images without bouncing back. Missing param
+  // (e.g. a raw `/image/<id>` link pasted by Claude Code) keeps the viewer
+  // in its unchanged standalone form.
+  const galleryAddress = searchParams.get("gallery");
   const [meta, setMeta] = useState<ImageMeta | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [saved, setSaved] = useState<boolean | null>(null);
-  const [savingToggle, setSavingToggle] = useState(false);
+  const [gallery, setGallery] = useState<GalleryImageEntry[] | null>(null);
+
+  useEffect(() => {
+    if (!galleryAddress) {
+      setGallery(null);
+      return;
+    }
+    let alive = true;
+    fetchGallery(galleryAddress)
+      .then((list) => {
+        if (alive) setGallery(list);
+      })
+      .catch(() => {
+        if (alive) setGallery([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [galleryAddress]);
+
+  const { prevId, nextId, index, total } = useMemo(() => {
+    if (!gallery || gallery.length === 0) {
+      return { prevId: null, nextId: null, index: -1, total: 0 };
+    }
+    const i = gallery.findIndex((g) => g.id === id);
+    return {
+      prevId: i > 0 ? gallery[i - 1].id : null,
+      nextId: i >= 0 && i < gallery.length - 1 ? gallery[i + 1].id : null,
+      index: i,
+      total: gallery.length,
+    };
+  }, [gallery, id]);
+
+  const navigate = useCallback(
+    (targetId: string | null) => {
+      if (!targetId || !galleryAddress) return;
+      router.push(`/image/${targetId}?gallery=${galleryAddress}`);
+    },
+    [galleryAddress, router],
+  );
+
+  useEffect(() => {
+    if (!galleryAddress) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement) {
+        const tag = e.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
+      }
+      if (e.key === "ArrowLeft") navigate(prevId);
+      else if (e.key === "ArrowRight") navigate(nextId);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [galleryAddress, navigate, prevId, nextId]);
 
   useEffect(() => {
     fetch(`/api/image/${id}/meta`)
@@ -54,29 +115,6 @@ export default function ImageViewerPage({
       })
       .catch(() => setNotFound(true));
   }, [id]);
-
-  useEffect(() => {
-    if (!viewer) {
-      setSaved(null);
-      return;
-    }
-    fetchSavedState(id, viewer).then(setSaved).catch(() => setSaved(false));
-  }, [id, viewer]);
-
-  const onToggleSave = async () => {
-    if (!viewer || saved === null || savingToggle) return;
-    const next = !saved;
-    setSaved(next);
-    setSavingToggle(true);
-    try {
-      if (next) await saveImage(id, viewer);
-      else await unsaveImage(id, viewer);
-    } catch {
-      setSaved(!next);
-    } finally {
-      setSavingToggle(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -92,54 +130,62 @@ export default function ImageViewerPage({
           </div>
         ) : (
           <>
+            {galleryAddress && (
+              <div className="mb-3 flex items-center justify-between gap-3 text-[11px] uppercase tracking-widest">
+                <Link
+                  href={`/profile/${galleryAddress}`}
+                  className="text-muted hover:text-amber transition-none"
+                >
+                  ← back to profile
+                </Link>
+                {total > 0 && index >= 0 && (
+                  <span className="text-dim tabular-nums">
+                    {index + 1} / {total}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="text-[11px] text-dim uppercase tracking-widest">
                 swarm://image/{id.slice(0, 8)}…
               </div>
-              <div className="flex items-center gap-2">
-                {viewer ? (
-                  <button
-                    onClick={onToggleSave}
-                    disabled={saved === null || savingToggle}
-                    className={`border text-[11px] px-4 py-2 transition-none uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-40 ${
-                      saved
-                        ? "border-phosphor text-phosphor hover:bg-phosphor hover:text-background"
-                        : "border-border-hi text-foreground hover:border-phosphor hover:text-phosphor"
-                    }`}
-                    title={
-                      saved
-                        ? "Remove from your profile gallery"
-                        : "Pin to your profile gallery"
-                    }
-                  >
-                    <FloppyIcon filled={Boolean(saved)} />
-                    {saved ? "[ saved ]" : "[ save to profile ]"}
-                  </button>
-                ) : (
-                  <span
-                    className="border border-border text-dim text-[11px] px-4 py-2 uppercase tracking-widest flex items-center gap-1.5 cursor-not-allowed"
-                    title="Connect your wallet to save this image to your profile"
-                  >
-                    <FloppyIcon filled={false} />
-                    [ connect to save ]
-                  </span>
-                )}
-                <a
-                  href={`/api/image/${id}?download=1`}
-                  download
-                  className="border border-amber bg-amber text-background text-[11px] px-4 py-2 hover:bg-amber-hi transition-none uppercase tracking-widest"
-                >
-                  [ download PNG ↓ ]
-                </a>
-              </div>
+              <a
+                href={`/api/image/${id}?download=1`}
+                download
+                className="border border-amber bg-amber text-background text-[11px] px-4 py-2 hover:bg-amber-hi transition-none uppercase tracking-widest"
+              >
+                [ download PNG ↓ ]
+              </a>
             </div>
 
-            <div className="w-full flex items-center justify-center">
+            <div className="relative w-full flex items-center justify-center">
+              {galleryAddress && (
+                <button
+                  type="button"
+                  onClick={() => navigate(prevId)}
+                  disabled={!prevId}
+                  aria-label="previous image"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 border border-border-hi bg-background/80 text-foreground px-3 py-4 hover:border-phosphor hover:text-phosphor transition-none disabled:opacity-20 disabled:cursor-not-allowed"
+                >
+                  ◀
+                </button>
+              )}
               <img
                 src={`/api/image/${id}`}
                 alt={meta?.prompt ?? "generated image"}
                 className="max-w-[85vw] max-h-[85vh] w-auto h-auto object-contain"
               />
+              {galleryAddress && (
+                <button
+                  type="button"
+                  onClick={() => navigate(nextId)}
+                  disabled={!nextId}
+                  aria-label="next image"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 border border-border-hi bg-background/80 text-foreground px-3 py-4 hover:border-phosphor hover:text-phosphor transition-none disabled:opacity-20 disabled:cursor-not-allowed"
+                >
+                  ▶
+                </button>
+              )}
             </div>
 
             {meta && (
@@ -200,31 +246,6 @@ export default function ImageViewerPage({
         )}
       </div>
     </div>
-  );
-}
-
-function FloppyIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      aria-hidden
-    >
-      <path d="M1.5 1.5h10L14.5 4.5v10h-13z" fill={filled ? "currentColor" : "none"} />
-      <path d="M4.5 1.5v3.5h6v-3.5" stroke={filled ? "var(--background)" : "currentColor"} />
-      <rect
-        x="4.5"
-        y="9"
-        width="7"
-        height="5.5"
-        stroke={filled ? "var(--background)" : "currentColor"}
-        fill="none"
-      />
-    </svg>
   );
 }
 

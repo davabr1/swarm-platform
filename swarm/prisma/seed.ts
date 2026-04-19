@@ -1,8 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import { config } from "../src/lib/config";
 import { demoAgentSeeds, demoActivitySeeds, demoMetricsById } from "../src/lib/demoData";
+import { SWARM_QUALITY_PREAMBLE, SWARM_PREAMBLE_ANCHOR } from "../src/lib/swarmPreamble";
 
 const db = new PrismaClient();
+
+// Every seeded agent gets the Swarm quality preamble baked into its
+// systemPrompt row, matching the behavior of user-created agents in
+// `/api/agents/create`. Guarded so re-seeding doesn't double-prepend.
+function withPreamble(prompt: string): string {
+  return prompt.startsWith(SWARM_PREAMBLE_ANCHOR) ? prompt : SWARM_QUALITY_PREAMBLE + prompt;
+}
 
 async function main() {
   // Built-in specialized agents (keys are the historical in-memory ids).
@@ -15,6 +23,7 @@ async function main() {
 
   for (const { key, cfg, type } of builtIns) {
     const metrics = demoMetricsById[key] ?? { reputation: { count: 0, averageScore: 0 }, totalCalls: 0 };
+    const systemPrompt = withPreamble(cfg.systemPrompt);
     await db.agent.upsert({
       where: { id: key },
       create: {
@@ -25,7 +34,7 @@ async function main() {
         price: cfg.price,
         walletAddress: cfg.address,
         creatorAddress: cfg.address,
-        systemPrompt: cfg.systemPrompt,
+        systemPrompt,
         type,
         userCreated: false,
         reputation: metrics.reputation.averageScore,
@@ -39,7 +48,7 @@ async function main() {
         price: cfg.price,
         walletAddress: cfg.address,
         creatorAddress: cfg.address,
-        systemPrompt: cfg.systemPrompt,
+        systemPrompt,
         type,
       },
     });
@@ -62,7 +71,11 @@ async function main() {
     { cfg: config.imageAgents.neonoir, reputation: 0, ratings: 0, totalCalls: 0 },
   ];
 
+  // Image agents don't get the quality preamble — that copy is text-response
+  // guidance (lead with the answer, cite evidence, etc.) and Gemini's image
+  // model ignores system prompts for tone anyway.
   for (const { cfg, reputation, ratings, totalCalls } of imageAgentSeeds) {
+    const systemPrompt = cfg.systemPrompt;
     await db.agent.upsert({
       where: { id: cfg.id },
       create: {
@@ -73,7 +86,7 @@ async function main() {
         price: cfg.price,
         walletAddress: cfg.address,
         creatorAddress: cfg.address,
-        systemPrompt: cfg.systemPrompt,
+        systemPrompt,
         type: "ai",
         userCreated: false,
         reputation,
@@ -88,7 +101,7 @@ async function main() {
         price: cfg.price,
         walletAddress: cfg.address,
         creatorAddress: cfg.address,
-        systemPrompt: cfg.systemPrompt,
+        systemPrompt,
         type: "ai",
         pricingNote: `Flat rate per image · ${cfg.model}`,
       },
@@ -105,6 +118,7 @@ async function main() {
   // closed — they're never the recipient of real USDC.
   const platformWallet = config.platformAgentAddress;
   for (const seed of demoAgentSeeds) {
+    const systemPrompt = withPreamble(seed.systemPrompt);
     await db.agent.upsert({
       where: { id: seed.id },
       create: {
@@ -115,7 +129,7 @@ async function main() {
         price: seed.price,
         walletAddress: platformWallet,
         creatorAddress: platformWallet,
-        systemPrompt: seed.systemPrompt,
+        systemPrompt,
         type: seed.type,
         userCreated: false,
         reputation: seed.reputation.averageScore,
@@ -129,7 +143,7 @@ async function main() {
         price: seed.price,
         walletAddress: platformWallet,
         creatorAddress: platformWallet,
-        systemPrompt: seed.systemPrompt,
+        systemPrompt,
         type: seed.type,
       },
     });

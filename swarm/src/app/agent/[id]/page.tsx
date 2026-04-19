@@ -109,7 +109,7 @@ export default function AgentDetailPage() {
         kind: "info",
         text: agent && !agent.userCreated
           ? `[pricing] no commission · AI cost · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
-          : `[pricing] commission ${agent?.price ?? "$?"} → creator · AI cost · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
+          : `[pricing] commission ${agent?.price ?? "?"} → creator · AI cost · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
       },
     ]);
     await pause(200);
@@ -286,6 +286,18 @@ export default function AgentDetailPage() {
   const isPlatform = !agent.userCreated;
   const category = getCategory(agent);
 
+  // Mirror the server-side ceiling math in `src/app/api/guidance/route.ts`
+  // and `src/app/api/image/route.ts`: ceiling = (commission + base) * 1.05.
+  // Commission is 0 on platform rows. Image base is $0.20, text base is $0.05.
+  // Button + heads-up copy both read from this so community agents don't
+  // quote a misleading "≈ $0.05" when their commission is e.g. $0.09.
+  const commissionUsd = isPlatform
+    ? 0
+    : parseFloat(String(agent.price).replace(/[^0-9.]/g, "")) || 0;
+  const baseCeiling = isImage ? 0.2 : 0.05;
+  const ceilingUsd = (commissionUsd + baseCeiling) * 1.05;
+  const ceilingLabel = `${ceilingUsd.toFixed(2)} USDC`;
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -452,22 +464,20 @@ export default function AgentDetailPage() {
                       <SubmittingLabel
                         text={isImage ? "generating" : awaitingReply ? "replying" : "asking"}
                       />
-                    ) : awaitingReply ? (
-                      isPlatform ? `[ reply · pay AI cost + 5% ]` : `[ reply · pay ${agent.price}+ ]`
-                    ) : isPlatform ? (
-                      `[ ${isImage ? "generate" : "ask"} · pay AI cost + 5% ]`
                     ) : (
-                      `[ ${isImage ? "generate" : "ask"} · pay ${agent.price}+ ]`
+                      `[ ${awaitingReply ? "reply" : isImage ? "generate" : "ask"} · ≈ ${ceilingLabel} ]`
                     )}
                   </button>
                 </div>
                 <div className="px-4 py-2 border-b border-border bg-surface-1/40 text-[11px] text-dim leading-relaxed">
                   <span className="text-amber">heads up:</span> we pre-approve a
-                  per-call ceiling ({isImage ? "≈ $0.21" : "≈ $0.05"}) so the tx
-                  clears before we know the exact AI cost. After the agent
-                  answers, the overage is refunded to you on-chain — you'll see
-                  it as a <span className="text-phosphor">+refund</span> on the
-                  same line in your transactions.
+                  per-call ceiling (≈ {ceilingLabel}
+                  {isPlatform ? "" : `, inclusive of ${commissionUsd.toFixed(2)} USDC commission`})
+                  so the tx clears before we know the exact AI cost. After the
+                  agent answers, the overage is refunded to you on-chain —
+                  you&apos;ll see it as a{" "}
+                  <span className="text-phosphor">+refund</span> on the same
+                  line in your transactions.
                 </div>
 
                 {breakdown && (
@@ -478,22 +488,22 @@ export default function AgentDetailPage() {
                     <div className="grid grid-cols-4 gap-2 tabular-nums">
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">commission</div>
-                        <div className="text-phosphor">${breakdown.commissionUsd}</div>
+                        <div className="text-phosphor">{breakdown.commissionUsd} USDC</div>
                         <div className="text-dim text-[10px]">→ creator</div>
                       </div>
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">AI</div>
-                        <div className="text-muted">${breakdown.geminiCostUsd}</div>
+                        <div className="text-muted">{breakdown.geminiCostUsd} USDC</div>
                         <div className="text-dim text-[10px]">api cost</div>
                       </div>
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">platform</div>
-                        <div className="text-muted">${breakdown.platformFeeUsd}</div>
+                        <div className="text-muted">{breakdown.platformFeeUsd} USDC</div>
                         <div className="text-dim text-[10px]">5% margin</div>
                       </div>
                       <div className="text-right">
                         <div className="text-dim text-[10px] uppercase tracking-widest">total</div>
-                        <div className="text-amber text-sm font-bold">${breakdown.totalUsd}</div>
+                        <div className="text-amber text-sm font-bold">{breakdown.totalUsd} USDC</div>
                       </div>
                     </div>
                   </div>

@@ -97,10 +97,30 @@ function EarnMenu() {
   );
 }
 
+// True for actual touch devices — not for narrow desktop windows. We key off
+// CSS pointer/hover media features (matches the IETF Client Hints `Sec-CH-UA-
+// Mobile` signal in spirit) because the old check was purely breakpoint-based
+// and incorrectly gated wallet connection on any viewport < lg. A desktop user
+// who shrinks their Chrome window still has a mouse, hover, and a wallet
+// extension — they should get the full chip, not the "browse only" panel.
+function useIsTouchDevice(): boolean {
+  const [touch, setTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(pointer: coarse) and (hover: none)");
+    setTouch(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setTouch(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return touch;
+}
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isTouch = useIsTouchDevice();
 
   useEffect(() => {
     setMobileOpen(false);
@@ -236,17 +256,26 @@ export default function Header() {
       {/* Mobile drawer */}
       {mobileOpen && (
         <nav className="lg:hidden border-t border-border bg-background text-sm">
-          <div className="px-6 py-3 border-b border-border space-y-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-widest text-dim">wallet</span>
-              <span className="inline-flex items-center border border-border-hi px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted font-mono">
-                browse only
-              </span>
-            </div>
-            <div className="text-[11px] text-dim leading-relaxed">
-              Mobile browsers don&apos;t support wallet extensions. Open swarm on a desktop
-              browser to connect a wallet and pay.
-            </div>
+          <div className="px-6 py-3 border-b border-border space-y-2">
+            <span className="block text-[10px] uppercase tracking-widest text-dim">wallet</span>
+            {isTouch ? (
+              <>
+                <span className="inline-flex items-center border border-border-hi px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted font-mono">
+                  browse only
+                </span>
+                <div className="text-[11px] text-dim leading-relaxed">
+                  Mobile browsers don&apos;t support wallet extensions. Open swarm on a desktop
+                  browser to connect a wallet and pay.
+                </div>
+              </>
+            ) : (
+              // Narrow desktop window — still has mouse/hover, wallet extensions
+              // work fine. Render the full chip inline in the drawer so shrinking
+              // the browser doesn't strip functionality.
+              <div className="flex justify-start">
+                <WalletChip />
+              </div>
+            )}
           </div>
           {navItems.map((item) => {
             const isActive =

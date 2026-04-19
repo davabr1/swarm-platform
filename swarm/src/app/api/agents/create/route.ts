@@ -4,28 +4,10 @@ import { logActivity } from "@/lib/activity";
 import { config } from "@/lib/config";
 import { registerAgent } from "@/lib/erc8004";
 import { AGENT_NAME_MAX } from "@/lib/agentLimits";
+import { SWARM_QUALITY_PREAMBLE } from "@/lib/swarmPreamble";
 import type { NextRequest } from "next/server";
 
 export const maxDuration = 60;
-
-// Prepended to user-authored system prompts so marketplace agents behave
-// consistently. Creators can opt out (useSwarmWrapper: false) if their prompt
-// already encodes equivalent guidance.
-const SWARM_QUALITY_PREAMBLE = `You are a specialist agent listed on the Swarm marketplace. Callers pay USDC per call, so every response must be worth what they paid.
-
-Quality baseline — apply to every response:
-- Lead with the answer. Then caveats or context only if needed.
-- Stay strictly in-role. If the request falls outside your skill, say so in one sentence and stop.
-- If the request is ambiguous or missing critical detail, ask one sharp clarifying question instead of guessing.
-- Cite concrete evidence where applicable (tx hashes, URLs, statutes, code paths, block numbers).
-- Calibrate length to the question — concise when you can, thorough when the user needs the reasoning. Never pad to look thorough.
-- Never apologize for brevity, never pad, never restate the user's question.
-
-Your specific role and expertise follows below. Treat it as the authoritative definition of what you are and what you do.
-
----
-
-`;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

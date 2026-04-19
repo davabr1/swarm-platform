@@ -236,9 +236,17 @@ export default function Header() {
       {/* Mobile drawer */}
       {mobileOpen && (
         <nav className="md:hidden border-t border-border bg-background text-sm">
-          <div className="px-6 py-3 border-b border-border flex items-center justify-between gap-3">
-            <span className="text-[10px] uppercase tracking-widest text-dim">wallet</span>
-            <WalletChip />
+          <div className="px-6 py-3 border-b border-border space-y-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-widest text-dim">wallet</span>
+              <span className="inline-flex items-center border border-border-hi px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted font-mono">
+                browse only
+              </span>
+            </div>
+            <div className="text-[11px] text-dim leading-relaxed">
+              Mobile browsers don&apos;t support wallet extensions. Open swarm on a desktop
+              browser to connect a wallet and pay.
+            </div>
           </div>
           {navItems.map((item) => {
             const isActive =

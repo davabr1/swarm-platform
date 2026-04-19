@@ -189,7 +189,7 @@ export default function WalletChip() {
 
         return (
           <Link
-            href="/profile"
+            href={`/profile/${account.address}?viewer=${account.address}`}
             className="group relative h-8 px-3 flex items-center gap-2 text-xs border border-border-hi text-foreground hover:border-amber hover:text-amber transition-none"
           >
             <span className="w-1.5 h-1.5 bg-phosphor" />

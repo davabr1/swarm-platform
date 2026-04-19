@@ -298,10 +298,10 @@ function IdentityCard({ address, portfolio }: { address: string; portfolio: Prof
 }
 
 // Top-of-profile card summarizing the wallet's human listing (from /become).
-// A wallet has at most one human listing. The row's `roles` array holds both
-// expert + completer hats — the UI exposes them as switchable tabs so each
-// role gets its own framed view of the same underlying listing record. Only
-// the listing owner sees edit / delete / activate-role controls.
+// A wallet has at most one human listing. The `roles` array holds both expert
+// + completer hats — they share the same underlying name/skill/bio/rate, so
+// the UI shows one compact view with role chips instead of tabs that would
+// swap in identical content.
 function MyListingsPanel({
   agents,
   viewer,
@@ -319,21 +319,9 @@ function MyListingsPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [togglingRole, setTogglingRole] = useState(false);
   const [err, setErr] = useState("");
-  const [activeTab, setActiveTab] = useState<"expert" | "completer">("expert");
 
   const hasExpert = (human?.roles ?? []).includes("expert");
   const hasCompleter = (human?.roles ?? []).includes("completer");
-
-  // Default to whichever role is active so the opening view isn't a "not
-  // activated" prompt when the user has only one role. Re-run when roles
-  // change so deactivating the currently-open role slides you to the other.
-  useEffect(() => {
-    if (!human) return;
-    const current = activeTab === "expert" ? hasExpert : hasCompleter;
-    if (current) return;
-    if (hasExpert) setActiveTab("expert");
-    else if (hasCompleter) setActiveTab("completer");
-  }, [human, hasExpert, hasCompleter, activeTab]);
 
   // No listing → on your own profile we nudge you to list yourself; on other
   // people's profiles the card stays silent so we don't advertise emptiness.
@@ -401,62 +389,32 @@ function MyListingsPanel({
     }
   };
 
-  const currentRoleActive = activeTab === "expert" ? hasExpert : hasCompleter;
-  const otherRoleActive = activeTab === "expert" ? hasCompleter : hasExpert;
-
   return (
     <TerminalWindow
       title="swarm://profile/listings"
       subtitle={`${human.roles.length} active`}
       dots={false}
     >
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-[10px] uppercase tracking-widest text-dim">
-          your human listing
-        </div>
-        {isSelf && !editing && !confirmDelete && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setEditing(true)}
-              className="border border-amber text-amber bg-transparent text-xs px-3 py-1.5 hover:bg-amber hover:text-background transition-none"
-            >
-              [ edit ]
-            </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="border border-danger/60 text-danger bg-transparent text-xs px-3 py-1.5 hover:bg-danger hover:text-background transition-none"
-            >
-              [ delete ]
-            </button>
-          </div>
-        )}
-      </div>
-
       {confirmDelete && (
-        <div className="border-b border-border bg-danger/5 p-4 space-y-3">
-          <div className="text-sm text-foreground">
-            Remove your human listing?
-          </div>
+        <div className="border-b border-border bg-danger/5 p-3 space-y-2">
+          <div className="text-sm text-foreground">Remove your human listing?</div>
           <div className="text-xs text-muted max-w-xl">
             This unlists you from the marketplace — you won&apos;t be able to claim
             tasks until you re-list from{" "}
-            <Link href="/become" className="text-amber underline">
-              /become
-            </Link>
-            .
+            <Link href="/become" className="text-amber underline">/become</Link>.
           </div>
           <div className="flex gap-2">
             <button
               onClick={onDelete}
               disabled={deleting}
-              className="border border-danger bg-danger text-background text-xs font-bold px-3 py-1.5 hover:opacity-80 transition-none disabled:opacity-40"
+              className="border border-danger bg-danger text-background text-xs font-bold px-3 py-1 hover:opacity-80 transition-none disabled:opacity-40"
             >
               {deleting ? "[ removing… ]" : "[ yes, unlist me ]"}
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
               disabled={deleting}
-              className="border border-border text-muted bg-transparent text-xs px-3 py-1.5 hover:text-foreground transition-none"
+              className="border border-border text-muted bg-transparent text-xs px-3 py-1 hover:text-foreground transition-none"
             >
               [ cancel ]
             </button>
@@ -465,7 +423,7 @@ function MyListingsPanel({
       )}
 
       {editing && viewer ? (
-        <div className="p-5">
+        <div className="p-4">
           <EditListingForm
             agent={human}
             viewer={viewer}
@@ -477,42 +435,63 @@ function MyListingsPanel({
           />
         </div>
       ) : (
-        <>
-          <div className="flex border-b border-border">
-            <TabButton
-              selected={activeTab === "expert"}
-              roleActive={hasExpert}
-              onClick={() => setActiveTab("expert")}
-              label="expert"
-            />
-            <TabButton
-              selected={activeTab === "completer"}
-              roleActive={hasCompleter}
-              onClick={() => setActiveTab("completer")}
-              label="task completer"
-            />
-          </div>
-
-          <div className="p-5">
-            {currentRoleActive ? (
-              <ActiveRoleView
-                human={human}
-                role={activeTab}
-                isSelf={isSelf}
-                canDeactivate={otherRoleActive}
-                toggling={togglingRole}
-                onDeactivate={() => toggleRole(activeTab, false)}
+        <div className="p-4 space-y-3 text-xs">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <RoleChip
+                label="expert"
+                active={hasExpert}
+                canToggle={isSelf && !togglingRole}
+                canDeactivate={hasCompleter}
+                onToggle={() => toggleRole("expert", !hasExpert)}
               />
-            ) : (
-              <InactiveRoleView
-                role={activeTab}
-                isSelf={isSelf}
-                toggling={togglingRole}
-                onActivate={() => toggleRole(activeTab, true)}
+              <RoleChip
+                label="task completer"
+                active={hasCompleter}
+                canToggle={isSelf && !togglingRole}
+                canDeactivate={hasExpert}
+                onToggle={() => toggleRole("completer", !hasCompleter)}
               />
+            </div>
+            {isSelf && !confirmDelete && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="border border-amber text-amber bg-transparent text-[11px] px-2.5 py-1 hover:bg-amber hover:text-background transition-none"
+                >
+                  [ edit ]
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="border border-danger/60 text-danger bg-transparent text-[11px] px-2.5 py-1 hover:bg-danger hover:text-background transition-none"
+                >
+                  [ delete ]
+                </button>
+              </div>
             )}
           </div>
-        </>
+
+          <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[auto_minmax(0,1fr)] leading-snug">
+            <div className="text-dim uppercase tracking-widest text-[10px] pt-0.5">name</div>
+            <div className="text-foreground break-words">{human.name}</div>
+            <div className="text-dim uppercase tracking-widest text-[10px] pt-0.5">skill</div>
+            <div className="text-amber break-words">{human.skill}</div>
+            <div className="text-dim uppercase tracking-widest text-[10px] pt-0.5">rate</div>
+            <div className="text-foreground tabular-nums">{human.price}</div>
+            <div className="text-dim uppercase tracking-widest text-[10px] pt-0.5">reputation</div>
+            <div className="text-amber tabular-nums">
+              {human.reputation.count > 0
+                ? `${human.reputation.averageScore.toFixed(1)} ★ (${human.reputation.count})`
+                : "— unrated"}
+            </div>
+            {human.description && (
+              <>
+                <div className="text-dim uppercase tracking-widest text-[10px] pt-0.5">bio</div>
+                <div className="text-muted whitespace-pre-wrap break-words">{human.description}</div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {err && (
@@ -524,147 +503,44 @@ function MyListingsPanel({
   );
 }
 
-function TabButton({
-  selected,
-  roleActive,
-  onClick,
+function RoleChip({
   label,
+  active,
+  canToggle,
+  canDeactivate,
+  onToggle,
 }: {
-  selected: boolean;
-  roleActive: boolean;
-  onClick: () => void;
   label: string;
+  active: boolean;
+  canToggle: boolean;
+  canDeactivate: boolean;
+  onToggle: () => void;
 }) {
+  // Deactivating the last active role would unlist the user entirely; the
+  // delete button is the right tool for that. So when this chip is the sole
+  // active role, clicking is a no-op and the affordance is muted.
+  const disabled = !canToggle || (active && !canDeactivate);
+  const title = active && !canDeactivate
+    ? "Last active role — use delete to unlist entirely"
+    : active
+      ? `click to deactivate ${label} role`
+      : `click to activate ${label} role`;
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex-1 px-4 py-3 text-[11px] uppercase tracking-widest border-r border-border last:border-r-0 transition-none ${
-        selected
-          ? "bg-surface-1 text-foreground"
-          : "text-muted hover:text-foreground hover:bg-surface-1/50"
+      onClick={onToggle}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex items-center gap-2 border px-2.5 py-1 text-[11px] transition-none disabled:cursor-default ${
+        active
+          ? "border-phosphor/60 text-phosphor"
+          : "border-border-hi text-muted hover:border-phosphor hover:text-phosphor"
       }`}
     >
-      <span className="inline-flex items-center gap-2 justify-center">
-        <span
-          className={`inline-block w-1.5 h-1.5 ${
-            roleActive ? "bg-phosphor" : "bg-border-hi"
-          }`}
-        />
-        <span>{label}</span>
-        <span className="text-dim text-[10px]">
-          · {roleActive ? "active" : "inactive"}
-        </span>
-      </span>
+      <span className={`inline-block w-1.5 h-1.5 ${active ? "bg-phosphor" : "bg-border-hi"}`} />
+      <span>{label}</span>
+      <span className="text-dim text-[10px]">· {active ? "active" : "inactive"}</span>
     </button>
-  );
-}
-
-function ActiveRoleView({
-  human,
-  role,
-  isSelf,
-  canDeactivate,
-  toggling,
-  onDeactivate,
-}: {
-  human: Agent;
-  role: "expert" | "completer";
-  isSelf: boolean;
-  canDeactivate: boolean;
-  toggling: boolean;
-  onDeactivate: () => void;
-}) {
-  const blurb =
-    role === "expert"
-      ? "Experts claim expert-only bounties and give high-signal answers in their skill."
-      : "Task completers take on real-world errands, research, and assigned work.";
-  const roleLabel = role === "expert" ? "expert" : "task completer";
-
-  return (
-    <div className="space-y-4">
-      <div className="text-xs text-muted">{blurb}</div>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
-            display name
-          </div>
-          <div className="text-foreground break-words">{human.name}</div>
-          <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-            primary skill
-          </div>
-          <div className="text-amber text-sm break-words">{human.skill}</div>
-          {human.description && (
-            <>
-              <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-                bio
-              </div>
-              <div className="text-sm text-muted whitespace-pre-wrap break-words">
-                {human.description}
-              </div>
-            </>
-          )}
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-widest text-dim mb-1">
-            rate
-          </div>
-          <div className="text-foreground tabular-nums">{human.price}</div>
-          <div className="text-[10px] uppercase tracking-widest text-dim mt-3 mb-1">
-            reputation
-          </div>
-          <div className="text-amber tabular-nums text-sm">
-            {human.reputation.count > 0
-              ? `${human.reputation.averageScore.toFixed(1)} ★ (${human.reputation.count})`
-              : "— unrated"}
-          </div>
-        </div>
-      </div>
-      {isSelf && canDeactivate && (
-        <div className="pt-3 border-t border-border">
-          <button
-            onClick={onDeactivate}
-            disabled={toggling}
-            className="text-[11px] text-dim hover:text-danger transition-none disabled:opacity-40"
-          >
-            {toggling ? "updating…" : `[ deactivate ${roleLabel} role ]`}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InactiveRoleView({
-  role,
-  isSelf,
-  toggling,
-  onActivate,
-}: {
-  role: "expert" | "completer";
-  isSelf: boolean;
-  toggling: boolean;
-  onActivate: () => void;
-}) {
-  const roleLabel = role === "expert" ? "expert" : "task completer";
-  const blurb =
-    role === "expert"
-      ? "You haven't activated the expert role. Experts get access to expert-only bounties and give high-signal answers."
-      : "You haven't activated the task completer role. Completers take real-world errands and assigned work from other wallets.";
-
-  return (
-    <div className="py-8 text-center space-y-3">
-      <div className="text-sm text-muted max-w-md mx-auto">{blurb}</div>
-      {isSelf && (
-        <button
-          onClick={onActivate}
-          disabled={toggling}
-          className="border border-phosphor text-phosphor bg-transparent text-xs font-bold px-4 py-2 hover:bg-phosphor hover:text-background transition-none disabled:opacity-40"
-        >
-          {toggling ? "activating…" : `[ activate ${roleLabel} role ]`}
-        </button>
-      )}
-    </div>
   );
 }
 
@@ -825,7 +701,7 @@ function AgentsPanel({ agents }: { agents: Agent[] }) {
 
 function CompletedTasksPanel({ tasks }: { tasks: Task[] }) {
   return (
-    <TerminalWindow title="swarm://profile/completed" subtitle={`${tasks.length} tasks`} dots={false}>
+    <TerminalWindow title="swarm://profile/completed" subtitle={`${tasks.length} human ${tasks.length === 1 ? "task" : "tasks"} completed`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no completed tasks yet.</div>
       ) : (
@@ -966,7 +842,7 @@ function PostedTasksPanel({ tasks, onChanged }: { tasks: Task[]; onChanged: () =
   const errSummary = Object.entries(errById).find(([, v]) => v);
 
   return (
-    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} human ${tasks.length === 1 ? "task" : "tasks"}`} dots={false}>
+    <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} human ${tasks.length === 1 ? "task" : "tasks"} posted`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no tasks posted yet.</div>
       ) : (

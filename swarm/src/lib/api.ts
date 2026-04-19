@@ -412,6 +412,7 @@ export interface GalleryImageEntry {
   mimeType: string | null;
   createdAt: string;
   readyAt: string | null;
+  source: "user" | "agent";
   agent: { id: string; name: string } | null;
 }
 

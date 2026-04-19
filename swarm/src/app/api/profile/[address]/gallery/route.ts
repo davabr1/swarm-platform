@@ -1,13 +1,16 @@
 import { db } from "@/lib/db";
+import { listMcps } from "@/lib/mcpRegistry";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// Unified image gallery: every ready image where the wallet (or one of its
-// MCPs) paid to mint, minus any the owner explicitly hid. The old explicit
-// "save" flow is gone — images auto-pin to the payer's profile, and the
-// pencil/edit UI writes to HiddenImage to remove things from the grid.
+// Unified image gallery: every ready image keyed under the wallet OR one of
+// its paired MCPs, minus anything the owner explicitly hid. We split the
+// feed into two sources so the UI can dot-tag origin:
+//   - "user"  = askerAddress === the profile's wallet (browser marketplace chat)
+//   - "agent" = askerAddress === one of the wallet's on-chain paired MCPs
+//                (autonomous calls from Claude/Cursor/Codex)
 export async function GET(
   _req: NextRequest,
   ctx: RouteContext<"/api/profile/[address]/gallery">,
@@ -15,14 +18,19 @@ export async function GET(
   const { address } = await ctx.params;
   const wallet = address.toLowerCase();
 
+  const paired = await listMcps(wallet);
+  const mcpAddresses = paired.map((p) => p.address.toLowerCase());
+  const mcpSet = new Set(mcpAddresses);
+  const allAddresses = Array.from(new Set([wallet, ...mcpAddresses]));
+
   const [requested, hidden] = await Promise.all([
     db.imageGeneration.findMany({
       where: {
-        askerAddress: { equals: wallet, mode: "insensitive" },
+        askerAddress: { in: allAddresses, mode: "insensitive" },
         status: "ready",
       },
       orderBy: { readyAt: "desc" },
-      take: 120,
+      take: 160,
       select: {
         id: true,
         prompt: true,
@@ -30,6 +38,7 @@ export async function GET(
         createdAt: true,
         readyAt: true,
         agentId: true,
+        askerAddress: true,
       },
     }),
     db.hiddenImage.findMany({
@@ -52,12 +61,15 @@ export async function GET(
 
   const entries = visible.map((img) => {
     const a = agentById.get(img.agentId);
+    const asker = img.askerAddress.toLowerCase();
+    const source: "user" | "agent" = mcpSet.has(asker) ? "agent" : "user";
     return {
       id: img.id,
       prompt: img.prompt,
       mimeType: img.mimeType,
       createdAt: img.createdAt,
       readyAt: img.readyAt,
+      source,
       agent: a ? { id: a.id, name: a.name } : null,
     };
   });

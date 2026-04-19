@@ -5,11 +5,11 @@ import Link from "next/link";
 import TerminalWindow from "./TerminalWindow";
 import { fetchGallery, hideImage, type GalleryImageEntry } from "@/lib/api";
 
-// All images this wallet (or its paired MCPs) paid to mint, auto-pinned.
-// Owners can enter edit mode (pencil → done) to remove images from their own
-// gallery — writes a HiddenImage row, never deletes the underlying generation
-// (which is shared). Thumbnails open `/image/<id>?gallery=<address>` so the
-// viewer's prev/next arrows cycle through this same list.
+// Every ready image paid for by this wallet OR one of its paired MCPs,
+// tagged by origin so the user can tell which were from the browser
+// marketplace vs their autonomous Claude/Cursor/Codex agent. Owners can
+// enter edit mode (pencil → done) to hide images from their profile; the
+// underlying generation is shared/public and never deleted.
 export default function ImageGalleryPanel({
   address,
   isSelf,
@@ -74,18 +74,18 @@ export default function ImageGalleryPanel({
       <div className="p-5">
         {entries.length === 0 ? (
           <div className="text-xs text-dim leading-relaxed max-w-2xl">
-            Nothing here yet. Images your linked MCP generates land here
-            automatically.
+            Nothing here yet. Images you or your paired MCP agent generate
+            land here automatically.
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="text-[11px] text-dim leading-relaxed max-w-2xl">
-                {isSelf
-                  ? editing
-                    ? "Click the × on any image to remove it from your profile. Underlying generation is kept — you can always re-find it via its link."
-                    : "Every image tied to this wallet. Click a tile to open the full-screen viewer with prev/next arrows."
-                  : "Images this wallet has minted. Click to open the viewer."}
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface-1 px-3 py-2">
+                <div className="text-[10px] uppercase tracking-widest text-dim">
+                  legend
+                </div>
+                <LegendKey color="amber" label="you made" />
+                <LegendKey color="phosphor" label="your agent made" />
               </div>
               {canEdit && (
                 <button
@@ -102,6 +102,9 @@ export default function ImageGalleryPanel({
                 </button>
               )}
             </div>
+            {editing && (
+              <div className="mb-3 text-[11px] text-dim">click × to remove</div>
+            )}
             <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {entries.map((e) => (
                 <GalleryTile
@@ -134,6 +137,10 @@ function GalleryTile({
   hiding: boolean;
   onHide: () => void;
 }) {
+  const dotColor = entry.source === "agent" ? "bg-phosphor" : "bg-amber";
+  const dotTitle =
+    entry.source === "agent" ? "your agent made" : "you made";
+
   const content = (
     <div className="relative aspect-square bg-background">
       <img
@@ -141,6 +148,10 @@ function GalleryTile({
         alt={entry.prompt}
         loading="lazy"
         className="w-full h-full object-cover"
+      />
+      <span
+        className={`absolute top-1.5 left-1.5 inline-block w-2 h-2 ${dotColor} ring-1 ring-background`}
+        title={dotTitle}
       />
       {editing && (
         <button
@@ -153,7 +164,7 @@ function GalleryTile({
           disabled={hiding}
           aria-label="remove from profile"
           title="remove from profile"
-          className="absolute top-1.5 right-1.5 w-6 h-6 border border-amber bg-background/90 text-amber hover:bg-amber hover:text-background transition-none flex items-center justify-center text-[13px] leading-none disabled:opacity-40"
+          className="absolute top-1.5 right-1.5 w-6 h-6 border border-danger bg-background/90 text-danger hover:bg-danger hover:text-background transition-none flex items-center justify-center text-[13px] leading-none disabled:opacity-40"
         >
           ×
         </button>
@@ -188,6 +199,22 @@ function GalleryTile({
       {content}
       {caption}
     </Link>
+  );
+}
+
+function LegendKey({
+  color,
+  label,
+}: {
+  color: "amber" | "phosphor";
+  label: string;
+}) {
+  const bg = color === "amber" ? "bg-amber" : "bg-phosphor";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] text-muted">
+      <span className={`inline-block w-2 h-2 ${bg}`} />
+      {label}
+    </span>
   );
 }
 

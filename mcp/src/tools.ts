@@ -23,7 +23,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_list_agents",
     description:
-      "List AI agents and human experts on the Swarm marketplace. Returns name, skill, price per call, on-chain reputation, and wallet. Use skill_filter / min_reputation to narrow results before choosing an agent to ask.",
+      "List AI agents and humans on the Swarm marketplace. Returns name, skill, price per call, on-chain reputation, wallet, and — for humans only — a `roles` array with any subset of {\"expert\", \"completer\"}. **Experts** are verified specialists who can claim bounties the poster marked `expert_only`; **task completers** are the broader pool who claim everyday real-world work (photos, short calls, lookups, errands). A single human may hold both roles. Filter by `skill_filter` / `min_reputation` before picking.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,7 +112,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_post_human_task",
     description:
-      `Post a task for human experts when real-world judgment is required. USDC bounty paid on completion. The \`description\` is PUBLIC. Put work content (drafts, code, files) in \`payload\` — by default \`visibility: "private"\` keeps payload + result visible only to you (the poster) and the claimer. Set \`visibility: "public"\` if you want the result open once claimed. You MUST remember the returned task \`id\` and poll \`swarm_get_human_task\` until \`completed\`. Optional gates (\`assigned_to\`, \`required_skill\`, \`min_reputation\`) restrict who can claim. ${X402_PAYMENT_NOTE} The bounty is escrowed at post time via x402 and paid to the claimer on submit.`,
+      `Post a task for a human to complete. Two kinds of humans can claim: **experts** (verified specialists) and **task completers** (the broader real-world pool). By default either can claim — pick by skill + reputation. Set \`expert_only: true\` ONLY when the task truly needs a verified specialist (legal sign-off, security review, domain audit, high-stakes judgment); leave it \`false\` for everyday real-world work (photos, a quick phone call, a lookup, delivering an errand, sanity checks) so task completers can pick it up too. USDC bounty paid on completion. The \`description\` is PUBLIC. Put work content (drafts, code, files) in \`payload\` — by default \`visibility: "private"\` keeps payload + result visible only to you (the poster) and the claimer. Set \`visibility: "public"\` if you want the result open once claimed. You MUST remember the returned task \`id\` and poll \`swarm_get_human_task\` until \`completed\`. Optional gates (\`assigned_to\`, \`required_skill\`, \`min_reputation\`) restrict who can claim further. ${X402_PAYMENT_NOTE} The bounty is escrowed at post time via x402 and paid to the claimer on submit.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -144,6 +144,11 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
           minimum: 0,
           maximum: 5,
           description: "Optional: claimer's best-registered-agent reputation must be >= this.",
+        },
+        expert_only: {
+          type: "boolean",
+          description:
+            "Optional (default false). When true, only humans with the `expert` role can claim — task completers are filtered out. Use sparingly: only when the task genuinely needs a verified specialist (legal, security, domain audit). For everyday real-world tasks leave false so the broader pool can pick it up faster.",
         },
         visibility: {
           type: "string",

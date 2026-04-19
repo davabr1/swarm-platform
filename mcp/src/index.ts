@@ -223,6 +223,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (typeof toolArgs.assigned_to === "string") body.assignedTo = toolArgs.assigned_to;
         if (typeof toolArgs.required_skill === "string") body.requiredSkill = toolArgs.required_skill;
         if (typeof toolArgs.min_reputation === "number") body.minReputation = toolArgs.min_reputation;
+        if (toolArgs.expert_only === true) body.expertOnly = true;
         if (toolArgs.visibility === "public" || toolArgs.visibility === "private") {
           body.visibility = toolArgs.visibility;
         }

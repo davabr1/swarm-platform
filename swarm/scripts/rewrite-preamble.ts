@@ -1,18 +1,20 @@
-// Backfill / rewrite for the Swarm quality preamble. Three passes:
+// Backfill / rewrite for the Swarm quality preamble.
 //
-//   1. Image agents never get the preamble (the copy is text-response
-//      guidance). If one somehow has it (from an earlier backfill), strip it.
+// For every row we want the systemPrompt to consist of the CURRENT preamble
+// (see src/lib/swarmPreamble.ts) + the role body. To stay idempotent and to
+// survive preamble edits (new bullets, re-ordering, etc.) we:
 //
-//   2. Text / skill / human rows whose systemPrompt does NOT start with the
-//      anchor get the current `SWARM_QUALITY_PREAMBLE` prepended. This
-//      backfills every platform agent (seed.ts historically didn't prepend)
-//      plus any user-created row that slipped through with the wrapper off.
+//   1. Image agents — strip any preamble they carry (the preamble is text-
+//      response guidance; image rows don't need it).
 //
-//   3. Rows that already carry an older preamble containing the now-retired
-//      "3-8 short lines" line get that one line swapped for the current
-//      "calibrate length" copy in place.
+//   2. Non-image agents —
+//        - If the prompt starts with the anchor sentence, slice off the old
+//          preamble block (everything through the first `\n---\n\n` fence
+//          that the preamble ends with) and re-prepend the fresh copy.
+//        - Otherwise, just prepend.
 //
-// Idempotent — rerunning is safe.
+// Idempotent — rerunning with no preamble changes is a no-op on every row
+// because the fresh prompt matches the existing one byte-for-byte.
 //
 // Usage: `cd swarm && npx tsx scripts/rewrite-preamble.ts`
 
@@ -25,9 +27,16 @@ function isImageAgent(skill: string | null): boolean {
   return !!skill && skill.startsWith("Image");
 }
 
-const OLD_LINE = "- Keep it tight — 3-8 short lines unless the task genuinely needs depth.";
-const NEW_LINE =
-  "- Calibrate length to the question — concise when you can, thorough when the user needs the reasoning. Never pad to look thorough.";
+// The preamble ends with a `\n---\n\n` fence separating it from the role
+// body. Find it and slice past it to peel off whatever old preamble is
+// attached. Returns the role-only body.
+function stripPreamble(prompt: string): string {
+  if (!prompt.startsWith(SWARM_PREAMBLE_ANCHOR)) return prompt;
+  const fence = "\n---\n\n";
+  const idx = prompt.indexOf(fence);
+  if (idx < 0) return prompt; // no fence found; don't risk mangling
+  return prompt.slice(idx + fence.length);
+}
 
 const db = new PrismaClient();
 
@@ -36,44 +45,39 @@ async function main() {
     select: { id: true, name: true, skill: true, systemPrompt: true },
   });
 
-  let prepended = 0;
-  let stripped = 0;
   let rewritten = 0;
+  let stripped = 0;
+  let unchanged = 0;
 
   for (const r of all) {
     if (!r.systemPrompt) continue;
-    let prompt = r.systemPrompt;
-    let changed = false;
+    const original = r.systemPrompt;
+    let next: string;
 
     if (isImageAgent(r.skill)) {
-      if (prompt.startsWith(SWARM_PREAMBLE_ANCHOR)) {
-        const body = prompt.slice(SWARM_QUALITY_PREAMBLE.length);
-        prompt = body.startsWith(SWARM_PREAMBLE_ANCHOR) ? body : body.replace(/^\s+/, "");
-        if (prompt !== r.systemPrompt) {
-          changed = true;
-          stripped++;
-          console.log(`  − strip   · ${r.id} · ${r.name}`);
-        }
+      next = stripPreamble(original);
+      if (next !== original) {
+        stripped++;
+        console.log(`  − strip   · ${r.id} · ${r.name}`);
       }
-    } else if (!prompt.startsWith(SWARM_PREAMBLE_ANCHOR)) {
-      prompt = SWARM_QUALITY_PREAMBLE + prompt;
-      changed = true;
-      prepended++;
-      console.log(`  + prepend · ${r.id} · ${r.name}`);
-    } else if (prompt.includes(OLD_LINE)) {
-      prompt = prompt.split(OLD_LINE).join(NEW_LINE);
-      changed = true;
-      rewritten++;
-      console.log(`  ~ rewrite · ${r.id} · ${r.name}`);
+    } else {
+      const body = stripPreamble(original);
+      next = SWARM_QUALITY_PREAMBLE + body;
+      if (next !== original) {
+        rewritten++;
+        console.log(`  ~ rewrite · ${r.id} · ${r.name}`);
+      }
     }
 
-    if (changed) {
-      await db.agent.update({ where: { id: r.id }, data: { systemPrompt: prompt } });
+    if (next !== original) {
+      await db.agent.update({ where: { id: r.id }, data: { systemPrompt: next } });
+    } else {
+      unchanged++;
     }
   }
 
   console.log(
-    `done — scanned ${all.length} rows, prepended ${prepended}, stripped from image agents ${stripped}, rewrote old line ${rewritten}.`,
+    `done — scanned ${all.length} rows, rewrote ${rewritten} text agents, stripped ${stripped} image agents, ${unchanged} unchanged.`,
   );
 }
 

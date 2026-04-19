@@ -705,24 +705,23 @@ export default function ConfigurePage() {
                 </p>
                 <CodeBlock code="npx -y swarm-marketplace-mcp unpair" filename="terminal" language="bash" />
                 <p>
-                  Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request.
+                  Deletes <code className="text-foreground">~/.swarm-mcp/session.json</code> so
+                  this machine can no longer sign x402 payments with that key. The CLI also
+                  offers to sweep any leftover USDC or print the private key before it wipes,
+                  in case you missed step 1. The on-chain link still needs step 3.
                 </p>
                 <p>
                   <span className="text-foreground">Step 3 · unlink on-chain:</span>
                 </p>
                 <p>
-                  <code className="text-foreground">unpair</code> only deletes the local key — the
-                  on-chain <code className="text-foreground">MCPRegistry</code> entry still points
-                  at this MCP until you sign{" "}
-                  <code className="text-foreground">MCPRegistry.unregister</code> from the wallet
-                  that paired it.
+                  Step 2 only wipes the local key. The{" "}
+                  <code className="text-foreground">MCPRegistry</code> on Fuji still links this MCP
+                  to the wallet that paired it — until you sign{" "}
+                  <code className="text-foreground">MCPRegistry.unregister</code> from that same
+                  wallet. Connect it (top-right), then click{" "}
+                  <code className="text-foreground">[ unlink on-chain ]</code> below to fire the tx.
                 </p>
                 <InlineUnlinkMcps />
-                <p className="text-[12px]">
-                  Shows MCPs paired to the wallet you have connected (top-right). Click{" "}
-                  <code className="text-foreground">[ unlink on-chain ]</code> to send the
-                  <code className="text-foreground mx-1">MCPRegistry.unregister</code>tx.
-                </p>
               </div>
             </details>
 

@@ -44,7 +44,7 @@ export default function FaucetHelp({ inline = false }: FaucetHelpProps) {
             Pick <span className="text-foreground font-semibold">Avalanche Fuji</span> in the
             network dropdown. Wrong-network is the #1 reason drops don&apos;t show up.
           </li>
-          <li>Paste your main wallet address (or an MCP address) → request.</li>
+          <li>Paste your main wallet address (or an MCP wallet address) → request.</li>
           <li>USDC appears in ~30s. Refresh your profile or the nav chip.</li>
         </ol>
         <div className="text-[11px] text-dim border-t border-border pt-2">

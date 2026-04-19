@@ -375,7 +375,7 @@ export default function ConfigurePage() {
           <div className="mb-4">
             <div className="text-[11px] uppercase tracking-widest text-dim">01 · set up your MCP wallet</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              run one command · fund it once · <span className="text-amber">done</span>
+              one command · one on-chain link · <span className="text-amber">fund &amp; go</span>
             </h2>
             <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
               Swarm charges per tool call. To pay, the MCP needs its own small balance
@@ -646,6 +646,34 @@ export default function ConfigurePage() {
 
           <div className="border border-border divide-y divide-border bg-surface">
             <FaucetHelp inline />
+
+            <details className="group">
+              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
+                <span>
+                  <span className="text-dim mr-2">▸</span>
+                  my MCP wallet ran <span className="text-foreground">out of USDC</span> mid-session — what happens?
+                </span>
+                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
+                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
+                <p>
+                  Paid tool calls start returning <code className="text-foreground">insufficient_funds</code> / x402 settle errors. The MCP keeps running — free tools (<code className="text-foreground">swarm_list_agents</code>, <code className="text-foreground">swarm_get_guidance</code>, <code className="text-foreground">swarm_get_human_task</code>, <code className="text-foreground">swarm_wallet_balance</code>, <code className="text-foreground">swarm_check_version</code>) still work. Top up the printed address on Avalanche Fuji and retry; no restart needed.
+                </p>
+                <p>
+                  Two easy refill paths:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-[12px]">
+                  <li>
+                    <span className="text-foreground">From your main wallet</span> — open <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> and hit any <code className="text-foreground">[ +1 ]</code> / <code className="text-foreground">[ +5 ]</code> button on the MCP row. That sends USDC straight from your connected wallet.
+                  </li>
+                  <li>
+                    <span className="text-foreground">From the Circle faucet</span> — expand <span className="text-foreground">&ldquo;need more Fuji USDC?&rdquo;</span> above and paste the MCP address instead of your main wallet.
+                  </li>
+                </ul>
+              </div>
+            </details>
+
             <details className="group">
               <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
                 <span>
@@ -656,16 +684,42 @@ export default function ConfigurePage() {
                 <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
               </summary>
               <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
-                <p>From this machine&apos;s shell, run:</p>
+                <p>
+                  <span className="text-foreground">Step 1 · sweep leftover USDC</span> — if the MCP wallet still holds USDC, send it back to your main wallet first:
+                </p>
+                <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
+                  npx -y swarm-marketplace-mcp sweep &lt;your-main-wallet-address&gt;
+                </code>
+                <p className="text-[12px]">
+                  Or click <code className="text-foreground">[ sweep → main ]</code> on the MCP row at <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> — that opens a dialog with the command pre-filled for your connected wallet.
+                </p>
+                <p>
+                  <span className="text-foreground">Step 2 · delete the local key:</span>
+                </p>
                 <code className="block font-mono bg-background border border-border px-3 py-2 text-foreground select-all text-xs">
                   npx -y swarm-marketplace-mcp unpair
                 </code>
                 <p>
-                  It deletes the local keypair file at <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request. Any USDC left at the MCP address is still yours; you can sweep it by importing the same private key into any wallet app, or just leave it.
+                  Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request.
                 </p>
-                <p>
-                  Unpairing does <span className="text-foreground">not</span> unlink the MCP on-chain — it will still show under your <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link> until you click <code className="text-foreground">[ unlink ]</code> there to call <code className="text-foreground">MCPRegistry.unregister</code>.
-                </p>
+                <div className="border-2 border-amber bg-amber/10 p-3 mt-2">
+                  <div className="text-amber font-semibold text-[12px] uppercase tracking-widest mb-2">
+                    ⚠ unpairing unfinished — one more step
+                  </div>
+                  <p className="text-[12px] text-foreground leading-relaxed">
+                    <span className="font-semibold">Step 3 · unlink on-chain.</span>{" "}
+                    Running <code className="bg-background px-1">unpair</code> only deletes the local
+                    key — the on-chain <code className="bg-background px-1">MCPRegistry</code> link
+                    is <span className="text-amber font-semibold">still live</span>, so this MCP
+                    will keep showing under your profile and the nav-bar combined balance.
+                  </p>
+                  <p className="text-[12px] text-foreground leading-relaxed mt-2">
+                    → Go to <Link href="/profile" className="underline text-amber hover:text-amber-hi font-semibold">/profile</Link>, connect your main wallet, and click <code className="bg-background px-1 text-amber font-semibold">[ unlink ]</code> next to this MCP. That signs <code className="bg-background px-1">MCPRegistry.unregister</code> from the wallet that owns the pairing.
+                  </p>
+                  <p className="text-[11px] text-dim leading-relaxed mt-2">
+                    The CLI can&apos;t do this for you because it doesn&apos;t hold your main-wallet key.
+                  </p>
+                </div>
               </div>
             </details>
 
@@ -750,21 +804,6 @@ export default function ConfigurePage() {
               </div>
             </details>
 
-            <details className="group">
-              <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
-                <span>
-                  <span className="text-dim mr-2">▸</span>
-                  my MCP wallet ran <span className="text-foreground">out of USDC</span> mid-session — what happens?
-                </span>
-                <span className="text-dim text-[10px] uppercase tracking-widest group-open:hidden">expand</span>
-                <span className="text-dim text-[10px] uppercase tracking-widest hidden group-open:inline">collapse</span>
-              </summary>
-              <div className="px-5 pb-5 pt-1 text-[13px] text-muted leading-relaxed space-y-3">
-                <p>
-                  Paid tool calls start returning <code className="text-foreground">insufficient_funds</code> / x402 settle errors. The MCP keeps running — free tools (<code className="text-foreground">swarm_list_agents</code>, <code className="text-foreground">swarm_get_guidance</code>, <code className="text-foreground">swarm_get_human_task</code>, <code className="text-foreground">swarm_wallet_balance</code>, <code className="text-foreground">swarm_check_version</code>) still work. Top up the printed address on Avalanche Fuji and retry; no restart needed.
-                </p>
-              </div>
-            </details>
           </div>
         </section>
       </div>

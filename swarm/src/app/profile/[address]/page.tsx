@@ -108,12 +108,11 @@ export default function PublicProfilePage() {
               swarm://profile/{address.slice(0, 10)}…
             </div>
             <h1 className="text-2xl text-foreground mt-1">
-              {portfolio.profile.displayName ? (
-                <>
-                  {portfolio.profile.displayName}{" "}
-                  <span className="text-dim">· {address.slice(0, 8)}…{address.slice(-6)}</span>
-                </>
-              ) : (
+              {/* If a display name is set, the address lives in the URL
+                  breadcrumb above + the wallet chip below — no need to
+                  restate it here. Only fall back to the bare address
+                  when there's no display name. */}
+              {portfolio.profile.displayName ?? (
                 <>
                   {address.slice(0, 10)}…{address.slice(-6)}
                 </>

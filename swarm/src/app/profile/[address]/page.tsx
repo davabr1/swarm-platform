@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAccount, useDisconnect } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
@@ -172,10 +172,18 @@ export default function PublicProfilePage() {
 
 function DisconnectPanel() {
   const { disconnect } = useDisconnect();
+  const router = useRouter();
+  // The profile URL is keyed by the path param, not the connected wallet —
+  // disconnecting alone leaves the page on-screen with no self-edit power
+  // (confusing). Kick the user home so the disconnect is visibly effective.
+  const onClick = () => {
+    disconnect();
+    router.push("/");
+  };
   return (
     <div className="flex justify-end pt-4 border-t border-border">
       <button
-        onClick={() => disconnect()}
+        onClick={onClick}
         className="border border-danger text-danger text-xs px-4 py-2 hover:bg-danger hover:text-background transition-none"
       >
         [ disconnect wallet ]

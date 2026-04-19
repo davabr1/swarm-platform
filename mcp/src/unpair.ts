@@ -191,7 +191,9 @@ export async function runInteractiveUnpair(): Promise<number> {
       console.log("    [3] Cancel");
       console.log("");
 
-      const choice = (await rl.question("  Choice [1/2/3]: ")).trim();
+      const choice = (
+        await rl.question("  Type 1, 2, or 3 and press Enter: ")
+      ).trim();
       console.log("");
 
       if (choice === "3" || choice === "") {
@@ -250,7 +252,9 @@ export async function runInteractiveUnpair(): Promise<number> {
         console.log("  sign transfers from this wallet later.");
         console.log("");
         const confirm = (
-          await rl.question("  Saved them? Continue with unpair? [y/N]: ")
+          await rl.question(
+            "  Saved them? Type y and press Enter to continue (anything else cancels): ",
+          )
         )
           .trim()
           .toLowerCase();
@@ -270,7 +274,9 @@ export async function runInteractiveUnpair(): Promise<number> {
       console.log("  would delete the private key even if a balance exists.");
       console.log("");
       const confirm = (
-        await rl.question("  Continue anyway? [y/N]: ")
+        await rl.question(
+          "  Type y and press Enter to continue anyway (anything else cancels): ",
+        )
       )
         .trim()
         .toLowerCase();

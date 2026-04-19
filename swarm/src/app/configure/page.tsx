@@ -130,7 +130,7 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
     intro:
       "Claude Code ships with a built-in MCP registry. One command registers Swarm for every future session.",
     quickInstall: {
-      label: "copy & run",
+      label: "copy",
       copyText: "claude mcp add swarm -- npx -y swarm-marketplace-mcp",
       hint: "paste this into any terminal · done",
     },
@@ -378,9 +378,14 @@ export default function ConfigurePage() {
 
         {/* PAIR — mint a local MCP wallet, then fund it. One-time, per machine. */}
         <section className="mb-14">
-          <div className="mb-4">
+          <div className="mb-4 flex items-baseline gap-3 flex-wrap">
+            <span className="inline-block border border-amber bg-amber text-background text-[10px] font-bold uppercase tracking-widest px-2 py-1">
+              required · step 1 of 2
+            </span>
             <div className="text-[11px] uppercase tracking-widest text-dim">01 · set up your MCP wallet</div>
-            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
+          </div>
+          <div className="mb-6">
+            <h2 className="text-2xl md:text-3xl text-foreground font-semibold tracking-tight">
               one command · one on-chain link · <span className="text-amber">fund &amp; go</span>
             </h2>
             <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
@@ -391,8 +396,11 @@ export default function ConfigurePage() {
             </p>
           </div>
 
-          <div className="border border-border bg-background">
-            <div className="p-6 border-b border-border">
+          <div className="border-2 border-amber/80 bg-background shadow-[0_0_0_1px_theme(colors.amber.DEFAULT/20%)]">
+            <div className="p-6 border-b border-border bg-amber/5">
+              <div className="text-[10px] uppercase tracking-widest text-amber font-bold mb-3">
+                ❯ run this in your terminal
+              </div>
               <CodeBlock code={PAIR_COMMAND} filename="terminal" language="bash" />
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
@@ -405,7 +413,7 @@ export default function ConfigurePage() {
                   }}
                   className="inline-flex items-center gap-2 border border-phosphor bg-phosphor/10 px-4 py-2 text-xs font-bold text-phosphor hover:bg-phosphor hover:text-background transition-none"
                 >
-                  [ {pairCopied ? "copied ✓" : "copy & run"} ]
+                  [ {pairCopied ? "copied ✓" : "copy"} ]
                 </button>
                 <span className="text-[11px] text-dim">
                   takes ~10 seconds · you won&apos;t need to touch it again
@@ -445,8 +453,20 @@ export default function ConfigurePage() {
 
         {/* PLATFORMS — pick a client, paste, done. */}
         <section className="mb-14">
-          <div className="mb-4">
+          <div className="mb-4 flex items-baseline gap-3 flex-wrap">
+            <span className="inline-block border border-amber bg-amber text-background text-[10px] font-bold uppercase tracking-widest px-2 py-1">
+              required · step 2 of 2
+            </span>
             <div className="text-[11px] uppercase tracking-widest text-dim">02 · pick your client</div>
+          </div>
+          <div className="mb-6">
+            <h2 className="text-2xl md:text-3xl text-foreground font-semibold tracking-tight">
+              wire swarm into <span className="text-amber">claude, cursor, codex…</span>
+            </h2>
+            <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
+              Pick your client below, copy the config, restart the app. That&apos;s it —
+              every tool call from here on uses the wallet you set up in step 1.
+            </p>
           </div>
 
           <div className="flex flex-wrap">
@@ -467,7 +487,7 @@ export default function ConfigurePage() {
             ))}
           </div>
 
-          <div className="border border-border -mt-[1px] bg-background">
+          <div className="border-2 border-amber/80 -mt-[1px] bg-background shadow-[0_0_0_1px_theme(colors.amber.DEFAULT/20%)]">
             <div className="p-6 border-b border-border">
               <div className="text-[10px] uppercase tracking-widest text-dim">
                 {guide.subtitle}
@@ -696,7 +716,7 @@ export default function ConfigurePage() {
                 <CodeBlock code={sweepCommand} filename="terminal" language="bash" />
                 <p className="text-[12px]">
                   {connected
-                    ? "Pre-filled with your connected wallet — just copy and run."
+                    ? "Pre-filled with your connected wallet — just copy it."
                     : "Connect your wallet above and this command will pre-fill with your address."}{" "}
                   Or click <code className="text-foreground">[ sweep → main ]</code> on the MCP row at <Link href="/profile" className="underline text-foreground hover:text-amber">/profile</Link>.
                 </p>

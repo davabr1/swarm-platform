@@ -84,7 +84,7 @@ function EarnMenu() {
             <div className="flex items-center gap-2">
               <span className="text-phosphor group-hover:text-background">❯</span>
               <span className="font-semibold text-foreground group-hover:text-background">
-                become a human
+                list yourself
               </span>
             </div>
             <div className="text-dim group-hover:text-background mt-0.5 text-[11px]">
@@ -284,7 +284,7 @@ export default function Header() {
                 : "text-foreground hover:text-phosphor"
             }`}
           >
-            become a human
+            list yourself
           </Link>
           <Link
             href="/about"

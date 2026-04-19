@@ -15,6 +15,24 @@ const USDC_FUJI = "0x5425890298aed601595a70AB815c96711a31Bc65" as const;
 const FUJI_CHAIN_ID = 43113;
 const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_MCP_REGISTRY_ADDRESS || "") as `0x${string}` | "";
 
+// Minimal ERC-20 ABI for the top-up path (user wallet → their own MCP).
+// Not x402 — a plain `USDC.transfer(to, microUsdc)` call signed by the
+// browser wallet. Allows 1-click top-up without leaving the profile page.
+const USDC_TRANSFER_ABI = [
+  {
+    type: "function",
+    name: "transfer",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+const TOPUP_PRESETS_USDC = [1, 5, 10, 25] as const;
+
 // Displays the set of MCP wallets the profile's owner has registered on
 // MCPRegistry.sol. Each row shows the MCP's live USDC balance + an unlink
 // button (only interactive when viewing your own profile). Empty state
@@ -114,7 +132,7 @@ function McpRow({
   isSelf: boolean;
   onUnlinked: () => void;
 }) {
-  const { data: balance } = useBalance({
+  const { data: balance, refetch: refetchBalance } = useBalance({
     address: mcp,
     token: USDC_FUJI,
     chainId: FUJI_CHAIN_ID,
@@ -128,20 +146,39 @@ function McpRow({
     chainId: FUJI_CHAIN_ID,
   }) as { data?: bigint };
 
+  // Unlink and top-up use separate write hooks so the two flows don't
+  // clobber each other's pending state. Both operate on the same row but
+  // go to different contracts (registry vs USDC).
   const {
-    writeContract,
-    data: hash,
-    isPending,
-    error,
+    writeContract: writeUnlink,
+    data: unlinkHash,
+    isPending: unlinkPending,
+    error: unlinkError,
   } = useWriteContract();
-  const { isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
+  const { isLoading: unlinkConfirming, isSuccess: unlinkDone } = useWaitForTransactionReceipt({
+    hash: unlinkHash,
     chainId: FUJI_CHAIN_ID,
   });
 
+  const {
+    writeContract: writeTopup,
+    data: topupHash,
+    isPending: topupPending,
+    error: topupError,
+  } = useWriteContract();
+  const { isLoading: topupConfirming, isSuccess: topupDone } = useWaitForTransactionReceipt({
+    hash: topupHash,
+    chainId: FUJI_CHAIN_ID,
+  });
+  const [lastTopupUsd, setLastTopupUsd] = useState<number | null>(null);
+
   useEffect(() => {
-    if (isSuccess) onUnlinked();
-  }, [isSuccess, onUnlinked]);
+    if (unlinkDone) onUnlinked();
+  }, [unlinkDone, onUnlinked]);
+
+  useEffect(() => {
+    if (topupDone) refetchBalance();
+  }, [topupDone, refetchBalance]);
 
   const [copied, setCopied] = useState(false);
   const copy = useCallback(async () => {
@@ -153,7 +190,7 @@ function McpRow({
   }, [mcp]);
 
   const onUnlink = () => {
-    writeContract({
+    writeUnlink({
       address: REGISTRY_ADDRESS as `0x${string}`,
       abi: MCPRegistryABI,
       functionName: "unregister",
@@ -161,6 +198,20 @@ function McpRow({
       chainId: FUJI_CHAIN_ID,
     });
   };
+
+  const onTopUp = (usd: number) => {
+    setLastTopupUsd(usd);
+    writeTopup({
+      address: USDC_FUJI,
+      abi: USDC_TRANSFER_ABI,
+      functionName: "transfer",
+      args: [mcp, BigInt(usd) * BigInt(1_000_000)],
+      chainId: FUJI_CHAIN_ID,
+    });
+  };
+
+  const topupBusy = topupPending || topupConfirming;
+  const topupErr = topupError?.message;
 
   const microUsd = balance?.value ?? BigInt(0);
   const balanceStr = balance
@@ -188,12 +239,6 @@ function McpRow({
             >
               snowtrace ↗
             </a>
-            <a
-              href={`/pair?mcpAddress=${mcp}`}
-              className="text-dim hover:text-amber underline"
-            >
-              fund ↗
-            </a>
             <button
               onClick={copy}
               className="text-dim hover:text-foreground"
@@ -205,20 +250,54 @@ function McpRow({
         {isSelf && (
           <button
             onClick={onUnlink}
-            disabled={isPending || confirming}
+            disabled={unlinkPending || unlinkConfirming}
             className="border border-danger text-danger text-[10px] px-3 py-1 hover:bg-danger hover:text-background disabled:opacity-50 transition-none"
           >
-            {isPending
+            {unlinkPending
               ? "[ signing… ]"
-              : confirming
+              : unlinkConfirming
                 ? "[ confirming… ]"
                 : "[ unlink ]"}
           </button>
         )}
       </div>
-      {error && (
+      {/* Top-up row · only for the wallet's own profile. Sends a plain
+          ERC-20 USDC.transfer from the browser wallet to the MCP address
+          on Fuji. Not x402 — the user is funding *their own* MCP. */}
+      {isSelf && (
+        <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase tracking-widest text-dim">top up</span>
+          {TOPUP_PRESETS_USDC.map((amt) => (
+            <button
+              key={amt}
+              onClick={() => onTopUp(amt)}
+              disabled={topupBusy}
+              className="border border-border-hi bg-surface-1 text-foreground text-[11px] px-2.5 py-1 tabular-nums hover:border-phosphor hover:text-phosphor transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              +{amt}
+            </button>
+          ))}
+          <span className="text-[10px] text-dim">USDC · from your wallet on Fuji</span>
+          {topupBusy && (
+            <span className="text-[11px] text-amber tabular-nums">
+              {topupPending
+                ? `signing +${lastTopupUsd}…`
+                : `confirming +${lastTopupUsd}…`}
+            </span>
+          )}
+          {topupDone && !topupBusy && (
+            <span className="text-[11px] text-phosphor">sent +{lastTopupUsd} ✓</span>
+          )}
+        </div>
+      )}
+      {unlinkError && (
         <div className="text-[11px] text-danger mt-2">
-          {error.message.slice(0, 150)}
+          unlink: {unlinkError.message.slice(0, 150)}
+        </div>
+      )}
+      {topupErr && (
+        <div className="text-[11px] text-danger mt-2">
+          top-up: {topupErr.slice(0, 150)}
         </div>
       )}
     </div>

@@ -366,7 +366,7 @@ export default function AgentDetailPage() {
                     href="/become"
                     className="border border-border-hi px-4 py-2 text-xs text-foreground hover:border-phosphor hover:text-phosphor transition-none"
                   >
-                    [ become a human ]
+                    [ list yourself ]
                   </Link>
                 </div>
               </div>

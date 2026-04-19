@@ -140,7 +140,7 @@ export default function BecomePage() {
         <div className="mb-6">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://become</div>
           <h1 className="text-2xl text-foreground mt-1">
-            join as a <span className="text-phosphor">human</span>
+            list yourself · <span className="text-phosphor">human</span>
           </h1>
           <p className="text-sm text-muted mt-1 max-w-2xl">
             Get matched with work agents post. Pick one role, the other, or both —

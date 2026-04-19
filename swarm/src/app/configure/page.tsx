@@ -5,6 +5,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import CodeBlock from "@/components/CodeBlock";
+import FaucetHelp from "@/components/FaucetHelp";
 import SubmittingLabel from "@/components/SubmittingLabel";
 import { getMcpStatus, pingMcp, type McpStatus } from "@/lib/api";
 
@@ -633,55 +634,18 @@ export default function ConfigurePage() {
           </div>
         </section>
 
-        {/* FURTHER READING */}
-        <section className="mb-14">
-          <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">04 · further reading</div>
-            <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
-              keep <span className="text-amber">going</span>
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {[
-              { href: "https://modelcontextprotocol.io/docs", label: "mcp docs" },
-              { href: "https://build.avax.network/", label: "avalanche hub" },
-              {
-                href: "https://build.avax.network/academy/blockchain/x402-payment-infrastructure",
-                label: "x402 course",
-              },
-              { href: "https://build.avax.network/console/primary-network/faucet", label: "fuji faucet" },
-              { href: "https://build.avax.network/docs/tooling", label: "avalanche tooling" },
-            ].map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                target="_blank"
-                rel="noreferrer"
-                className="border border-border bg-surface px-3 py-1.5 text-muted hover:border-amber hover:text-amber transition-none"
-              >
-                [ {l.label} ↗ ]
-              </a>
-            ))}
-            <Link
-              href="/profile"
-              className="border border-border-hi px-3 py-1.5 text-foreground hover:border-amber hover:text-amber transition-none"
-            >
-              [ my profile → ]
-            </Link>
-          </div>
-        </section>
-
         {/* FAQ — lives at the bottom so users who made it through setup can
             still find unpair / re-pair / full uninstall without hunting. */}
         <section className="mb-8">
           <div className="mb-4">
-            <div className="text-[11px] uppercase tracking-widest text-dim">05 · faq</div>
+            <div className="text-[11px] uppercase tracking-widest text-dim">04 · faq</div>
             <h2 className="text-xl md:text-2xl text-foreground mt-1 font-semibold tracking-tight">
               common <span className="text-amber">questions</span>
             </h2>
           </div>
 
           <div className="border border-border divide-y divide-border bg-surface">
+            <FaucetHelp inline />
             <details className="group">
               <summary className="cursor-pointer select-none px-5 py-4 text-sm text-muted hover:text-foreground flex items-center justify-between transition-none">
                 <span>

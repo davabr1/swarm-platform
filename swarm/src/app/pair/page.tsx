@@ -14,11 +14,15 @@ import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
 import MCPRegistryABI from "@/abis/MCPRegistry.json";
+import {
+  FUJI_CHAIN_ID,
+  MCP_REGISTRY_ADDRESS as REGISTRY_ADDRESS,
+  USDC_ERC20_ABI,
+  USDC_FUJI,
+} from "@/lib/fuji";
 
-const USDC_FUJI = "0x5425890298aed601595a70AB815c96711a31Bc65" as const;
-const FUJI_CHAIN_ID = 43113;
 const FAUCET_URL = "https://faucet.circle.com/";
-const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_MCP_REGISTRY_ADDRESS || "") as `0x${string}` | "";
+const TOPUP_PRESETS_USDC = [1, 2, 5, 10] as const;
 
 export default function PairPage() {
   return (
@@ -66,11 +70,18 @@ function PairInner() {
 function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
   const { address: connected, isConnected } = useAccount();
 
-  const { data: balance } = useBalance({
+  const { data: balance, refetch: refetchMcpBalance } = useBalance({
     address: mcpAddress,
     token: USDC_FUJI,
     chainId: FUJI_CHAIN_ID,
     query: { refetchInterval: 5_000 },
+  });
+
+  const { data: mainBalance } = useBalance({
+    address: connected,
+    token: USDC_FUJI,
+    chainId: FUJI_CHAIN_ID,
+    query: { enabled: Boolean(connected), refetchInterval: 10_000 },
   });
 
   const registryDeployed = REGISTRY_ADDRESS.length > 0;
@@ -95,9 +106,43 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
     chainId: FUJI_CHAIN_ID,
   });
 
+  // Transfer USDC from the connected main wallet straight to the MCP address.
+  // Plain ERC-20 — not x402 — since the user is funding *their own* wallet.
+  const {
+    writeContract: writeTopup,
+    data: topupHash,
+    isPending: topupPending,
+    error: topupError,
+  } = useWriteContract();
+  const { isLoading: topupConfirming, isSuccess: topupDone } = useWaitForTransactionReceipt({
+    hash: topupHash,
+    chainId: FUJI_CHAIN_ID,
+  });
+  const [lastTopupUsd, setLastTopupUsd] = useState<number | null>(null);
+
   useEffect(() => {
     if (registered) refetchOwner();
   }, [registered, refetchOwner]);
+
+  useEffect(() => {
+    if (topupDone) refetchMcpBalance();
+  }, [topupDone, refetchMcpBalance]);
+
+  const onTopUp = (usd: number) => {
+    setLastTopupUsd(usd);
+    writeTopup({
+      address: USDC_FUJI,
+      abi: USDC_ERC20_ABI,
+      functionName: "transfer",
+      args: [mcpAddress, BigInt(usd) * BigInt(1_000_000)],
+      chainId: FUJI_CHAIN_ID,
+    });
+  };
+
+  const mainUsdc = mainBalance ? Number(mainBalance.value) / 1_000_000 : 0;
+  const mainHasUsdc = mainUsdc >= 1;
+  const affordable = TOPUP_PRESETS_USDC.filter((amt) => amt <= mainUsdc);
+  const topupBusy = topupPending || topupConfirming;
 
   const [copied, setCopied] = useState(false);
   const copyAddress = async () => {
@@ -251,10 +296,20 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
         </div>
       )}
 
-      {/* Funding */}
-      <div className={`border px-4 py-3 ${funded ? "border-phosphor" : "border-amber"}`}>
+      {/* Funding — border dims while linking is still pending so only one
+          step shouts amber at a time. Flips phosphor once the MCP is
+          actually funded. */}
+      <div
+        className={`border px-4 py-3 ${
+          funded
+            ? "border-phosphor"
+            : registryDeployed && isConnected && !ownedByConnected && !ownedByOther
+              ? "border-border-hi"
+              : "border-amber"
+        }`}
+      >
         <div className="text-[10px] uppercase tracking-widest text-dim">
-          {registryDeployed ? "step 2 · on-chain USDC balance (Fuji)" : "on-chain USDC balance (Fuji)"}
+          {registryDeployed ? "step 2 · MCP USDC balance (Fuji)" : "MCP USDC balance (Fuji)"}
         </div>
         <div className={`text-2xl font-mono tabular-nums mt-1 ${funded ? "text-phosphor" : "text-amber"}`}>
           {balanceStr} <span className="text-sm">USDC</span>
@@ -262,17 +317,87 @@ function PairView({ mcpAddress }: { mcpAddress: `0x${string}` }) {
         <div className="text-[11px] text-dim mt-1">
           {funded
             ? "✓ funded — your MCP can pay for agents. Every paid call signs an EIP-3009 transfer and settles via x402 in ~2s."
-            : "Send USDC on Fuji to the address above. This page polls every 5s; balance updates automatically."}
+            : "Fund this address with Fuji USDC. Page polls every 5s; balance updates automatically."}
         </div>
       </div>
 
-      {!funded && (
-        <div className="border border-border bg-surface px-4 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-dim mb-2">
+      {!funded && isConnected && mainHasUsdc && (
+        <div className="border border-amber bg-surface px-4 py-3 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-amber">
+              fund from your main wallet
+            </div>
+            <div className="text-[12px] text-foreground leading-relaxed mt-1">
+              Your connected wallet holds{" "}
+              <span className="text-phosphor tabular-nums">{mainUsdc.toFixed(2)} USDC</span>. Send some
+              to this MCP — one on-chain <code className="text-foreground">USDC.transfer</code>, no
+              faucet detour.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(affordable.length > 0 ? affordable : TOPUP_PRESETS_USDC).map((amt) => {
+              const disabled = topupBusy || amt > mainUsdc;
+              return (
+                <button
+                  key={amt}
+                  onClick={() => onTopUp(amt)}
+                  disabled={disabled}
+                  className="border border-border-hi bg-surface-1 text-foreground text-[11px] px-3 py-1.5 tabular-nums hover:border-amber hover:text-amber transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  +{amt} USDC
+                </button>
+              );
+            })}
+            {topupBusy && (
+              <span className="text-[11px] text-amber tabular-nums">
+                {topupPending
+                  ? `signing +${lastTopupUsd}…`
+                  : `confirming +${lastTopupUsd}…`}
+              </span>
+            )}
+            {topupDone && !topupBusy && (
+              <span className="text-[11px] text-phosphor">sent +{lastTopupUsd} ✓</span>
+            )}
+          </div>
+          {topupError && (
+            <div className="text-[11px] text-danger">
+              {topupError.message.slice(0, 200)}
+            </div>
+          )}
+          {topupHash && (
+            <a
+              href={`https://testnet.snowtrace.io/tx/${topupHash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] text-dim hover:text-amber underline"
+            >
+              tx: {truncate(topupHash)} ↗
+            </a>
+          )}
+          <div className="text-[10px] text-dim">
+            Out of USDC?{" "}
+            <a
+              href={FAUCET_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-amber"
+            >
+              Circle faucet ↗
+            </a>{" "}
+            drops 20 USDC per request on Fuji.
+          </div>
+        </div>
+      )}
+
+      {!funded && (!isConnected || !mainHasUsdc) && (
+        <div className="border border-amber bg-surface px-4 py-3">
+          <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
             get test USDC
           </div>
           <div className="text-[12px] text-foreground mb-2">
-            Circle drops 20 USDC per request on Fuji. Paste the address above into the faucet.
+            {isConnected
+              ? `Your connected wallet has ${mainUsdc.toFixed(2)} USDC — grab some from the faucet first, then fund your MCP.`
+              : "Circle drops 20 USDC per request on Fuji. Paste the MCP address above into the faucet."}
           </div>
           <a
             href={FAUCET_URL}

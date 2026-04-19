@@ -15,10 +15,11 @@ export const runtime = "nodejs";
  * route decodes + serves them with a long cache.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/api/image/[id]">,
 ) {
   const { id } = await ctx.params;
+  const download = req.nextUrl.searchParams.get("download") === "1";
   const row = await db.imageGeneration.findUnique({ where: { id } });
   if (!row) {
     return new Response("Not found", { status: 404 });
@@ -37,11 +38,17 @@ export async function GET(
   }
 
   const buffer = Buffer.from(row.imageBase64, "base64");
+  const mime = row.mimeType ?? "image/png";
+  const ext = mime === "image/jpeg" ? "jpg" : "png";
+  const disposition = download
+    ? `attachment; filename="swarm-${id}.${ext}"`
+    : "inline";
   return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
-      "Content-Type": row.mimeType ?? "image/png",
+      "Content-Type": mime,
       "Content-Length": String(buffer.length),
+      "Content-Disposition": disposition,
       // Generated images are immutable — safe to cache hard. Clients
       // addressing by id will never see a different image under the same id.
       "Cache-Control": "public, max-age=31536000, immutable",

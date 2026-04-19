@@ -1,5 +1,5 @@
 import type { Agent } from "@prisma/client";
-import { formatPrice } from "./geminiPricing";
+import { formatPrice, formatUsd, parsePrice } from "./geminiPricing";
 
 export type PricingModel = "flat" | "tiered" | "per_token" | "per_minute";
 
@@ -26,6 +26,27 @@ export function pricingDefaultsFor(
   return { pricingModel: "flat", pricingNote: "Flat rate per call — no overage." };
 }
 
+// Rough "what will the caller actually pay" estimate. Matches the settle
+// math at `src/app/api/image/route.ts:90–103` and `src/app/api/ask/route.ts`:
+//   total = commission + geminiCost + 5% platformFee
+// Commission is zero on platform-owned rows. Gemini cost is approximated
+// from the agent's skill (images charge per-image flat; conversational
+// charges per-token). The settled `breakdown.totalUsd` on each call is
+// still the authoritative figure — this is the upfront ballpark that Claude
+// should quote so the user isn't surprised when the real charge lands.
+function estCostPerCallUsd(a: Agent): number {
+  if (a.type === "human_expert") return parsePrice(a.price);
+  const commission = a.userCreated ? parsePrice(a.price) : 0;
+  const isImage = a.skill.toLowerCase().startsWith("image");
+  // Image agents are pinned to Nano Banana 2 (Flash) by default at ~$0.04/img;
+  // Pro rows would run ~$0.134 but are rare. Conversational averages ~500
+  // prompt + 200 output + 100 thoughts tokens at Gemini 3.1 Pro rates.
+  const geminiTypical = isImage ? 0.04 : 0.005;
+  const pre = commission + geminiTypical;
+  const platformFee = pre * 0.05;
+  return Math.round((pre + platformFee) * 10_000) / 10_000;
+}
+
 export function serializeAgent(a: Agent) {
   const defaults = pricingDefaultsFor(a.skill, a.type);
   // Platform-owned agents don't charge a commission — the platform already
@@ -41,6 +62,7 @@ export function serializeAgent(a: Agent) {
     skill: a.skill,
     description: a.description,
     price: displayPrice,
+    estCostPerCallUsd: formatUsd(estCostPerCallUsd(a)),
     address: a.walletAddress,
     creatorAddress: a.creatorAddress ?? a.walletAddress,
     type: a.type,

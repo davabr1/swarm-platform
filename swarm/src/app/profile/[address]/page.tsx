@@ -14,6 +14,7 @@ import SubmittingLabel from "@/components/SubmittingLabel";
 import WalletPanel from "@/components/WalletPanel";
 import PairedMcpsPanel from "@/components/PairedMcpsPanel";
 import TransactionsPanel from "@/components/TransactionsPanel";
+import FaucetHelp from "@/components/FaucetHelp";
 import {
   fetchProfile,
   updateProfile,
@@ -162,6 +163,8 @@ export default function PublicProfilePage() {
           {isSelf && <PostedTasksPanel tasks={portfolio.postedTasks} />}
 
           {isSelf && <TransactionsPanel address={address} />}
+
+          {isSelf && <FaucetHelp />}
         </div>
       </div>
     </div>

@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(result.base64, "base64");
   const url = `${req.nextUrl.origin}/api/image/${id}`;
+  const viewerUrl = `${req.nextUrl.origin}/image/${id}`;
 
   const imageCost = computeImageCost(model);
   const tokenCost = computeGeminiCost({
@@ -196,6 +197,7 @@ export async function POST(req: NextRequest) {
       id,
       status: "ready",
       imageUrl: url,
+      viewerUrl,
       imageBase64: result.base64,
       mimeType: result.mimeType,
       sizeBytes: buffer.length,

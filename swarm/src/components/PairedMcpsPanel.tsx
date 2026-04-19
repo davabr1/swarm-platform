@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  useAccount,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -10,26 +11,12 @@ import {
 } from "wagmi";
 import TerminalWindow from "./TerminalWindow";
 import MCPRegistryABI from "@/abis/MCPRegistry.json";
-
-const USDC_FUJI = "0x5425890298aed601595a70AB815c96711a31Bc65" as const;
-const FUJI_CHAIN_ID = 43113;
-const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_MCP_REGISTRY_ADDRESS || "") as `0x${string}` | "";
-
-// Minimal ERC-20 ABI for the top-up path (user wallet → their own MCP).
-// Not x402 — a plain `USDC.transfer(to, microUsdc)` call signed by the
-// browser wallet. Allows 1-click top-up without leaving the profile page.
-const USDC_TRANSFER_ABI = [
-  {
-    type: "function",
-    name: "transfer",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "value", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-] as const;
+import {
+  FUJI_CHAIN_ID,
+  MCP_REGISTRY_ADDRESS as REGISTRY_ADDRESS,
+  USDC_ERC20_ABI,
+  USDC_FUJI,
+} from "@/lib/fuji";
 
 const TOPUP_PRESETS_USDC = [1, 5, 10, 25] as const;
 
@@ -132,12 +119,23 @@ function McpRow({
   isSelf: boolean;
   onUnlinked: () => void;
 }) {
+  const { address: connected } = useAccount();
   const { data: balance, refetch: refetchBalance } = useBalance({
     address: mcp,
     token: USDC_FUJI,
     chainId: FUJI_CHAIN_ID,
     query: { refetchInterval: 15_000 },
   });
+  const { data: walletBalance } = useBalance({
+    address: connected,
+    token: USDC_FUJI,
+    chainId: FUJI_CHAIN_ID,
+    query: { enabled: Boolean(connected) && isSelf, refetchInterval: 15_000 },
+  });
+  const walletUsdc = walletBalance
+    ? Number(walletBalance.value) / 1_000_000
+    : 0;
+  const affordable = TOPUP_PRESETS_USDC.filter((amt) => amt <= walletUsdc);
   const { data: pairedAt } = useReadContract({
     address: REGISTRY_ADDRESS as `0x${string}`,
     abi: MCPRegistryABI,
@@ -203,7 +201,7 @@ function McpRow({
     setLastTopupUsd(usd);
     writeTopup({
       address: USDC_FUJI,
-      abi: USDC_TRANSFER_ABI,
+      abi: USDC_ERC20_ABI,
       functionName: "transfer",
       args: [mcp, BigInt(usd) * BigInt(1_000_000)],
       chainId: FUJI_CHAIN_ID,
@@ -267,17 +265,31 @@ function McpRow({
       {isSelf && (
         <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap">
           <span className="text-[10px] uppercase tracking-widest text-dim">top up</span>
-          {TOPUP_PRESETS_USDC.map((amt) => (
-            <button
-              key={amt}
-              onClick={() => onTopUp(amt)}
-              disabled={topupBusy}
-              className="border border-border-hi bg-surface-1 text-foreground text-[11px] px-2.5 py-1 tabular-nums hover:border-phosphor hover:text-phosphor transition-none disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              +{amt}
-            </button>
-          ))}
-          <span className="text-[10px] text-dim">USDC · from your wallet on Fuji</span>
+          {affordable.length === 0 ? (
+            <span className="text-[11px] text-dim">
+              your wallet has {walletUsdc.toFixed(2)} USDC — send some first
+              {" · "}
+              <Link href="/configure" className="text-amber underline hover:text-amber-hi">
+                faucet help
+              </Link>
+            </span>
+          ) : (
+            <>
+              {affordable.map((amt) => (
+                <button
+                  key={amt}
+                  onClick={() => onTopUp(amt)}
+                  disabled={topupBusy}
+                  className="border border-border-hi bg-surface-1 text-foreground text-[11px] px-2.5 py-1 tabular-nums hover:border-phosphor hover:text-phosphor transition-none disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  +{amt}
+                </button>
+              ))}
+              <span className="text-[10px] text-dim">
+                USDC · wallet {walletUsdc.toFixed(2)}
+              </span>
+            </>
+          )}
           {topupBusy && (
             <span className="text-[11px] text-amber tabular-nums">
               {topupPending

@@ -45,6 +45,7 @@ interface MarketplaceAgent {
   name: string;
   skill: string;
   price: string;
+  estCostPerCallUsd?: string;
   address: string;
   type: "ai" | "custom_skill" | "human_expert";
   reputation: { count: number; averageScore: number };
@@ -289,6 +290,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const data = (await res.json()) as Record<string, unknown>;
         const payload = data as {
           imageUrl?: string;
+          viewerUrl?: string;
           imageBase64?: string;
           mimeType?: string;
           status?: string;
@@ -301,8 +303,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         delete textData.imageBase64;
 
         const tail = res.ok
-          ? `\n\n✓ Image ready${payload.imageUrl ? ` at ${payload.imageUrl}` : ""}. ` +
-            `The image is attached inline below; the URL above is shareable. ` +
+          ? `\n\n✓ Image ready. ` +
+            (payload.viewerUrl
+              ? `**Paste this viewer link to the user now, in chat, on its own line — even if this image is one step in a larger task:** ${payload.viewerUrl}\n` +
+                `The inline preview below isn't persisted on the user's side, so the viewer link is their only way to save, share, or come back to the image. Don't silently drop it because the workflow isn't finished. `
+              : "") +
+            (payload.imageUrl ? `Raw PNG (no landing page): ${payload.imageUrl}. ` : "") +
             `After you've shown it to the user, rate it honestly: ` +
             `\`swarm_rate_agent(agent_id="${agentId}", score=1-5)\`. ` +
             `Score the output against the prompt — matched intent = 5, usable but off = 3-4, missed = 1-2. ` +

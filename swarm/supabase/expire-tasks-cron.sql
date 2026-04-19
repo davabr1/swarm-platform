@@ -21,11 +21,11 @@ create extension if not exists pg_net;
 -- 2) Schedule the hourly sweep.
 --
 -- Replace <YOUR_PRODUCTION_DOMAIN> with your live origin (e.g.
--- swarm.example.com). If you'd rather gate the endpoint with a shared
--- secret, set CRON_SECRET in Vercel env AND paste the same value below;
--- the route accepts `Authorization: Bearer <secret>`. To leave the
--- endpoint open (the sweep is idempotent, so this is defensible), drop
--- the `headers` argument entirely.
+-- swarm.example.com — no trailing slash). The endpoint is intentionally
+-- open: the sweep only processes already-expired work and refunds to the
+-- original poster, so there's no attack surface worth gating. If you
+-- change your mind later, set CRON_SECRET in Vercel env and add an
+-- `'Authorization', 'Bearer <same-secret>'` entry to the headers object.
 
 select cron.schedule(
   'swarm-expire-tasks-hourly',
@@ -33,10 +33,7 @@ select cron.schedule(
   $$
     select net.http_post(
       url     := 'https://<YOUR_PRODUCTION_DOMAIN>/api/cron/expire-tasks',
-      headers := jsonb_build_object(
-        'Authorization', 'Bearer <CRON_SECRET_MATCHING_VERCEL_ENV>',
-        'Content-Type',  'application/json'
-      ),
+      headers := jsonb_build_object('Content-Type', 'application/json'),
       body    := '{}'::jsonb
     );
   $$

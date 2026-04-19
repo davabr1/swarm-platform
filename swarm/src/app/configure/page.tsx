@@ -707,25 +707,22 @@ export default function ConfigurePage() {
                 <p>
                   Removes <code className="text-foreground">~/.swarm-mcp/session.json</code>. There&apos;s nothing to revoke server-side — x402 signatures are self-authenticating per request.
                 </p>
-                <div className="border-2 border-amber bg-amber/10 p-3 mt-2 space-y-3">
-                  <div className="text-amber font-semibold text-[12px] uppercase tracking-widest">
-                    step 3 · unlink on-chain
-                  </div>
-                  <p className="text-[12px] text-foreground leading-relaxed">
-                    Running <code className="bg-background px-1">unpair</code> only deletes the local
-                    key — the on-chain <code className="bg-background px-1">MCPRegistry</code> link
-                    is <span className="text-amber font-semibold">still live</span>, so this MCP
-                    will keep showing under your profile and the nav-bar combined balance until you
-                    sign <code className="bg-background px-1">MCPRegistry.unregister</code> from the
-                    wallet that paired it.
-                  </p>
-                  <InlineUnlinkMcps />
-                  <p className="text-[11px] text-dim leading-relaxed">
-                    Shows MCPs paired to the wallet you have connected (top-right). Click{" "}
-                    <code className="text-foreground">[ unlink on-chain ]</code> to send the
-                    <code className="text-foreground mx-1">MCPRegistry.unregister</code>tx.
-                  </p>
-                </div>
+                <p>
+                  <span className="text-foreground">Step 3 · unlink on-chain:</span>
+                </p>
+                <p>
+                  <code className="text-foreground">unpair</code> only deletes the local key — the
+                  on-chain <code className="text-foreground">MCPRegistry</code> entry still points
+                  at this MCP until you sign{" "}
+                  <code className="text-foreground">MCPRegistry.unregister</code> from the wallet
+                  that paired it.
+                </p>
+                <InlineUnlinkMcps />
+                <p className="text-[12px]">
+                  Shows MCPs paired to the wallet you have connected (top-right). Click{" "}
+                  <code className="text-foreground">[ unlink on-chain ]</code> to send the
+                  <code className="text-foreground mx-1">MCPRegistry.unregister</code>tx.
+                </p>
               </div>
             </details>
 

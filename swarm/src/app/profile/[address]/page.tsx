@@ -172,25 +172,48 @@ export default function PublicProfilePage() {
 
 function DisconnectPanel() {
   const { disconnectAsync } = useDisconnect();
-  // Disconnect must: (1) actually drop the connector, (2) leave the
-  // profile page (the URL is path-keyed so disconnect alone doesn't
-  // unload it), and (3) not silently auto-reconnect on the next refresh.
-  // Cookie-backed wagmi state can race with client-side navigation, so we
-  // await the disconnect and then do a full-page replace — that forces
-  // WagmiProvider to hydrate from the post-disconnect cookie state.
+  // Disconnect must: (1) actually drop the connector, (2) leave the profile
+  // page (the URL is path-keyed so disconnect alone doesn't unload it), and
+  // (3) not silently auto-reconnect on the next refresh. wagmi persists to
+  // **cookieStorage** here (see `src/lib/wagmi.ts`) — not localStorage — and
+  // under `ssr: true` the server reads that cookie on the next request and
+  // hydrates with any stale connection. So after disconnect we have to
+  // actively expire the wagmi cookies, then hard-reload so both the server
+  // render and client hydration start from a clean slate.
   const onClick = async () => {
     try {
       await disconnectAsync();
     } catch {
-      // Even if wagmi rejects (already-disconnected, etc.), still bail out.
+      // Already disconnected / connector removed — still proceed.
     }
-    // Clear any residual wagmi storage the cookie path may have missed so
-    // `reconnectOnMount` has nothing to rehydrate from.
     if (typeof window !== "undefined") {
+      // Expire every cookie that could carry wagmi / WalletConnect / RainbowKit
+      // state. `document.cookie =` sets one cookie at a time; iterate the list.
+      try {
+        document.cookie.split(";").forEach((c) => {
+          const eq = c.indexOf("=");
+          const name = (eq > -1 ? c.substring(0, eq) : c).trim();
+          if (
+            name.startsWith("wagmi") ||
+            name.startsWith("wc@") ||
+            name.startsWith("rk-") ||
+            name.startsWith("WALLETCONNECT")
+          ) {
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+          }
+        });
+      } catch {}
+      // Mirror on localStorage in case RainbowKit / WC wrote there too.
       try {
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
           const key = window.localStorage.key(i);
-          if (key && (key.startsWith("wagmi") || key.startsWith("wc@2") || key.startsWith("rk-"))) {
+          if (
+            key &&
+            (key.startsWith("wagmi") ||
+              key.startsWith("wc@") ||
+              key.startsWith("rk-") ||
+              key.startsWith("WALLETCONNECT"))
+          ) {
             window.localStorage.removeItem(key);
           }
         }

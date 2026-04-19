@@ -49,6 +49,10 @@ export interface Task {
   createdAt: number;
   claimedAt?: number;
   completedAt?: number;
+  // Auto-expiry deadline. Set at post time (createdAt + 7d). When an open
+  // task crosses this timestamp the expire-tasks cron refunds the bounty
+  // and flips status to "cancelled". Null for legacy pre-migration rows.
+  expiresAt?: number;
 }
 
 export interface UserProfile {

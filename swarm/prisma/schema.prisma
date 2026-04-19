@@ -82,11 +82,17 @@ model Task {
   createdAt      DateTime  @default(now())
   claimedAt      DateTime?
   completedAt    DateTime?
+  // If no one claims by this timestamp, the expire-tasks cron auto-refunds
+  // the bounty to the poster and flips status to "cancelled". Defaults to
+  // createdAt + 7d at /api/tasks POST. Nullable so legacy rows (pre-
+  // migration) aren't swept.
+  expiresAt      DateTime?
 
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@index([assignedTo])
   @@index([requiredSkill])
+  @@index([expiresAt])
 }
 
 model Activity {

@@ -38,4 +38,5 @@ export const TASK_LIST_SELECT: Prisma.TaskSelect = {
   createdAt: true,
   claimedAt: true,
   completedAt: true,
+  expiresAt: true,
 };

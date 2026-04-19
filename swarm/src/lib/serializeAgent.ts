@@ -110,6 +110,7 @@ export function serializeTask(
     createdAt: Date;
     claimedAt: Date | null;
     completedAt: Date | null;
+    expiresAt?: Date | null;
   },
   opts: { viewerAddress?: string } = {}
 ) {
@@ -152,5 +153,6 @@ export function serializeTask(
     createdAt: t.createdAt.getTime(),
     claimedAt: t.claimedAt ? t.claimedAt.getTime() : undefined,
     completedAt: t.completedAt ? t.completedAt.getTime() : undefined,
+    expiresAt: t.expiresAt ? t.expiresAt.getTime() : undefined,
   };
 }

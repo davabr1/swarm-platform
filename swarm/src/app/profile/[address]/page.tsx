@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useParams, useRouter } from "next/navigation";
+import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
@@ -22,6 +22,8 @@ import {
   updateProfile,
   deleteAgent,
   updateAgent,
+  cancelTask,
+  cancelTaskMessage,
   type Agent,
   type ProfilePortfolio,
   type Task,
@@ -51,6 +53,7 @@ function Stars({ rating, count }: { rating: number; count: number }) {
 
 export default function PublicProfilePage() {
   const params = useParams<{ address: string }>();
+  const router = useRouter();
   const address = params.address;
   const { address: connected, isConnected } = useAccount();
   const viewer = connected?.toLowerCase();
@@ -59,6 +62,24 @@ export default function PublicProfilePage() {
   const [portfolio, setPortfolio] = useState<ProfilePortfolio | null>(null);
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
+
+  // Follow wallet switches when you're viewing "your" profile. We track the
+  // last-observed connected wallet in a ref: if it changes AND the URL was
+  // pointing at the old wallet, we redirect to the new wallet's profile. If
+  // the URL points at someone else (e.g. you're inspecting Alice), we don't
+  // hijack the navigation. Disconnect is handled separately by the
+  // `!isConnected` gate rendered below — that auto-shows the connect card
+  // in place of the stale profile.
+  const lastConnectedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const prev = lastConnectedRef.current;
+    const cur = connected?.toLowerCase();
+    lastConnectedRef.current = cur;
+    if (!prev || !cur || prev === cur) return;
+    if (address.toLowerCase() === prev) {
+      router.replace(`/profile/${cur}?viewer=${cur}`);
+    }
+  }, [connected, address, router]);
 
   const load = useCallback(() => {
     if (!isAddress(address)) {
@@ -72,6 +93,11 @@ export default function PublicProfilePage() {
 
   useEffect(() => {
     if (!isConnected) return;
+    // Reset the cached portfolio when the URL address changes — otherwise
+    // the post-redirect render briefly shows the previous wallet's data
+    // while the new fetch is in flight.
+    setPortfolio(null);
+    setErr("");
     load();
     const iv = setInterval(load, 10000);
     return () => clearInterval(iv);
@@ -212,7 +238,7 @@ export default function PublicProfilePage() {
             <CompletedTasksPanel tasks={portfolio.claimedTasks.filter((t) => t.status === "completed")} />
           </div>
 
-          {isSelf && <PostedTasksPanel tasks={portfolio.postedTasks} />}
+          {isSelf && <PostedTasksPanel tasks={portfolio.postedTasks} onChanged={load} />}
 
           {isSelf && <TransactionsPanel address={address} />}
 
@@ -834,7 +860,39 @@ function CompletedTasksPanel({ tasks }: { tasks: Task[] }) {
   );
 }
 
-function PostedTasksPanel({ tasks }: { tasks: Task[] }) {
+function timeUntil(ts: number): string {
+  const s = Math.floor((ts - Date.now()) / 1000);
+  if (s <= 0) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+function PostedTasksPanel({ tasks, onChanged }: { tasks: Task[]; onChanged: () => void }) {
+  const { signMessageAsync } = useSignMessage();
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [errById, setErrById] = useState<Record<string, string>>({});
+
+  const handleRevoke = async (id: string) => {
+    if (revokingId) return;
+    setRevokingId(id);
+    setErrById((p) => {
+      const n = { ...p };
+      delete n[id];
+      return n;
+    });
+    try {
+      const signature = await signMessageAsync({ message: cancelTaskMessage(id) });
+      await cancelTask(id, signature);
+      onChanged();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "revoke failed";
+      setErrById((p) => ({ ...p, [id]: msg }));
+    } finally {
+      setRevokingId(null);
+    }
+  };
+
   const columns: Column<Task>[] = [
     {
       key: "id",
@@ -880,14 +938,59 @@ function PostedTasksPanel({ tasks }: { tasks: Task[] }) {
       align: "right",
       render: (t) => <span className="text-dim text-xs tabular-nums">{timeAgo(t.createdAt)}</span>,
     },
+    {
+      // Two sub-cells share one column: expiry countdown (left) + revoke
+      // button (right). Revoke is open-tasks-only — claimed work already has
+      // a counterparty with a stake, and cancelled/completed rows have nothing
+      // to reverse. Claimed tasks show a "— in progress" hint in the same slot.
+      key: "actions",
+      header: "expires · actions",
+      width: "200px",
+      align: "right",
+      render: (t) => {
+        if (t.status !== "open") {
+          return <span className="text-dim text-xs">—</span>;
+        }
+        const err = errById[t.id];
+        const revoking = revokingId === t.id;
+        return (
+          <div className="flex items-center justify-end gap-2 text-xs">
+            {t.expiresAt && (
+              <span className="text-dim tabular-nums">{timeUntil(t.expiresAt)}</span>
+            )}
+            <button
+              onClick={() => handleRevoke(t.id)}
+              disabled={revoking}
+              title={err || "Refund the bounty to your wallet and close the task."}
+              className="border border-danger/60 text-danger bg-transparent text-[11px] px-2 py-0.5 hover:bg-danger hover:text-background transition-none disabled:opacity-40"
+            >
+              {revoking ? "…" : "revoke"}
+            </button>
+          </div>
+        );
+      },
+    },
   ];
+
+  const errSummary = Object.entries(errById).find(([, v]) => v);
 
   return (
     <TerminalWindow title="swarm://profile/posted" subtitle={`${tasks.length} human ${tasks.length === 1 ? "task" : "tasks"}`} dots={false}>
       {tasks.length === 0 ? (
         <div className="p-6 text-sm text-muted">no tasks posted yet.</div>
       ) : (
-        <DataTable<Task> rows={tasks} columns={columns} rowKey={(t) => t.id} dense />
+        <>
+          <div className="px-4 pt-3 text-[11px] text-dim">
+            Revoke any <span className="text-amber">open</span> task to refund the bounty to your
+            wallet. Unclaimed tasks also auto-refund after 7 days.
+          </div>
+          <DataTable<Task> rows={tasks} columns={columns} rowKey={(t) => t.id} dense />
+          {errSummary && (
+            <div className="border-t border-border bg-danger/10 text-danger text-[11px] px-4 py-2">
+              {errSummary[0]}: {errSummary[1]}
+            </div>
+          )}
+        </>
       )}
     </TerminalWindow>
   );

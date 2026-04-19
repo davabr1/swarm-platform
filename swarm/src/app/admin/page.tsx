@@ -280,6 +280,31 @@ export default function AdminPage() {
                       fuji · chain {data.chainId}
                     </span>
                   </Row>
+                  <Row label="faucets">
+                    {/* Top-up links for the two funding signals that page an
+                        admin. Core faucet refills AVAX for gas on treasury +
+                        orchestrator; Circle faucet refills USDC if the
+                        treasury is short on payout headroom. */}
+                    <span className="flex flex-wrap items-center gap-3 text-[11px]">
+                      <a
+                        href="https://core.app/tools/testnet-faucet/?subnet=c&token=c"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber hover:text-amber-hi font-mono"
+                      >
+                        AVAX · Avalanche Core ↗
+                      </a>
+                      <span className="text-dim">·</span>
+                      <a
+                        href="https://faucet.circle.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber hover:text-amber-hi font-mono"
+                      >
+                        USDC · Circle ↗
+                      </a>
+                    </span>
+                  </Row>
                 </div>
 
                 {health && (
@@ -399,7 +424,15 @@ function WalletBlock({
             </span>
             {avaxLow && (
               <span className="text-[#ff6a6a] text-[11px] ml-2">
-                ⚠ low · top up for gas
+                ⚠ low · top up for gas ·{" "}
+                <a
+                  href="https://core.app/tools/testnet-faucet/?subnet=c&token=c"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-amber"
+                >
+                  Core faucet ↗
+                </a>
               </span>
             )}
             {strayAvax && (

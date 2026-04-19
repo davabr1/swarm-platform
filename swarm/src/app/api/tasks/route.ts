@@ -110,6 +110,10 @@ export async function POST(req: NextRequest) {
   });
 
   const vis = visibility === "public" ? "public" : "private";
+  // Auto-expiry window: if nobody claims within 7 days, the expire-tasks
+  // cron refunds the bounty and closes the task. Lets posters walk away
+  // without the bounty stranded in treasury forever.
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const task = await db.task.create({
     data: {
       id,
@@ -128,6 +132,7 @@ export async function POST(req: NextRequest) {
         typeof minReputation === "number" && !Number.isNaN(minReputation) ? minReputation : null,
       expertOnly: expertOnly === true,
       visibility: vis,
+      expiresAt,
     },
   });
 

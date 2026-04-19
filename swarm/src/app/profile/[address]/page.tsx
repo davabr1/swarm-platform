@@ -181,14 +181,22 @@ function DisconnectPanel() {
   // actively expire the wagmi cookies, then hard-reload so both the server
   // render and client hydration start from a clean slate.
   const onClick = async () => {
+    // Sentinel read by `Providers` on next mount — gates the manual
+    // `reconnect()` call so we don't resurrect the session the user just
+    // killed. Cleared in `WalletChip` when the user explicitly reconnects.
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("swarm:user-disconnected", "1");
+      } catch {}
+    }
     try {
       await disconnectAsync();
     } catch {
       // Already disconnected / connector removed — still proceed.
     }
     if (typeof window !== "undefined") {
-      // Expire every cookie that could carry wagmi / WalletConnect / RainbowKit
-      // state. `document.cookie =` sets one cookie at a time; iterate the list.
+      // Belt and suspenders: nuke any wagmi / WC / RainbowKit state that
+      // could lead to an eager auto-connect on refresh.
       try {
         document.cookie.split(";").forEach((c) => {
           const eq = c.indexOf("=");
@@ -203,7 +211,6 @@ function DisconnectPanel() {
           }
         });
       } catch {}
-      // Mirror on localStorage in case RainbowKit / WC wrote there too.
       try {
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
           const key = window.localStorage.key(i);

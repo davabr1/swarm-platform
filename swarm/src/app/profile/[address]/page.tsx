@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import TerminalWindow from "@/components/TerminalWindow";
@@ -162,80 +162,8 @@ export default function PublicProfilePage() {
           {isSelf && <PostedTasksPanel tasks={portfolio.postedTasks} />}
 
           {isSelf && <TransactionsPanel address={address} />}
-
-          {isSelf && <DisconnectPanel />}
         </div>
       </div>
-    </div>
-  );
-}
-
-function DisconnectPanel() {
-  const { disconnectAsync } = useDisconnect();
-  // Disconnect must: (1) actually drop the connector, (2) leave the profile
-  // page (the URL is path-keyed so disconnect alone doesn't unload it), and
-  // (3) not silently auto-reconnect on the next refresh. wagmi persists to
-  // **cookieStorage** here (see `src/lib/wagmi.ts`) — not localStorage — and
-  // under `ssr: true` the server reads that cookie on the next request and
-  // hydrates with any stale connection. So after disconnect we have to
-  // actively expire the wagmi cookies, then hard-reload so both the server
-  // render and client hydration start from a clean slate.
-  const onClick = async () => {
-    // Sentinel read by `Providers` on next mount — gates the manual
-    // `reconnect()` call so we don't resurrect the session the user just
-    // killed. Cleared in `WalletChip` when the user explicitly reconnects.
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("swarm:user-disconnected", "1");
-      } catch {}
-    }
-    try {
-      await disconnectAsync();
-    } catch {
-      // Already disconnected / connector removed — still proceed.
-    }
-    if (typeof window !== "undefined") {
-      // Belt and suspenders: nuke any wagmi / WC / RainbowKit state that
-      // could lead to an eager auto-connect on refresh.
-      try {
-        document.cookie.split(";").forEach((c) => {
-          const eq = c.indexOf("=");
-          const name = (eq > -1 ? c.substring(0, eq) : c).trim();
-          if (
-            name.startsWith("wagmi") ||
-            name.startsWith("wc@") ||
-            name.startsWith("rk-") ||
-            name.startsWith("WALLETCONNECT")
-          ) {
-            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-          }
-        });
-      } catch {}
-      try {
-        for (let i = window.localStorage.length - 1; i >= 0; i--) {
-          const key = window.localStorage.key(i);
-          if (
-            key &&
-            (key.startsWith("wagmi") ||
-              key.startsWith("wc@") ||
-              key.startsWith("rk-") ||
-              key.startsWith("WALLETCONNECT"))
-          ) {
-            window.localStorage.removeItem(key);
-          }
-        }
-      } catch {}
-      window.location.replace("/");
-    }
-  };
-  return (
-    <div className="flex justify-end pt-4 border-t border-border">
-      <button
-        onClick={onClick}
-        className="border border-danger text-danger text-xs px-4 py-2 hover:bg-danger hover:text-background transition-none"
-      >
-        [ disconnect wallet ]
-      </button>
     </div>
   );
 }

@@ -126,11 +126,10 @@ export default function WalletPanel({
 
         <div className="text-[11px] text-dim leading-relaxed border-t border-border pt-3">
           <span className="text-[10px] uppercase tracking-widest block mb-1">
-            how x402 spends this balance
+            how spending works
           </span>
-          Every paid call returns <code className="text-foreground">402 Payment Required</code>.
-          The caller signs an EIP-3009 authorization with this wallet&apos;s key; a facilitator
-          settles it on Fuji in ~2s. USDC moves peer-to-peer. You never approve or deposit.
+          Each paid call pulls a few cents of USDC directly from this wallet.
+          No deposits, no approvals — when it runs low, just top it up.
         </div>
       </div>
     </TerminalWindow>

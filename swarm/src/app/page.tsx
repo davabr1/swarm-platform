@@ -11,7 +11,8 @@ import BootSplash, {
   shouldShowBootSplash,
   markBootSplashShown,
 } from "@/components/BootSplash";
-import { fetchAgents, type Agent } from "@/lib/api";
+
+type Stats = { services: number; humans: number; usdcFlowedMicroUsd: string };
 
 const HOW_IT_WORKS = [
   {
@@ -52,7 +53,7 @@ const USE_CASES = [
 ];
 
 export default function HomePage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [boot, setBoot] = useState<"pending" | "splash" | "dismissed">("pending");
 
   useEffect(() => {
@@ -60,33 +61,31 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    fetchAgents()
-      .then(setAgents)
-      .catch(() => {});
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/stats")
+        .then((r) => r.json())
+        .then((s: Stats) => {
+          if (!cancelled) setStats(s);
+        })
+        .catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
-  const stats = useMemo(() => {
-    const aiCount = agents.filter((a) => a.type === "ai").length;
-    const custom = agents.filter((a) => a.type === "custom_skill").length;
-    const humans = agents.filter((a) => a.type === "human_expert").length;
-    const volume = agents.reduce((s, a) => {
-      const n = parseFloat(String(a.price).replace(/[^0-9.]/g, ""));
-      return s + (Number.isFinite(n) ? n : 0) * a.totalCalls;
-    }, 0);
-    return {
-      services: aiCount + custom,
-      humans,
-      volume,
-    };
-  }, [agents]);
-
   const volumeLabel = useMemo(() => {
-    const v = stats.volume;
+    if (!stats) return "—";
+    const v = Number(BigInt(stats.usdcFlowedMicroUsd)) / 1_000_000;
     if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
     if (v >= 10_000) return `${(v / 1_000).toFixed(1)}k`;
     if (v >= 1_000) return `${(v / 1_000).toFixed(2)}k`;
     return v.toFixed(2);
-  }, [stats.volume]);
+  }, [stats]);
 
   if (boot === "pending") {
     return <div className="fixed inset-0 bg-background" aria-hidden="true" />;
@@ -113,7 +112,7 @@ export default function HomePage() {
         <div className="mx-auto w-full max-w-[1400px] px-6 lg:px-10 pt-16 pb-20 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] items-start">
           <div>
             <div className="text-amber text-sm mb-5 font-mono truncate">
-              ❯ npx -y swarm-marketplace-mcp
+              ❯ npx -y swarm-marketplace-mcp pair
             </div>
 
             <h1 className="text-foreground font-mono text-[1.7rem] md:text-[2rem] lg:text-[2.5rem] leading-[1.12] tracking-tight font-bold">
@@ -136,11 +135,9 @@ export default function HomePage() {
             <div className="mt-5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] uppercase tracking-widest">
               <span className="border border-border-hi px-2 py-1 text-amber">x402</span>
               <span className="hidden sm:inline text-dim">·</span>
-              <span className="border border-border-hi px-2 py-1 text-foreground">avalanche fuji</span>
-              <span className="hidden sm:inline text-dim">·</span>
-              <span className="border border-border-hi px-2 py-1 text-foreground">circle usdc</span>
-              <span className="hidden sm:inline text-dim">·</span>
               <span className="border border-border-hi px-2 py-1 text-phosphor">erc-8004</span>
+              <span className="hidden sm:inline text-dim">·</span>
+              <span className="border border-border-hi px-2 py-1 text-foreground">avalanche fuji</span>
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -163,13 +160,13 @@ export default function HomePage() {
               <div className="p-3 md:p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">services</div>
                 <div className="text-xl md:text-3xl text-foreground tabular-nums mt-1 font-semibold">
-                  {stats.services}
+                  {stats?.services ?? "—"}
                 </div>
               </div>
               <div className="p-3 md:p-5 border-r border-border">
                 <div className="text-[10px] uppercase tracking-widest text-dim">humans</div>
                 <div className="text-xl md:text-3xl text-phosphor tabular-nums mt-1 font-semibold">
-                  {stats.humans}
+                  {stats?.humans ?? "—"}
                 </div>
               </div>
               <div className="p-3 md:p-5">

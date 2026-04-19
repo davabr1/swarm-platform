@@ -127,10 +127,10 @@ export default function MarketplacePage() {
   // badge read identically. Only exception is "all", which isn't a category.
   const filters: { key: FilterType; label: string }[] = [
     { key: "all", label: "all" },
-    { key: "ai", label: "ai" },
-    { key: "img-gen", label: "img-gen" },
-    { key: "community", label: "community" },
-    { key: "human", label: "human" },
+    { key: "ai", label: CATEGORY_LABEL.ai },
+    { key: "img-gen", label: CATEGORY_LABEL["img-gen"] },
+    { key: "community", label: CATEGORY_LABEL.community },
+    { key: "human", label: CATEGORY_LABEL.human },
   ];
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

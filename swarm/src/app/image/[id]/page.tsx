@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, use } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAccount } from "wagmi";
 import Header from "@/components/Header";
 import CommandPalette from "@/components/CommandPalette";
 import {
@@ -41,18 +42,22 @@ export default function ImageViewerPage({
   const { id } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { address: connected } = useAccount();
   // `?gallery=<profileAddress>` means this viewer was opened from a profile
-  // grid — we fetch that profile's merged gallery and render prev/next arrows
-  // so the user can flip through images without bouncing back. Missing param
-  // (e.g. a raw `/image/<id>` link pasted by Claude Code) keeps the viewer
-  // in its unchanged standalone form.
+  // grid. We only paginate (prev/next + neighbors fetch) when the connected
+  // wallet matches that profile — so sharing a single image URL never leaks
+  // a side-channel into the owner's full gallery.
   const galleryAddress = searchParams.get("gallery");
+  const isOwner =
+    !!galleryAddress &&
+    !!connected &&
+    galleryAddress.toLowerCase() === connected.toLowerCase();
   const [meta, setMeta] = useState<ImageMeta | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [gallery, setGallery] = useState<GalleryImageEntry[] | null>(null);
 
   useEffect(() => {
-    if (!galleryAddress) {
+    if (!galleryAddress || !isOwner) {
       setGallery(null);
       return;
     }
@@ -67,7 +72,7 @@ export default function ImageViewerPage({
     return () => {
       alive = false;
     };
-  }, [galleryAddress]);
+  }, [galleryAddress, isOwner]);
 
   const { prevId, nextId, index, total } = useMemo(() => {
     if (!gallery || gallery.length === 0) {
@@ -84,14 +89,14 @@ export default function ImageViewerPage({
 
   const navigate = useCallback(
     (targetId: string | null) => {
-      if (!targetId || !galleryAddress) return;
+      if (!targetId || !galleryAddress || !isOwner) return;
       router.push(`/image/${targetId}?gallery=${galleryAddress}`);
     },
-    [galleryAddress, router],
+    [galleryAddress, isOwner, router],
   );
 
   useEffect(() => {
-    if (!galleryAddress) return;
+    if (!isOwner) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement) {
         const tag = e.target.tagName;
@@ -102,7 +107,7 @@ export default function ImageViewerPage({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [galleryAddress, navigate, prevId, nextId]);
+  }, [isOwner, navigate, prevId, nextId]);
 
   useEffect(() => {
     fetch(`/api/image/${id}/meta`)
@@ -130,7 +135,7 @@ export default function ImageViewerPage({
           </div>
         ) : (
           <>
-            {galleryAddress && (
+            {galleryAddress && isOwner && (
               <div className="mb-3 flex items-center justify-between gap-3 text-[11px] uppercase tracking-widest">
                 <Link
                   href={`/profile/${galleryAddress}`}
@@ -159,7 +164,7 @@ export default function ImageViewerPage({
             </div>
 
             <div className="relative w-full flex items-center justify-center">
-              {galleryAddress && (
+              {isOwner && (
                 <button
                   type="button"
                   onClick={() => navigate(prevId)}
@@ -175,7 +180,7 @@ export default function ImageViewerPage({
                 alt={meta?.prompt ?? "generated image"}
                 className="max-w-[85vw] max-h-[85vh] w-auto h-auto object-contain"
               />
-              {galleryAddress && (
+              {isOwner && (
                 <button
                   type="button"
                   onClick={() => navigate(nextId)}

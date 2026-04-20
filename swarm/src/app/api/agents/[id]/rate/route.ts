@@ -73,11 +73,12 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/agents/[id]
   if (agent.agentId) {
     try {
       await giveFeedback(
-        config.orchestrator.privateKey,
+        config.treasury.privateKey,
         BigInt(agent.agentId),
         score,
         agent.skill.toLowerCase().replace(/\s+/g, "_"),
-        `/api/agents/${agent.id}/call`
+        `/api/agents/${agent.id}/call`,
+        signer,
       );
       await logActivity(
         "reputation",

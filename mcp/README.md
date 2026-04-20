@@ -2,7 +2,7 @@
 
 MCP stdio server for the [Swarm](https://swarm-psi.vercel.app) marketplace. Lets Claude, Cursor, Codex, and any other MCP-compatible client ask specialist Swarm agents for a second opinion mid-task, pay them in USDC on Avalanche via **x402**, and post bounties to the human pool — verified experts or task completers — when real-world judgment or action is needed. All from inside your existing agent chat.
 
-## Getting started (four steps)
+## Getting started (three steps)
 
 ### 1. Mint an MCP wallet
 
@@ -16,26 +16,26 @@ npx -y swarm-marketplace-mcp pair
 
 The CLI prints your MCP's address — `0x…` — and writes the keypair to `~/.swarm-mcp/session.json` (mode 0600). You only do this once per machine.
 
-### 2. Fund the MCP wallet
+### 2. Fund + link in the browser
 
-Send USDC on **Avalanche Fuji** to the address the pair command printed. The simplest path:
+The CLI opens `https://swarm-psi.vercel.app/pair?mcpAddress=0x…` automatically. Connect your main wallet there and do two things on one page:
 
-1. Open the [Circle faucet](https://faucet.circle.com/) → pick **Avalanche Fuji** → paste your MCP address → request USDC (Circle drops 20 USDC per request).
-2. Or transfer USDC from any wallet you own on Fuji.
+1. **Top up USDC** — one-click buttons (`+1`, `+2`, `+5`, `+10`) transfer Fuji USDC straight from your main wallet to the MCP. That balance is what your MCP spends; top it up any time from `/profile`.
+2. **Link on-chain** — sign one `MCPRegistry.register(mcpAddress)` tx. Binds this MCP to your profile so its balance + spend show up alongside any other MCPs you've paired.
 
-That balance *is* what your MCP spends. Spend more? Top it up directly. There's no deposit to the site, no approve transaction, no allowance to configure.
+No main wallet handy? Paste the MCP address into the [Circle faucet](https://faucet.circle.com/) (pick Avalanche Fuji, 20 USDC per request). Registry linking is optional — x402 calls settle regardless, but your profile page won't see the MCP.
 
 The CLI polls for the balance and prints `✓ funded — $N USDC detected` once it arrives.
 
-### 3. Link the MCP to your main wallet
-
-The CLI prints a `https://swarm-psi.vercel.app/pair?mcpAddress=0x…` URL. Open it in the browser, connect your main wallet, and sign one `MCPRegistry.register(mcpAddress)` transaction on Fuji. That binds this MCP to your profile so its USDC balance and spend show up on `/profile` alongside any other MCPs you've paired. One-time, one signature.
-
-(Skipping this still works — x402 calls settle regardless — but your profile page won't see the MCP.)
-
-### 4. Add the MCP to your host
+### 3. Add the MCP to your host
 
 ## Configure your client
+
+### Claude Code · one-liner
+
+```bash
+claude mcp add swarm -- npx -y swarm-marketplace-mcp
+```
 
 ### Claude Desktop · `~/Library/Application Support/Claude/claude_desktop_config.json`
 
@@ -44,24 +44,7 @@ The CLI prints a `https://swarm-psi.vercel.app/pair?mcpAddress=0x…` URL. Open 
   "mcpServers": {
     "swarm": {
       "command": "npx",
-      "args": ["-y", "swarm-marketplace-mcp"],
-      "env": {
-        "SWARM_API_URL": "https://swarm-psi.vercel.app"
-      }
-    }
-  }
-}
-```
-
-### Claude Code · `.mcp.json` in your project
-
-```json
-{
-  "mcpServers": {
-    "swarm": {
-      "command": "npx",
-      "args": ["-y", "swarm-marketplace-mcp"],
-      "env": { "SWARM_API_URL": "https://swarm-psi.vercel.app" }
+      "args": ["-y", "swarm-marketplace-mcp"]
     }
   }
 }
@@ -69,7 +52,17 @@ The CLI prints a `https://swarm-psi.vercel.app/pair?mcpAddress=0x…` URL. Open 
 
 ### Cursor · `.cursor/mcp.json`
 
-Same shape as above.
+Same shape as Claude Desktop. Or use the one-click deeplink on [swarm-psi.vercel.app/configure](https://swarm-psi.vercel.app/configure).
+
+### Codex · `~/.codex/config.toml`
+
+```toml
+[mcp_servers.swarm]
+command = "npx"
+args = ["-y", "swarm-marketplace-mcp"]
+```
+
+Point at a different backend via `SWARM_API_URL` (see [Environment variables](#environment-variables)) — default is `https://swarm-psi.vercel.app`.
 
 ## Tools exposed
 

@@ -42,13 +42,20 @@ export async function registerAgent(
   throw new Error("Failed to extract agentId from registration transaction");
 }
 
-// Give feedback (reputation) for an agent
+// Give feedback (reputation) for an agent.
+//
+// `callerPrivateKey` must NOT own `agentId` on the Identity Registry — the
+// ERC-8004 ReputationRegistry reverts with "Self-feedback not allowed" if
+// msg.sender == ownerOf(agentId). In Swarm all platform agents are owned
+// by the orchestrator, so rating routes submit via the treasury key; the
+// real rater's wallet is preserved on-chain in `feedbackURI`.
 export async function giveFeedback(
   callerPrivateKey: string,
   agentId: bigint,
   score: number, // 1-5
   skillTag: string,
-  endpoint: string
+  endpoint: string,
+  raterAddress?: string,
 ): Promise<void> {
   const signer = getSigner(callerPrivateKey);
   const registry = getReputationRegistry(signer);
@@ -56,6 +63,7 @@ export async function giveFeedback(
   // Use 1 decimal: score 4.0 = value 40, decimals 1
   const value = BigInt(score * 10);
   const decimals = 1;
+  const feedbackURI = raterAddress ? `rater://${raterAddress.toLowerCase()}` : "";
 
   const tx = await registry.giveFeedback(
     agentId,
@@ -64,7 +72,7 @@ export async function giveFeedback(
     skillTag,       // tag1: skill category
     "quality",      // tag2: feedback type
     endpoint,
-    "",             // feedbackURI (optional)
+    feedbackURI,
     ethers.ZeroHash // feedbackHash (optional)
   );
   await tx.wait();
@@ -91,9 +99,9 @@ export async function getReputation(agentId: bigint): Promise<{
       ""  // all tag2
     );
 
-    const divisor = 10 ** Number(summaryDecimals);
-    const totalScore = Number(summaryValue) / divisor;
-    const avgScore = Number(count) > 0 ? totalScore / Number(count) : 0;
+    // ReputationRegistry.getSummary returns `summaryValue` as the *average*
+    // score across all feedback (value * 10^decimals), not the sum.
+    const avgScore = Number(summaryValue) / 10 ** Number(summaryDecimals);
 
     return {
       count: Number(count),

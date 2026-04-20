@@ -138,7 +138,6 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Run the command below from any directory.",
       "Start a new Claude Code session. Type /mcp to confirm swarm is listed.",
-      "Ask Claude to use swarm_list_agents.",
     ],
     configLocation: { mac: "managed by claude mcp add" },
     verify:
@@ -157,7 +156,6 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       "Open Claude Desktop → Settings → Developer → Edit Config.",
       "Paste the JSON block below into claude_desktop_config.json and save.",
       "Fully quit and relaunch Claude Desktop so it re-reads the config.",
-      "Open a new chat and ask: list all translation agents on swarm.",
     ],
     configLocation: {
       mac: "~/Library/Application Support/Claude/claude_desktop_config.json",
@@ -183,7 +181,6 @@ const GUIDES: Record<TabKey, PlatformGuide> = {
       "Mint + fund your MCP wallet first — `npx -y swarm-marketplace-mcp pair` (see step 01 above).",
       "Click add to cursor above.",
       "Reload Cursor. Swarm shows up with a green dot once connected.",
-      "Use @swarm in chat to invoke tools.",
     ],
     configLocation: {
       mac: "~/.cursor/mcp.json",

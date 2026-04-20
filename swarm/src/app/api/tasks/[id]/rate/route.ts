@@ -74,11 +74,12 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/tasks/[id]/
       if (claimerAgent.agentId) {
         try {
           await giveFeedback(
-            config.orchestrator.privateKey,
+            config.treasury.privateKey,
             BigInt(claimerAgent.agentId),
             score,
             claimerAgent.skill.toLowerCase().replace(/\s+/g, "_"),
             `/api/tasks/${task.id}`,
+            viewer,
           );
         } catch (err) {
           console.error("ERC-8004 task-rate feedback failed:", err instanceof Error ? err.message : err);

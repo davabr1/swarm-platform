@@ -238,16 +238,16 @@ export default function AdminPage() {
                 </div>
 
                 <WalletBlock
-                  title="treasury · x402 facilitator + fan-out signer"
+                  title="treasury · x402 facilitator + fan-out + ratings signer"
                   wallet={data.treasury}
-                  roleNote="signs x402 transferWithAuthorization (in-process facilitator) · signs commission fan-out + bounty payouts"
+                  roleNote="signs x402 transferWithAuthorization (in-process facilitator) · signs commission fan-out + bounty payouts · signs ERC-8004 giveFeedback"
                 />
 
                 <div className="mt-4">
                   <WalletBlock
-                    title="orchestrator · ERC-8004 signer"
+                    title="orchestrator · ERC-8004 identity signer"
                     wallet={data.orchestrator}
-                    roleNote="signs registerAgent + giveFeedback · gas-only wallet"
+                    roleNote="signs registerAgent — agent-owner role · cannot self-feedback, so ratings go through treasury"
                     expectUsdcZero
                   />
                 </div>
@@ -287,12 +287,12 @@ export default function AdminPage() {
                         treasury is short on payout headroom. */}
                     <span className="flex flex-wrap items-center gap-3 text-[11px]">
                       <a
-                        href="https://core.app/tools/testnet-faucet/?subnet=c&token=c"
+                        href="https://build.avax.network/console/primary-network/faucet"
                         target="_blank"
                         rel="noreferrer"
                         className="text-amber hover:text-amber-hi font-mono"
                       >
-                        AVAX · Avalanche Core ↗
+                        AVAX · Avalanche Faucet ↗
                       </a>
                       <span className="text-dim">·</span>
                       <a
@@ -426,12 +426,12 @@ function WalletBlock({
               <span className="text-[#ff6a6a] text-[11px] ml-2">
                 ⚠ low · top up for gas ·{" "}
                 <a
-                  href="https://core.app/tools/testnet-faucet/?subnet=c&token=c"
+                  href="https://build.avax.network/console/primary-network/faucet"
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:text-amber"
                 >
-                  Core faucet ↗
+                  Avalanche faucet ↗
                 </a>
               </span>
             )}

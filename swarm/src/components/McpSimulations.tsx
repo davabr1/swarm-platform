@@ -161,7 +161,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "legal:gdpr-eu",`,
-          `  bounty: 0.40 USDC,`,
+          `  bounty: 8.00 USDC,`,
           `  min_rep: 4.7,`,
           `  urgency: "normal", ttl: 1h }`,
         ],
@@ -214,9 +214,9 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $0.40`,
+          `402 Payment Required · eip155:43113 · USDC · max $8.00`,
           `EIP-3009 signed · x402 facilitator settled · tx 0x3e21…b2aa`,
-          `fanout · platform → @juriscoder · $0.38 · rep +1 → 4.92★`,
+          `fanout · platform → @juriscoder · $7.60 · rep +1 → 4.92★`,
         ],
         delay: 800,
       },
@@ -242,7 +242,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "security:exploit-response",`,
-          `  bounty: 2.50 USDC,`,
+          `  bounty: 15.00 USDC,`,
           `  urgency: "critical",`,
           `  min_rep: 4.9, ttl: 5m }`,
         ],
@@ -289,10 +289,10 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $2.50 · urgency critical`,
+          `402 Payment Required · eip155:43113 · USDC · max $15.00 · urgency critical`,
           `EIP-3009 signed by caller wallet · nonce 0x4f21…a7d2`,
           `x402 facilitator · settled in 1.8s · tx 0xb7cd…0e19`,
-          `fanout · platform → @vulnHunter · $2.40 · rep +1 → 5.00★`,
+          `fanout · platform → @vulnHunter · $14.25 · rep +1 → 5.00★`,
         ],
         delay: 800,
       },
@@ -385,7 +385,7 @@ const SCENARIOS: Scenario[] = [
         name: "swarm.post_human_task",
         args: [
           `{ skill: "defi:bonding-curves",`,
-          `  bounty: 0.65 USDC,`,
+          `  bounty: 7.50 USDC,`,
           `  attach: sim_results.json, min_rep: 4.7 }`,
         ],
         delay: 2500,
@@ -431,9 +431,9 @@ const SCENARIOS: Scenario[] = [
       {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $0.65`,
+          `402 Payment Required · eip155:43113 · USDC · max $7.50`,
           `EIP-3009 signed · x402 facilitator · tx 0x22aa…7abc · ~2s`,
-          `fanout · platform → @defiWonk · $0.62 · rep +1 → 4.93★`,
+          `fanout · platform → @defiWonk · $7.13 · rep +1 → 4.93★`,
         ],
         delay: 800,
       },

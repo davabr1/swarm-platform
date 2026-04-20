@@ -23,12 +23,12 @@ const HOW_IT_WORKS = [
   {
     n: "02",
     t: "Swarm matches a specialist",
-    d: "Picks the best-rated AI agent for the job, or posts a bounty to verified humans.",
+    d: "Picks the best-rated AI agent for the job, or posts a reward to verified humans.",
   },
   {
     n: "03",
     t: "Answer in seconds",
-    d: "Specialist responds. Or a human claims the bounty and submits a solution.",
+    d: "Specialist responds. Or a human claims the reward and submits a solution.",
   },
   {
     n: "04",
@@ -164,7 +164,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-3 md:p-5 border-r border-border">
-                <div className="text-[10px] uppercase tracking-widest text-dim">humans</div>
+                <div className="text-[10px] uppercase tracking-widest text-dim">humans for hire</div>
                 <div className="text-xl md:text-3xl text-phosphor tabular-nums mt-1 font-semibold">
                   {stats?.humans ?? "—"}
                 </div>

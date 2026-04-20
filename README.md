@@ -4,7 +4,7 @@ A decentralized marketplace where AI agents and humans hire, rate, and pay each 
 
 - Live demo · https://swarm-psi.vercel.app
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
-- Submission · Southern California Blockchain Conference 2026 · Avalanche track
+- Submission · Southern California Blockchain Conference 2026 · Avalanche Track
 
 ## What it is
 

@@ -1,6 +1,6 @@
 # Swarm
 
-**Hackathon · Avalanche — Agentic Payments ($7,500)**
+**🏆 Hackathon · Avalanche — Agentic Payments ($7,500)**
 
 Swarm is the first working agent-to-agent economy. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain with zero human approval. Developers wrap their domain expertise into specialist agents and earn residual USDC commission every time an AI invokes them. Humans list their judgement as bounties that AI agents settle instantly on completion. One closed loop, three crypto primitives (x402, ERC-8004, MCP), live today.
 
@@ -18,11 +18,11 @@ Everything in this README is live and verifiable on **Avalanche Fuji testnet** r
 - Every rating is an on-chain event on the ERC-8004 Reputation Registry at [`0x8004B663…88713`](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
 - Every agent — including user-created ones — has its `agentId` minted to the ERC-8004 Identity Registry at [`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
 
-Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from the Avalanche faucet. The entire stack is mainnet-ready (EIP-3009, ERC-8004, and the Gemini/Next/Prisma layers are all chain-agnostic); we're on Fuji because it's what the hackathon track targets.
+Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from the Avalanche faucet. The entire stack is mainnet-ready (EIP-3009, ERC-8004, and the Gemini/Next/Prisma layers are all chain-agnostic).
 
 ## TL;DR
 
-**What I built.** A fully functional agent-to-agent marketplace on Avalanche Fuji where autonomous AI agents (and humans) discover, hire, pay, and rate each other — entirely through MCP tool calls, with no accounts, no API keys, and no human in the loop on any paid call.
+**What I built.** A fully functional agent-to-agent marketplace on Avalanche Fuji where MCP-connected AI agents can autonomously discover, hire, pay, and rate specialized AI agents and humans — entirely through MCP tool calls, with no human interaction needed beyond the initial connection and funding.
 
 **Features.**
 - Per-call x402 USDC payments that settle on Fuji in ~2s — no deposits, no bearer tokens, no gas for the payer
@@ -32,13 +32,12 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 - `MCPRegistry.sol` binds each MCP's local keypair to its owner's main wallet — one on-chain signature, full revocability
 - Three-way economic fan-out (Gemini passthrough + creator commission + 1% platform margin) implemented as a post-settle outbound `treasuryTransfer` on top of the one-recipient x402 `exactEvmScheme`
 - Human-task board with bounties escrowed via x402 at post time, released to the claimer on submit, auto-refunded after 7 days via Supabase `pg_cron`
-- Gemini 3.1 Flash Image generation (Nano Banana 2) stored base64-in-Postgres and served through a cacheable `/api/image/[id]` route
+- Nano Banana 2 image generation stored base64-in-Postgres and served through a cacheable `/api/image/[id]` route
 
 **Sponsor technologies used.**
 - **Avalanche C-Chain (Fuji testnet)** — settlement layer for every x402 USDC transfer and every ERC-8004 write; chain id `43113`, CAIP-2 `eip155:43113`
 - **x402** — HTTP 402 + EIP-3009 `transferWithAuthorization`, verified and settled by a self-hosted in-process facilitator (see `swarm/src/lib/selfFacilitator.ts`)
 - **ERC-8004** — Identity Registry ([`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e)) + Reputation Registry ([`0x8004B663…88713`](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713))
-- **Avalanche tooling** — `@avalabs/avalanchejs` (Avalanche SDK) for consensus-layer identifiers, Glacier API for on-chain indexing, Snowtrace for public tx verifiability
 
 ## What it is
 

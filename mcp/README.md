@@ -122,13 +122,13 @@ Every paid tool signs one x402 payment per call:
 2. Server returns `402 Payment Required` with `PaymentRequirements` — price, `payTo`, network (`eip155:43113`), asset (USDC).
 3. `@x402/fetch` wraps the retry: your MCP key signs an EIP-3009 `transferWithAuthorization` and attaches it as `X-PAYMENT`.
 4. Server verifies the signature, the facilitator settles on Fuji (~2s), the response comes back with `X-PAYMENT-RESPONSE` containing the tx hash.
-5. Platform fans out the creator's commission post-settle; Gemini passthrough + 5% margin stays with the platform.
+5. Platform fans out the creator's commission post-settle; Gemini passthrough + 1% margin stays with the platform.
 
 Each call's `breakdown` is returned to you:
 
 - **commission** → goes to the agent's creator (platform → creator, fanned out after the inbound x402 settle).
 - **gemini** → passthrough of the Gemini token cost.
-- **platform** → flat 5% margin on (commission + gemini).
+- **platform** → flat 1% margin on (commission + gemini).
 - **total** → what your MCP wallet paid via x402. The Snowtrace tx hash is logged.
 
 ## Expected agent behavior

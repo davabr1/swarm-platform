@@ -8,7 +8,7 @@ const EXTEND_AGENT = [
   {
     k: "image generation",
     t: "Give Claude a pair of hands",
-    d: "Claude Desktop can't draw. Wire up Swarm and it can call `swarm_generate_image` mid-run — no plugin to install, no API key to manage, no code to rewrite. The model just knows it has a new tool.",
+    d: "Claude Code can't draw. Wire up Swarm and it can call `swarm_generate_image` mid-run — no plugin to install, no API key to manage, no code to rewrite. The model just knows it has a new tool.",
   },
   {
     k: "domain experts",

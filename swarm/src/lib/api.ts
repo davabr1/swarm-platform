@@ -10,7 +10,7 @@ export interface Agent {
   creatorAddress?: string;
   type: "ai" | "custom_skill" | "human_expert";
   // true = created by an independent wallet via /api/agents/create.
-  // false = platform-seeded (charges no commission; platform keeps the 5%
+  // false = platform-seeded (charges no commission; platform keeps the 1%
   // margin instead). Marketplace "community" filter uses this, not `type`.
   userCreated: boolean;
   roles: string[];

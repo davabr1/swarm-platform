@@ -22,6 +22,7 @@ import {
 import { getCategory, CATEGORY_LABEL, CATEGORY_TEXT } from "@/lib/agentCategory";
 import { useAccount, useSignMessage } from "wagmi";
 import { useX402Fetch } from "@/lib/useX402Fetch";
+import { PLATFORM_FEE_CEILING_MULTIPLIER } from "@/lib/platformFee";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
@@ -108,7 +109,7 @@ export default function AgentDetailPage() {
       {
         kind: "info",
         text: agent && !agent.userCreated
-          ? `[pricing] no commission · AI cost · 5% platform margin${isFollowUp ? " · follow-up turn" : ""}`
+          ? `[pricing] no commission · AI cost · 1% platform margin${isFollowUp ? " · follow-up turn" : ""}`
           : `[pricing] commission ${agent?.price ?? "?"} → creator · AI cost · platform margin${isFollowUp ? " · follow-up turn" : ""}`,
       },
     ]);
@@ -287,7 +288,7 @@ export default function AgentDetailPage() {
   const category = getCategory(agent);
 
   // Mirror the server-side ceiling math in `src/app/api/guidance/route.ts`
-  // and `src/app/api/image/route.ts`: ceiling = (commission + base) * 1.05.
+  // and `src/app/api/image/route.ts`: ceiling = (commission + base) * 1.01.
   // Commission is 0 on platform rows. Image base is $0.20, text base is $0.05.
   // Button + heads-up copy both read from this so community agents don't
   // quote a misleading "≈ $0.05" when their commission is e.g. $0.09.
@@ -295,7 +296,7 @@ export default function AgentDetailPage() {
     ? 0
     : parseFloat(String(agent.price).replace(/[^0-9.]/g, "")) || 0;
   const baseCeiling = isImage ? 0.2 : 0.05;
-  const ceilingUsd = (commissionUsd + baseCeiling) * 1.05;
+  const ceilingUsd = (commissionUsd + baseCeiling) * PLATFORM_FEE_CEILING_MULTIPLIER;
   const ceilingLabel = `${ceilingUsd.toFixed(2)} USDC`;
 
   return (
@@ -367,8 +368,8 @@ export default function AgentDetailPage() {
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
                     {isPlatform
-                      ? "Platform-owned agent — no commission. You pay measured AI cost + 5% platform margin. Exact breakdown shows after each call."
-                      : `You pay ${agent.price} commission (creator gets 100%) + measured AI cost + 5% platform margin. Exact breakdown shows after each call.`}
+                      ? "Platform-owned agent — no commission. You pay measured AI cost + 1% platform margin. Exact breakdown shows after each call."
+                      : `You pay ${agent.price} commission (creator gets 100%) + measured AI cost + 1% platform margin. Exact breakdown shows after each call.`}
                   </p>
                 </div>
                 <div className="flex items-start justify-between pt-2">
@@ -442,12 +443,12 @@ export default function AgentDetailPage() {
                     {isPlatform ? (
                       <>
                         <span className="text-amber">no commission</span>
-                        <span className="text-muted"> · AI cost + 5% margin</span>
+                        <span className="text-muted"> · AI cost + 1% margin</span>
                       </>
                     ) : (
                       <>
                         commission <span className="text-amber">{agent.price}</span>
-                        <span className="text-muted"> + AI cost + 5% margin</span>
+                        <span className="text-muted"> + AI cost + 1% margin</span>
                       </>
                     )}
                     {" · settles via x402"}
@@ -499,7 +500,7 @@ export default function AgentDetailPage() {
                       <div>
                         <div className="text-dim text-[10px] uppercase tracking-widest">platform</div>
                         <div className="text-muted">{breakdown.platformFeeUsd} USDC</div>
-                        <div className="text-dim text-[10px]">5% margin</div>
+                        <div className="text-dim text-[10px]">1% margin</div>
                       </div>
                       <div className="text-right">
                         <div className="text-dim text-[10px] uppercase tracking-widest">total</div>

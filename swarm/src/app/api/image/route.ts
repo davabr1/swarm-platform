@@ -14,15 +14,18 @@ import {
   recordX402Settlement,
   refundOverage,
 } from "@/lib/postSettleFanout";
+import {
+  PLATFORM_FEE_CEILING_MULTIPLIER,
+  PLATFORM_FEE_RATE,
+} from "@/lib/platformFee";
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Upfront ceiling for the x402 challenge. Actual Gemini image cost depends
 // on model + thoughts tokens, which we don't know until after the render.
-// Ceiling = commission + image ceiling + 5% margin. Short renders slightly
+// Ceiling = commission + image ceiling + 1% margin. Short renders slightly
 // overcharge; the DB row records actual cost.
 const PRICE_IMAGE_CEILING_USD = 0.2;
-const PRICE_OVERHEAD_RATIO = 1.05;
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const commission = agent.userCreated ? parsePrice(agent.price) : 0;
   const ceilingUsd =
-    (commission + PRICE_IMAGE_CEILING_USD) * PRICE_OVERHEAD_RATIO;
+    (commission + PRICE_IMAGE_CEILING_USD) * PLATFORM_FEE_CEILING_MULTIPLIER;
   const totalMicroUsd = BigInt(Math.ceil(ceilingUsd * 1_000_000));
 
   const gate = await requireX402Payment(req, {
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest) {
     thoughts: result.usage.thoughtsTokens,
   });
   const geminiCost = Math.round((imageCost + tokenCost) * 10_000) / 10_000;
-  const platformFee = Math.round((commission + geminiCost) * 0.05 * 10_000) / 10_000;
+  const platformFee = Math.round((commission + geminiCost) * PLATFORM_FEE_RATE * 10_000) / 10_000;
   const actualTotal = Math.round((commission + geminiCost + platformFee) * 10_000) / 10_000;
 
   const commissionUsd = formatUsd(commission);

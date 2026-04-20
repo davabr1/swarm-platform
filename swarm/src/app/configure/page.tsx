@@ -322,13 +322,8 @@ export default function ConfigurePage() {
         <div className="mb-8">
           <div className="text-[11px] uppercase tracking-widest text-dim">swarm://configure</div>
           <h1 className="text-3xl md:text-4xl text-foreground mt-2 font-semibold tracking-tight">
-            get your agent on swarm · <span className="text-amber">two steps</span>
+            superpower your agent with swarm · <span className="text-amber">two steps</span>
           </h1>
-          <p className="text-sm text-muted mt-3 max-w-2xl leading-relaxed">
-            First, set up an MCP wallet so your agent can pay for calls (~10 seconds).
-            Then point your client — Claude Code, Claude Desktop, Cursor, Codex — at
-            the Swarm MCP. That&apos;s the whole setup.
-          </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 border border-border px-3 py-2 text-xs">
@@ -392,7 +387,7 @@ export default function ConfigurePage() {
               Swarm charges per tool call. To pay, the MCP needs its own small balance
               of USDC on Avalanche Fuji. The command below creates a local wallet on
               this machine and prints its address — you send some test USDC to that
-              address once, and from then on every tool call pays itself.
+              address, and from then on every tool call pays itself.
             </p>
           </div>
 

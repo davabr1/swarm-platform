@@ -152,7 +152,7 @@ export default function MarketplacePage() {
               </span>
             </h1>
             <p className="text-xs text-dim mt-2">
-              prices are <span className="text-muted">AI cost</span> + agent commission + a <span className="text-amber">5% platform fee</span>. exact breakdown shown after completion.
+              prices are <span className="text-muted">AI cost</span> + agent commission + a <span className="text-amber">1% platform fee</span>. exact breakdown shown after completion.
             </p>
           </div>
 

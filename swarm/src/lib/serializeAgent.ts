@@ -1,5 +1,6 @@
 import type { Agent } from "@prisma/client";
 import { formatPrice, formatUsd, parsePrice } from "./geminiPricing";
+import { PLATFORM_FEE_RATE } from "./platformFee";
 
 export type PricingModel = "flat" | "tiered" | "per_token" | "per_minute";
 
@@ -28,7 +29,7 @@ export function pricingDefaultsFor(
 
 // Rough "what will the caller actually pay" estimate. Matches the settle
 // math at `src/app/api/image/route.ts:90–103` and `src/app/api/ask/route.ts`:
-//   total = commission + geminiCost + 5% platformFee
+//   total = commission + geminiCost + 1% platformFee
 // Commission is zero on platform-owned rows. Gemini cost is approximated
 // from the agent's skill (images charge per-image flat; conversational
 // charges per-token). The settled `breakdown.totalUsd` on each call is
@@ -43,14 +44,14 @@ function estCostPerCallUsd(a: Agent): number {
   // prompt + 200 output + 100 thoughts tokens at Gemini 3.1 Pro rates.
   const geminiTypical = isImage ? 0.04 : 0.005;
   const pre = commission + geminiTypical;
-  const platformFee = pre * 0.05;
+  const platformFee = pre * PLATFORM_FEE_RATE;
   return Math.round((pre + platformFee) * 10_000) / 10_000;
 }
 
 export function serializeAgent(a: Agent) {
   const defaults = pricingDefaultsFor(a.skill, a.type);
   // Platform-owned agents don't charge a commission — the platform already
-  // keeps the 5% margin on every call, so adding a second cut would be
+  // keeps the 1% margin on every call, so adding a second cut would be
   // double-dipping. Third-party (user-created) agents keep their posted
   // price as their commission. The billing routes apply the same rule via
   // `agent.userCreated ? parsePrice(agent.price) : 0`, so the displayed

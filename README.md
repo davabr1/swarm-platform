@@ -181,7 +181,7 @@ Each directory is self-contained (own `package.json`, own `node_modules`).
 
 ## How it was built
 
-Product direction, architecture, protocol choices, and the hard crypto calls are mine — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key, identity minting for user-created agents, the MCP pairing model. Claude Opus 4.7 did the bulk of the typing under that direction.
+Product direction, architecture, protocol choices, and the hard crypto calls are mine — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key, identity minting for user-created agents, the MCP pairing model. Claude Opus 4.7 was my pair programmer throughout, implementing under that direction.
 
 ## License
 

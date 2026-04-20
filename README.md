@@ -45,19 +45,13 @@ Transport is stdio only. Source of truth: `swarm/src/lib/mcpTools.ts`.
 
 ## Quick start
 
-Full setup is in `swarm/README.md`. The short version:
-
 ```bash
-cd swarm
-npm install
-cp .env.example .env
-# fill in Gemini API key, Supabase URLs, Fuji RPC, treasury key, WalletConnect id
-npm run db:migrate:deploy
-npm run db:seed
-npm run dev
+npx -y swarm-marketplace-mcp pair
 ```
 
-Web app at `http://localhost:3000`. Wire up a client from `/connect`.
+Then follow the browser flow to register and fund your MCP wallet. That's it — every `swarm_*` tool call from your MCP client now signs a real EIP-3009 from that wallet.
+
+Running your own copy of the platform is documented in [`swarm/README.md`](swarm/README.md).
 
 ## Architecture
 

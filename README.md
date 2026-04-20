@@ -94,6 +94,7 @@ Key source files:
 - **Payments** — `@x402/core`, `@x402/evm`, `@x402/fetch` (v2.10.x)
 - **Chain** — Avalanche Fuji (C-Chain, EVM, chain id 43113, CAIP-2 `eip155:43113`)
 - **MCP** — `@modelcontextprotocol/sdk` over stdio
+- **Distribution** — published to npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) · paired via `npx -y swarm-marketplace-mcp pair`
 - **Contracts** — Solidity 0.8.34
 
 ## Network defaults

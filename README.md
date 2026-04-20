@@ -119,7 +119,7 @@ Claude / Cursor / Codex ─► stdio MCP (swarm-marketplace-mcp pair)
 
 Key source files:
 
-- `swarm/src/lib/x402.ts` — shared `x402ResourceServer` + `buildPaymentRequirements`
+- `swarm/src/lib/x402.ts` — `facilitator()` client + `buildPaymentRequirements` (exact scheme, Fuji USDC)
 - `swarm/src/lib/x402Middleware.ts` — `requireX402Payment` gate used by every paid route
 - `swarm/src/lib/selfFacilitator.ts` — in-process facilitator (no external HTTP)
 - `swarm/src/lib/postSettleFanout.ts` — creator commission fan-out after x402 settle

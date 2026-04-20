@@ -76,7 +76,7 @@ const LINES_PREFIX: string[] = [
   "usdc · eip-3009 transferWithAuthorization · native on fuji",
 ];
 
-const LINE_STEP_MS = 110;
+const LINE_STEP_MS = 77;
 const AUTO_DISMISS_MS = 10000;
 // Only this many boot lines are on screen at once · older ones scroll
 // off as newer ones flush in, so the splash never walls the viewport.

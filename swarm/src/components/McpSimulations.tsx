@@ -134,7 +134,7 @@ const SCENARIOS: Scenario[] = [
           `402 Payment Required · eip155:43113 · USDC · max $0.42`,
           `EIP-3009 transferWithAuthorization signed by caller wallet`,
           `x402 facilitator · settled in 2.1s · tx 0x9b72…0401`,
-          `fanout · platform → auditorAgent · $0.40 · tx 0xef21…18ac`,
+          `fanout · platform → auditorAgent · $0.41 · tx 0xef21…18ac`,
           `rep +1 → 4.91★ (1,428 calls) · no gas for payer`,
         ],
         delay: 900,
@@ -162,10 +162,19 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ skill: "legal:gdpr-eu",`,
           `  bounty: 8.00 USDC,`,
-          `  min_rep: 4.7,`,
-          `  urgency: "normal", ttl: 1h }`,
+          `  min_reputation: 4.7,`,
+          `  visibility: "private" }`,
         ],
         delay: 2600,
+      },
+      {
+        kind: "pay",
+        lines: [
+          `402 Payment Required · eip155:43113 · USDC · max $8.00`,
+          `EIP-3009 signed · x402 facilitator settled · tx 0xc411…a2dd`,
+          `escrow · caller → treasury · $8.00 · held until submit`,
+        ],
+        delay: 900,
       },
       { kind: "think", who: "expert_pool", note: "paging · rep-gated experts on EU docket", delay: 900 },
       {
@@ -212,11 +221,18 @@ const SCENARIOS: Scenario[] = [
         delay: 2500,
       },
       {
+        kind: "tool",
+        who: "@juriscoder",
+        name: "swarm.submit_task",
+        args: [`{ task: "0x318gdpr", result: "… DPIA template attached" }`],
+        delay: 1600,
+      },
+      {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $8.00`,
-          `EIP-3009 signed · x402 facilitator settled · tx 0x3e21…b2aa`,
-          `fanout · platform → @juriscoder · $7.60 · rep +1 → 4.92★`,
+          `submit accepted · treasury → @juriscoder · $7.92`,
+          `on-chain tx 0x3e21…b2aa · settled in 2.0s`,
+          `platform retained · $0.08 (1%) · rep +1 → 4.92★`,
         ],
         delay: 800,
       },
@@ -243,10 +259,19 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ skill: "security:exploit-response",`,
           `  bounty: 15.00 USDC,`,
-          `  urgency: "critical",`,
-          `  min_rep: 4.9, ttl: 5m }`,
+          `  min_reputation: 4.9,`,
+          `  expert_only: true }`,
         ],
         delay: 2300,
+      },
+      {
+        kind: "pay",
+        lines: [
+          `402 Payment Required · eip155:43113 · USDC · max $15.00`,
+          `EIP-3009 signed · x402 facilitator · tx 0x4a88…09f1 · 1.9s`,
+          `escrow · caller → treasury · $15.00 · held until submit`,
+        ],
+        delay: 800,
       },
       { kind: "think", who: "expert_pool", note: "paging · on-call responders · SLA queue", delay: 700 },
       {
@@ -287,12 +312,18 @@ const SCENARIOS: Scenario[] = [
         delay: 2500,
       },
       {
+        kind: "tool",
+        who: "@vulnHunter",
+        name: "swarm.submit_task",
+        args: [`{ task: "0xEXP318", result: "CVE-2024-22432 · patch tx signed" }`],
+        delay: 1400,
+      },
+      {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $15.00 · urgency critical`,
-          `EIP-3009 signed by caller wallet · nonce 0x4f21…a7d2`,
-          `x402 facilitator · settled in 1.8s · tx 0xb7cd…0e19`,
-          `fanout · platform → @vulnHunter · $14.25 · rep +1 → 5.00★`,
+          `submit accepted · treasury → @vulnHunter · $14.85`,
+          `on-chain tx 0xb7cd…0e19 · settled in 1.8s`,
+          `platform retained · $0.15 (1%) · rep +1 → 5.00★`,
         ],
         delay: 800,
       },
@@ -359,7 +390,7 @@ const SCENARIOS: Scenario[] = [
         lines: [
           `402 Payment Required · eip155:43113 · USDC · max $0.05`,
           `EIP-3009 signed · x402 facilitator settled · tx 0xf412…9e01`,
-          `fanout · platform → linguaBot · $0.048`,
+          `fanout · platform → linguaBot · $0.049`,
         ],
         delay: 700,
       },
@@ -386,9 +417,18 @@ const SCENARIOS: Scenario[] = [
         args: [
           `{ skill: "defi:bonding-curves",`,
           `  bounty: 7.50 USDC,`,
-          `  attach: sim_results.json, min_rep: 4.7 }`,
+          `  min_reputation: 4.7 }`,
         ],
         delay: 2500,
+      },
+      {
+        kind: "pay",
+        lines: [
+          `402 Payment Required · eip155:43113 · USDC · max $7.50`,
+          `EIP-3009 signed · x402 facilitator · tx 0x19bb…c2e0 · 2.1s`,
+          `escrow · caller → treasury · $7.50 · held until submit`,
+        ],
+        delay: 800,
       },
       { kind: "think", who: "expert_pool", note: "matching · 2 candidates in band", delay: 900 },
       {
@@ -429,11 +469,18 @@ const SCENARIOS: Scenario[] = [
         delay: 2700,
       },
       {
+        kind: "tool",
+        who: "@defiWonk",
+        name: "swarm.submit_task",
+        args: [`{ task: "0xSUP318", result: "stepwise + TWAP redesign" }`],
+        delay: 1500,
+      },
+      {
         kind: "pay",
         lines: [
-          `402 Payment Required · eip155:43113 · USDC · max $7.50`,
-          `EIP-3009 signed · x402 facilitator · tx 0x22aa…7abc · ~2s`,
-          `fanout · platform → @defiWonk · $7.13 · rep +1 → 4.93★`,
+          `submit accepted · treasury → @defiWonk · $7.43`,
+          `on-chain tx 0x22aa…7abc · settled in 2.0s`,
+          `platform retained · $0.07 (1%) · rep +1 → 4.93★`,
         ],
         delay: 800,
       },
@@ -505,7 +552,7 @@ const SCENARIOS: Scenario[] = [
         lines: [
           `402 Payment Required · eip155:43113 · USDC · max $0.07`,
           `EIP-3009 signed · x402 facilitator settled · tx 0xde61…18ac`,
-          `fanout · platform → queryFox · $0.067`,
+          `fanout · platform → queryFox · $0.069`,
         ],
         delay: 700,
       },

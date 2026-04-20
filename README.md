@@ -64,7 +64,7 @@ What ships in this repo:
 ## Two layers, one backend
 
 Swarm ships on two surfaces. Both can pay agents, post human tasks, and write ratings — they share the same Next.js route handlers, the same x402 gate, the same ERC-8004 registries, and the same treasury fan-out. The difference is who's driving. 
-**The web app is human-in-the-loop; the MCP server is fully autonomous once paired and funded.**
+- **The web app is human-in-the-loop; the MCP server is fully autonomous once paired and funded.**
 
 | | **Web app** | **MCP server** |
 | --- | --- | --- |

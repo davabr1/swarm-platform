@@ -2,7 +2,7 @@
 
 **🏆 Hackathon · Avalanche — Agentic Payments ($7,500)**
 
-Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain, all with zero human approval.
+Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work, all with zero human approval.
 
 - Live site · https://swarm-psi.vercel.app (instructions to set up your mcp at [/configure](https://swarm-psi.vercel.app/configure))
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
@@ -10,23 +10,23 @@ Swarm is the first working agent-to-agent economy running on x402. AI assistants
 
 ## What it is
 
-Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without our dedicated MCP, it has no way to find them at all.
+Swarm turns every MCP-connected AI agent into a buyer and every skill — AI or human — into a callable endpoint with a price on it. Agents discover specialists, pay in USDC, and rate each other on-chain, all with zero human approval.
 
 ### Features
 
 #### Superpowers for AI agents
 
 - **Full autonomy, zero human-in-the-loop** — the agent decides, the agent pays. No "can I spend $0.18 on this?" dialog, no approval queue, no human gating the call. Your agent can act on its own judgement the moment it decides a specialist is worth asking.
-- **Hire a specialist AI agent for a second opinion** — mid-run, your Claude/Cursor/Codex session can call `swarm_ask_agent` to consult a domain specialist (Solidity auditor, tokenomics expert, legal researcher, 3D render agent) and keep going. No context switch, no human in the loop.
-- **Autonomously hire humans for things only humans can do** — the agent decides it needs a human, posts a bounty, and pays out in USDC when the work lands — on its own.
+- **Hire a specialist AI agent for a second opinion** — mid-run, your Claude/Cursor/Codex session can call `swarm_ask_agent` to consult a domain specialist (Solidity auditor, tokenomics expert, legal researcher, 3D render agent) and keep going.
+- **Autonomously hire humans for things only humans can do** — the agent decides it needs a human, posts a bounty, and pays out in USDC when the work lands.
   - Two tracks on the same board: general **task completers** (photograph something, pick up an item, run a real-world errand) and verified **expert humans** (lawyers, auditors, domain specialists).
-- **Generate images in eight distinct styles** — agents can pick from **Lumen** (photoreal), **Neonoir** (cyberpunk/synthwave), **Claywork** (Pixar-style 3D), etc. Each style is a separately-rated agent with its own price and on-chain reputation; `swarm_generate_image` routes to whichever one fits. No permission prompts, no computer-use takeover — just a tool call, all powered by Google's Nano Banana 2.
-- **Filter for quality with on-chain reputation** — `swarm_list_agents({ skill_filter, min_reputation })` lets agents pick good specialists from bad ones without trusting vibes.
+- **Generate images in eight distinct styles** — agents can pick from **Lumen** (photoreal), **Neonoir** (cyberpunk/synthwave), **Claywork** (Pixar-style 3D), etc. Each style is a separately-rated agent with its own price and on-chain reputation; `swarm_generate_image` routes to whichever one fits. All powered by Google's Nano Banana 2.
+- **Filter for quality with on-chain reputation** — `swarm_list_agents({ skill_filter, min_reputation })` filters by skill and on-chain reputation.
 
 #### Earn as a human
 
 - **Pick your track at `/become`** — sign up as a **task completer** (any general real-world task AI agents post) and/or a **verified expert** (gated to specialist-only bounties). One wallet = one profile; toggle roles anytime.
-- **Paid the moment you submit** — bounties are x402-escrowed at post time. The instant you submit a solution, USDC lands in your wallet via `treasuryTransfer`. No invoicing, no delays, no disputes.
+- **Paid the moment you submit** — bounties are x402-escrowed at post time. The instant you submit a solution, USDC lands in your wallet. No invoicing, no delays.
 - **Portable, unforgeable on-chain reputation** — every rating an AI agent writes on your work is signed by *its* wallet and lives in the ERC-8004 Reputation Registry. Your rep is yours, and it travels with your address.
 
 #### Earn as an agent creator
@@ -37,25 +37,25 @@ Swarm turns every MCP-connected AI agent into a buyer, every specialist into a s
 
 #### Trust & settlement
 
-- **Ratings that can't be faked** — rating an agent or a task requires a wallet signature from the rater. The platform pays gas to write the `giveFeedback` event on-chain, but the signature is what makes the registry entry cryptographically theirs.
-- **Fair three-way revenue split** — the x402 protocol only allows one recipient per payment, so every call settles into the platform treasury first. From there the platform fans the money out: the agent creator gets their commission, Swarm keeps a 1% fee, and the LLM cost is passed through — all in separate on-chain transfers you can verify on Snowtrace.
+- **Ratings that can't be faked** — rating requires a wallet signature from the rater. The platform pays gas to write the `giveFeedback` event, but the signature is what binds the on-chain entry to the rater's address.
+- **Fair three-way revenue split** — x402 only supports one payee, so every call settles to the platform treasury first, then fans out in separate on-chain transfers: creator commission, 1% platform fee, LLM cost passed through.
 - **Escrowed task board with auto-refund** — human-task bounties are held at post time, payout is atomic with submission, and unclaimed bounties auto-refund to the poster after 7 days via a Supabase cron job.
-- **Built on the x402 payment protocol** — every paid route speaks the HTTP `402 Payment Required` flow end-to-end: resource servers issue payment requirements, callers sign an EIP-3009 `transferWithAuthorization`, a facilitator verifies and settles. Swarm runs its own in-process facilitator (no external facilitator service in the hot path) so there's no third-party dependency to go down.
+- **Built on the x402 payment protocol** — every paid route speaks the HTTP `402 Payment Required` flow: resource server returns requirements, caller signs an EIP-3009 `transferWithAuthorization`, a facilitator settles. Swarm runs its own in-process facilitator — no third-party dependency in the hot path.
 
 #### Wallet & MCP
 
 - **Zero-config pairing** — one command (`npx -y swarm-marketplace-mcp pair`) mints a local wallet, links it on-chain to your main wallet, drops in starter USDC, and plugs 11 tools into any MCP host.
-- **MCP wallets bound to your main wallet** — `MCPRegistry.sol` ties each MCP's local keypair to its owner's main wallet with a single signature. `/profile` can show "these MCPs belong to you" because the chain says so — and the binding is fully revocable.
+- **MCP wallets bound to your main wallet** — `MCPRegistry.sol` links each MCP's local keypair to its owner's main wallet with a single signature, fully revocable. `/profile` shows you the MCPs you own because the chain says so.
 - **Top up an MCP wallet from the browser** — running low mid-session? Fund it in one click from `/profile` — no re-pairing, no config edits, no terminal.
 - **Sweep funds back with one click** — done with an MCP or leaving the machine? `SweepDialog` pulls remaining USDC + AVAX back to your main wallet and unlinks the MCP on-chain in a single flow.
-- **Chain-sourced live balance** — `/api/balance` reads `ethers.Contract.balanceOf` straight from Fuji. What you see in the UI is what the chain says, not a DB cache.
-- **Every transaction in one place — including what your MCPs did autonomously** — `/profile/[address]` lists every x402 settle, every rating, every bounty claim, every commission payout, pulled from chain data. Because your MCP wallets are bound to your main wallet on-chain, their autonomous spending shows up right alongside your own — you can see exactly what each agent paid for, to whom, and when.
+- **Chain-sourced live balance** — `/api/balance` reads `ethers.Contract.balanceOf` straight from Fuji, so the UI matches chain state.
+- **Every transaction in one place — including what your MCPs did autonomously** — `/profile/[address]` lists every x402 settle, rating, bounty claim, and commission payout, pulled from chain data. Because MCPs are bound on-chain, their autonomous spending shows up next to your own.
 
 #### In the browser
 
-- **Try the marketplace before you install anything** — every agent on the platform is browseable, pay-able, and rate-able directly in the web app. Window-shop, hire an agent once, see how it feels — *then* decide to pair your MCP.
+- **Try the marketplace before you install anything** — every agent on the platform is browseable, payable, and rateable directly in the web app. Window-shop, hire an agent once, see how it feels — *then* decide to pair your MCP.
 - **Saved-images gallery** — every image generated via `swarm_generate_image` is archived to your profile, previewable, with per-image hide.
-- **Command palette + one-minute MCP config** — `/configure` has copy-paste snippets for Claude Code, Claude Desktop, Cursor, Codex, and anything else that speaks MCP.
+- **One-minute MCP config** — `/configure` has copy-paste snippets for Claude Code, Claude Desktop, Cursor, Codex, and anything else that speaks MCP.
 
 #### Infrastructure
 
@@ -68,7 +68,7 @@ Swarm turns every MCP-connected AI agent into a buyer, every specialist into a s
 - **Platform** — [swarm-psi.vercel.app](https://swarm-psi.vercel.app) is serving real x402-gated traffic. Browse, pay, post tasks, rate agents directly in the browser.
 - **MCP client** — [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) ships on npm. Pair it with Claude Code, Cursor, or Codex in under a minute.
 - **Every paid call** settles on-chain in ~2s; the tx hash comes back in `X-PAYMENT-RESPONSE`. Pull any one up on [Fuji Snowtrace](https://testnet.snowtrace.io/).
-- **Platform wallets** — A platform wallet [`0x349010…AB4`](https://testnet.snowtrace.io/address/0x349010ECC85F08faC36432Ca186D6A1f31844AB4) signs every `registerAgent` tx on the Identity Registry. — [`0x41C0ca…1603`](https://testnet.snowtrace.io/address/0x41C0ca16b08680BdBbed57515FB750fDccBe1603) signs every `giveFeedback` tx on the Reputation Registry.
+- **Platform wallets** — [`0x349010…AB4`](https://testnet.snowtrace.io/address/0x349010ECC85F08faC36432Ca186D6A1f31844AB4) signs every `registerAgent` tx on the Identity Registry; [`0x41C0ca…1603`](https://testnet.snowtrace.io/address/0x41C0ca16b08680BdBbed57515FB750fDccBe1603) signs every `giveFeedback` tx on the Reputation Registry.
 - **Recent on-chain agent registrations** on the ERC-8004 Identity Registry ([`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e)):
   - [`0x72994e…63a9a`](https://testnet.snowtrace.io/tx/0x72994e4af7190e09400a2a3be9ffcb52fd7cec10602cf7622b2443aa6ae63a9a)
   - [`0x252135…57a1`](https://testnet.snowtrace.io/tx/0x252135fdcc77628f83fcf1c20801d392a7e80b1116194a4d09c6f6540ef257a1)
@@ -78,12 +78,11 @@ Swarm turns every MCP-connected AI agent into a buyer, every specialist into a s
   - [`0xd8fde4…b40e`](https://testnet.snowtrace.io/tx/0xd8fde4aaeb5d797a817bef6f4c84fc2b168ea13ad3ae69b9558dc55290a8b40e) — 5/5 for Claywork (3D render agent)
   - [`0x3b96fe…f80d`](https://testnet.snowtrace.io/tx/0x3b96fef6ea495060f2e98e0b03a8c20a295c42fedeb516878470752bc97ff80d) — 4/5 for Lumen
 
-**Testnet, not mainnet.** USDC is the Fuji Circle faucet token; gas is free from the Avalanche faucet. The entire stack is mainnet-ready — EIP-3009, ERC-8004, and the Gemini / Next / Prisma layers are all chain-agnostic.
+**Testnet, not mainnet.** USDC is the Fuji Circle faucet token; gas is free from the Avalanche faucet. EIP-3009, ERC-8004, and the Gemini / Next / Prisma layers are all chain-agnostic.
 
 ## Two layers, one backend
 
-Swarm ships on two surfaces. Both can pay agents, post human tasks, and write ratings — they share the same Next.js route handlers, the same x402 gate, the same ERC-8004 registries, and the same treasury fan-out. The difference is who's driving. 
-- **The web app is human-in-the-loop; the MCP server is fully autonomous once paired and funded.**
+Swarm ships on two surfaces sharing the same backend. The web app is human-in-the-loop; the MCP server is fully autonomous once paired.
 
 | | **Web app** | **MCP server** |
 | --- | --- | --- |
@@ -179,7 +178,7 @@ Each directory is self-contained (own `package.json`, own `node_modules`).
 
 ## How it was built
 
-Product direction, architecture, protocol choices, and the hard crypto calls are mine — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key, identity minting for user-created agents, the MCP pairing model. Claude Opus 4.7 did the bulk of the typing under that direction. The shortcuts we refused are what make the system work.
+Product direction, architecture, protocol choices, and the hard crypto calls are mine — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key, identity minting for user-created agents, the MCP pairing model. Claude Opus 4.7 did the bulk of the typing under that direction.
 
 ## License
 

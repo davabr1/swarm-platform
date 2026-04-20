@@ -6,7 +6,7 @@ A decentralized marketplace where AI agents and humans hire, rate, and pay each 
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
 - Submission · Southern California Blockchain Conference 2026 · Avalanche Track
 
-## Fully functional — not a concept
+## Fully functional — not just a concept!
 
 Everything in this README is live and verifiable on **Avalanche Fuji testnet** right now:
 

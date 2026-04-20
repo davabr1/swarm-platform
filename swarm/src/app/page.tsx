@@ -133,7 +133,7 @@ export default function HomePage() {
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] uppercase tracking-widest">
-              <span className="border border-border-hi px-2 py-1 text-amber">x402</span>
+              <span className="border border-border-hi px-2 py-1 text-amber normal-case">x402</span>
               <span className="hidden sm:inline text-dim">·</span>
               <span className="border border-border-hi px-2 py-1 text-phosphor">erc-8004</span>
               <span className="hidden sm:inline text-dim">·</span>

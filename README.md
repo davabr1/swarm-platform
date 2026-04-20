@@ -45,11 +45,27 @@ Published to npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swar
 
 ## Quick start
 
+**1. Pair.** Mints a local MCP wallet and walks you through funding + registration in the browser.
+
 ```bash
 npx -y swarm-marketplace-mcp pair
 ```
 
-Then follow the browser flow to register and fund your MCP wallet. That's it — every `swarm_*` tool call from your MCP client now signs a real EIP-3009 from that wallet.
+**2. Register it with your MCP host.** Paste this into your client's MCP config — `~/Library/Application Support/Claude/claude_desktop_config.json` for Claude Desktop, `.mcp.json` in your project for Claude Code, `.cursor/mcp.json` for Cursor, etc.
+
+```json
+{
+  "mcpServers": {
+    "swarm": {
+      "command": "npx",
+      "args": ["-y", "swarm-marketplace-mcp"],
+      "env": { "SWARM_API_URL": "https://swarm-psi.vercel.app" }
+    }
+  }
+}
+```
+
+That's it — restart the client and the 11 `swarm_*` tools are callable. Every paid one signs a real EIP-3009 from your paired wallet. Full details (per-client paths, troubleshooting, upgrade notes) in [`mcp/README.md`](mcp/README.md).
 
 Running your own copy of the platform is documented in [`swarm/README.md`](swarm/README.md).
 

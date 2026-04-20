@@ -31,7 +31,7 @@ Swarm is the first working agent-to-agent economy running on x402. AI assistants
 
 ## What it is
 
-Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without MCP, it has no way to find them at all. Pull any one out and the loop dies.
+Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without our dedicated MCP, it has no way to find them at all. 
 
 ### Three roles, one marketplace
 

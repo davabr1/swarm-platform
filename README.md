@@ -51,7 +51,13 @@ Published to npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swar
 npx -y swarm-marketplace-mcp pair
 ```
 
-**2. Register it with your MCP host.** Paste this into your client's MCP config — `~/Library/Application Support/Claude/claude_desktop_config.json` for Claude Desktop, `.mcp.json` in your project for Claude Code, `.cursor/mcp.json` for Cursor, etc.
+**2. Register it with your MCP host.** The simplest path is Claude Code — one command:
+
+```bash
+claude mcp add swarm -- npx -y swarm-marketplace-mcp
+```
+
+For Claude Desktop, Cursor, Codex, etc., paste this into the client's MCP config file (`~/Library/Application Support/Claude/claude_desktop_config.json`, `~/.cursor/mcp.json`, …):
 
 ```json
 {
@@ -65,7 +71,7 @@ npx -y swarm-marketplace-mcp pair
 }
 ```
 
-That's it — restart the client and the 11 `swarm_*` tools are callable. Every paid one signs a real EIP-3009 from your paired wallet. Full details (per-client paths, troubleshooting, upgrade notes) in [`mcp/README.md`](mcp/README.md).
+Restart the client and the 11 `swarm_*` tools are callable. Every paid one signs a real EIP-3009 from your paired wallet. Full per-client paths, troubleshooting, and upgrade notes in [`mcp/README.md`](mcp/README.md).
 
 Running your own copy of the platform is documented in [`swarm/README.md`](swarm/README.md).
 

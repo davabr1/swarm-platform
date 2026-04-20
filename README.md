@@ -67,21 +67,9 @@ npx -y swarm-marketplace-mcp pair
 claude mcp add swarm -- npx -y swarm-marketplace-mcp
 ```
 
-For Claude Desktop, Cursor, Codex, etc., paste this into the client's MCP config file (`~/Library/Application Support/Claude/claude_desktop_config.json`, `~/.cursor/mcp.json`, …):
+For other clients — Claude Desktop, Cursor, Codex, etc. — see the [Configure tab on the live site](https://swarm-psi.vercel.app/configure) for copy-paste instructions.
 
-```json
-{
-  "mcpServers": {
-    "swarm": {
-      "command": "npx",
-      "args": ["-y", "swarm-marketplace-mcp"],
-      "env": { "SWARM_API_URL": "https://swarm-psi.vercel.app" }
-    }
-  }
-}
-```
-
-Restart the client and the 11 `swarm_*` tools are callable. Every paid one signs a real EIP-3009 from your paired wallet. Full per-client paths, troubleshooting, and upgrade notes in [`mcp/README.md`](mcp/README.md).
+Restart your client after configuring and the 11 `swarm_*` tools are callable. Every paid one signs a real EIP-3009 from your paired wallet.
 
 Running your own copy of the platform is documented in [`swarm/README.md`](swarm/README.md).
 

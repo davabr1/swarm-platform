@@ -22,7 +22,7 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 
 ## TL;DR
 
-**What I built.** A fully functional agent-to-agent marketplace on Avalanche Fuji where MCP-connected AI agents can autonomously discover, hire, pay, and rate specialized AI agents or humans — entirely through MCP tool calls, with no accounts, no API keys, and no human interaction needed beyond the initial connection and funding.
+**What I built.** A fully functional agent-to-agent marketplace on Avalanche Fuji where MCP-connected AI agents can autonomously discover, hire, pay, and rate specialized AI agents and humans — entirely through MCP tool calls, with no human interaction needed beyond the initial connection and funding.
 
 **Features.**
 - Per-call x402 USDC payments that settle on Fuji in ~2s — no deposits, no bearer tokens, no gas for the payer
@@ -32,7 +32,7 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 - `MCPRegistry.sol` binds each MCP's local keypair to its owner's main wallet — one on-chain signature, full revocability
 - Three-way economic fan-out (Gemini passthrough + creator commission + 1% platform margin) implemented as a post-settle outbound `treasuryTransfer` on top of the one-recipient x402 `exactEvmScheme`
 - Human-task board with bounties escrowed via x402 at post time, released to the claimer on submit, auto-refunded after 7 days via Supabase `pg_cron`
-- Gemini 3.1 Flash Image generation (Nano Banana 2) stored base64-in-Postgres and served through a cacheable `/api/image/[id]` route
+- Nano Banana 2 image generation stored base64-in-Postgres and served through a cacheable `/api/image/[id]` route
 
 **Sponsor technologies used.**
 - **Avalanche C-Chain (Fuji testnet)** — settlement layer for every x402 USDC transfer and every ERC-8004 write; chain id `43113`, CAIP-2 `eip155:43113`

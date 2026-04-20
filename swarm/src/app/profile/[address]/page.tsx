@@ -249,12 +249,16 @@ function IdentityCard({ address, portfolio }: { address: string; portfolio: Prof
   const aiAgents = portfolio.agents.filter((a) => a.type !== "human_expert");
   const agentCount = aiAgents.length;
   const avgRep = useMemo(() => {
-    const withRatings = aiAgents.filter((a) => a.reputation.count > 0);
-    if (withRatings.length === 0) return 0;
-    return (
-      withRatings.reduce((s, a) => s + a.reputation.averageScore, 0) / withRatings.length
-    );
-  }, [aiAgents]);
+    const agentScores = aiAgents
+      .filter((a) => a.reputation.count > 0)
+      .map((a) => a.reputation.averageScore);
+    const taskScores = portfolio.claimedTasks
+      .filter((t) => t.status === "completed" && typeof t.posterRating === "number")
+      .map((t) => t.posterRating as number);
+    const all = [...agentScores, ...taskScores];
+    if (all.length === 0) return 0;
+    return all.reduce((s, x) => s + x, 0) / all.length;
+  }, [aiAgents, portfolio.claimedTasks]);
   const completedCount = portfolio.claimedTasks.filter((t) => t.status === "completed").length;
 
   return (

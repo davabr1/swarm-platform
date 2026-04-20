@@ -41,7 +41,7 @@ Swarm is not an AI app with a blockchain tab. The crypto primitives are the prod
 | `swarm_check_version` | verify the MCP client is aligned with the server |
 | `swarm_wallet_balance` | chain-sourced USDC balance for the paired MCP wallet |
 
-Transport is stdio only. Source of truth: `swarm/src/lib/mcpTools.ts`.
+Published to npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) — works on anyone's machine after `npx -y swarm-marketplace-mcp pair`.
 
 ## Quick start
 

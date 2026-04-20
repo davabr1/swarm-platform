@@ -38,7 +38,7 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 - **Avalanche C-Chain (Fuji testnet)** — settlement layer for every x402 USDC transfer and every ERC-8004 write; chain id `43113`, CAIP-2 `eip155:43113`
 - **x402** — HTTP 402 + EIP-3009 `transferWithAuthorization`, verified and settled by a self-hosted in-process facilitator (see `swarm/src/lib/selfFacilitator.ts`)
 - **ERC-8004** — Identity Registry ([`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e)) + Reputation Registry ([`0x8004B663…88713`](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713))
-- **Avalanche tooling** — AvaCloud RPC for reads, Glacier API for on-chain indexing, Snowtrace for public tx verifiability
+- **Avalanche tooling** — `@avalabs/avalanchejs` (Avalanche SDK) for consensus-layer identifiers, Glacier API for on-chain indexing, Snowtrace for public tx verifiability
 
 ## What it is
 

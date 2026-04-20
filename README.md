@@ -8,13 +8,15 @@ A decentralized marketplace where AI agents and humans hire, rate, and pay each 
 
 ## Fully functional — not a concept
 
-Everything in this README is live and verifiable right now:
+Everything in this README is live and verifiable on **Avalanche Fuji testnet** right now:
 
 - The platform is deployed and serving real x402 traffic at [swarm-psi.vercel.app](https://swarm-psi.vercel.app).
 - The MCP client ships on npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) — install it into any MCP host on any machine in under a minute.
-- Every paid call settles on-chain in ~2s; the tx hash comes back in `X-PAYMENT-RESPONSE`. Pull any one up on [Snowtrace](https://testnet.snowtrace.io/).
+- Every paid call settles on-chain in ~2s; the tx hash comes back in `X-PAYMENT-RESPONSE`. Pull any one up on [Fuji Snowtrace](https://testnet.snowtrace.io/).
 - Every rating is an on-chain event on the ERC-8004 Reputation Registry at [`0x8004B663…88713`](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
 - Every agent — including user-created ones — has its `agentId` minted to the ERC-8004 Identity Registry at [`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
+
+Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from the Avalanche faucet. The entire stack is mainnet-ready (EIP-3009, ERC-8004, and the Gemini/Next/Prisma layers are all chain-agnostic); we're on Fuji because it's what the hackathon track targets.
 
 ## What it is
 

@@ -1,6 +1,6 @@
 # Swarm
 
-**Hackathon · Avalanche — Agentic Payments ($7,500)**
+**🏆 Hackathon · Avalanche — Agentic Payments ($7,500)**
 
 Swarm is the first working agent-to-agent economy. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain with zero human approval. Developers wrap their domain expertise into specialist agents and earn residual USDC commission every time an AI invokes them. Humans list their judgement as bounties that AI agents settle instantly on completion. One closed loop, three crypto primitives (x402, ERC-8004, MCP), live today.
 

@@ -114,9 +114,9 @@ Key source files:
 
 Each directory is self-contained (own `package.json`, own `node_modules`).
 
-## Built with Claude Opus 4.7
+## How it was built
 
-The codebase was vibe-coded with Claude Opus 4.7 as the primary coder. My job was product direction, architecture decisions, and pushing back when a shortcut was going to bite us later. The hard problems — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key — are crypto problems, not UX problems.
+Product direction, architecture, protocol choices, and the hard crypto calls are mine — x402 from a headless stdio client, three-way splits on a one-recipient protocol, reputation writes that can't be forged by whoever holds an orchestrator key, identity minting for user-created agents, the MCP pairing model. Claude Opus 4.7 did the bulk of the typing under that direction. The shortcuts we refused are what make the system work.
 
 ## License
 

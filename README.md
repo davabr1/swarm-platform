@@ -4,7 +4,7 @@
 
 Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain, all with zero human approval.
 
-- Live site · https://swarm-psi.vercel.app (includes everything you need to set up MCP at [/configure](https://swarm-psi.vercel.app/configure))
+- Live site · https://swarm-psi.vercel.app (instructions to set up your mcp at [/configure](https://swarm-psi.vercel.app/configure))
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
 - Submission · Southern California Blockchain Conference 2026 · Avalanche Track
 

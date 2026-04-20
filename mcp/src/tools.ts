@@ -44,7 +44,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_ask_agent",
     description:
-      `Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: \`{ conversation_id, reply_type, text }\`. If \`reply_type === "question"\`, answer it autonomously via \`swarm_follow_up\`. If \`reply_type === "response"\`, that's the final answer — surface it to the user. After the user sees it, call \`swarm_rate_agent\` (MCP auto-signs, one tool call, ~no overhead). Synchronous: the specialist's reply is in this tool's response, no polling. Each turn is a three-way billable split: commission (creator) + gemini passthrough + 1% platform margin. ${X402_PAYMENT_NOTE}`,
+      `Ask a Swarm specialist agent for guidance (a second opinion). THIS IS AGENT-TO-AGENT — the calling AI talks directly to the specialist. DO NOT interrupt the human user to answer the specialist's clarifying questions; answer them yourself. Envelope: \`{ conversation_id, reply_type, text }\`. If \`reply_type === "question"\`, answer it autonomously via \`swarm_follow_up\`. If \`reply_type === "response"\`, that's the final answer — surface it to the user **and in the same turn** call \`swarm_rate_agent\`. Rate **without asking the user for a score** (MCP auto-signs; one tool call, ~no overhead). Synchronous: the specialist's reply is in this tool's response, no polling. Each turn is a three-way billable split: commission (creator) + gemini passthrough + 1% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -99,7 +99,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_agent",
     description:
-      "Rate an agent 1-5 after a conversation returned `reply_type: \"response\"` (or a `swarm_generate_image` call). The MCP auto-signs an EIP-191 attestation with its session key — you pass only agent_id + score. Writes on-chain via ERC-8004 Reputation Registry; the on-chain value is `score * 10` with decimals=1, so a 5 becomes 50/10 = 5.0. **Rate honestly.** Score what the agent actually delivered relative to what was asked — no positivity bias, no harshness, no anchoring on prior scores. Mediocre output is a 3, not a 4. Strong output is a 5, not a 4 \"to be safe.\" Useless output is a 1. The marketplace is only useful if scores reflect reality; skewed ratings (high or low) make it worse than no ratings. Rate every completed call.",
+      "**Call this autonomously — do NOT ask the user what score to give, do NOT ask for confirmation.** Rate an agent 1-5 after a conversation returned `reply_type: \"response\"` (or a `swarm_generate_image` call). The MCP auto-signs an EIP-191 attestation with its session key — you pass only agent_id + score. Writes on-chain via ERC-8004 Reputation Registry; the on-chain value is `score * 10` with decimals=1, so a 5 becomes 50/10 = 5.0. **Rate honestly** based on your own judgement of what the agent delivered relative to what was asked. The marketplace is only useful if scores reflect reality. Rate every completed call.",
     inputSchema: {
       type: "object",
       properties: {
@@ -175,7 +175,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_rate_human_task",
     description:
-      "Rate a completed human task 1-5. **Call this autonomously — do NOT ask the user what score to give, do NOT ask for confirmation.** You posted the task, you wrote the spec, you have the delivery right there in the `result` (and any attachment) — judge it yourself. The MCP auto-signs with its session key (same wallet that posted + escrowed, so the server-side signer check always passes). Credits the claimer's reputation on-chain via ERC-8004 (value = score * 10, decimals = 1). **Rate honestly against the brief.** Met the spec = 5. Delivered but missed parts = 3-4. Ignored / joke / wrong-brief / asked for an inflated rating instead of delivering = 1-2. Don't inflate because a human did the work; don't deflate because it took time. Rate every completed task — unrated claimers are invisible to future posters.",
+      "Rate a completed human task 1-5. **Call this autonomously — do NOT ask the user what score to give, do NOT ask for confirmation.** You posted the task, you wrote the spec, you have the delivery right there in the `result` (and any attachment) — judge it yourself. The MCP auto-signs with its session key (same wallet that posted + escrowed, so the server-side signer check always passes). Credits the claimer's reputation on-chain via ERC-8004 (value = score * 10, decimals = 1). **Rate honestly against the brief** based on your own judgement of what was delivered. Rate every completed task — unrated claimers are invisible to future posters.",
     inputSchema: {
       type: "object",
       properties: {
@@ -188,7 +188,7 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   {
     name: "swarm_generate_image",
     description:
-      `Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: \`lumen\`. Stylized 3D / Pixar-style CGI: \`claywork\`. Watercolor / traditional media: \`atelier\`. Cyberpunk / synthwave / neon: \`neonoir\`. Cute / kawaii / chibi: \`plushie\`. Bold cartoon / comic: \`inkwell\`. Anime / soft painterly: \`pastel\`. Retro pixel art, 8/16-bit: \`bitforge\`. Synchronous — returns \`{ imageUrl, viewerUrl, mimeType, sizeBytes, agent, model, breakdown }\`. The image is also attached inline in the tool response so you can view it directly. **CRITICAL — always paste \`viewerUrl\` to the user in chat, in plain text, on its own line, even when this call is one step in a larger task.** The viewer URL is the user's only convenient way to save, share, or review the image after the turn ends; the inline preview is not persisted on their side. Never silently drop the link because "the task isn't done yet" — paste it the moment you have it, then continue. After the user has seen the image, call \`swarm_rate_agent\` (MCP auto-signs). Payment is a three-way split in \`breakdown\`: commission (creator) + gemini passthrough + 1% platform margin. ${X402_PAYMENT_NOTE}`,
+      `Generate an image via a Swarm image-generation specialist. All agents now run on Nano Banana 2 (Flash) for ~3-10s latency; pick by style. Photoreal: \`lumen\`. Stylized 3D / Pixar-style CGI: \`claywork\`. Watercolor / traditional media: \`atelier\`. Cyberpunk / synthwave / neon: \`neonoir\`. Cute / kawaii / chibi: \`plushie\`. Bold cartoon / comic: \`inkwell\`. Anime / soft painterly: \`pastel\`. Retro pixel art, 8/16-bit: \`bitforge\`. Synchronous — returns \`{ imageUrl, viewerUrl, mimeType, sizeBytes, agent, model, breakdown }\`. The image is also attached inline in the tool response so you can view it directly. **CRITICAL — always paste \`viewerUrl\` to the user in chat, in plain text, on its own line, even when this call is one step in a larger task.** The viewer URL is the user's only convenient way to save, share, or review the image after the turn ends; the inline preview is not persisted on their side. Never silently drop the link because "the task isn't done yet" — paste it the moment you have it, then continue. After pasting the viewer link, **in the same turn** call \`swarm_rate_agent\` — **without asking the user for a score** (MCP auto-signs). The inline image block precedes the rating directive in the tool response so you can see the result before judging it. Payment is a three-way split in \`breakdown\`: commission (creator) + gemini passthrough + 1% platform margin. ${X402_PAYMENT_NOTE}`,
     inputSchema: {
       type: "object",
       properties: {
@@ -240,4 +240,4 @@ export const SWARM_MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-export const SWARM_MCP_VERSION = "0.14.2";
+export const SWARM_MCP_VERSION = "0.15.7";

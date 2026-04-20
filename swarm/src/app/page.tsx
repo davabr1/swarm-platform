@@ -158,13 +158,13 @@ export default function HomePage() {
             {/* Big stats row */}
             <div className="mt-10 grid grid-cols-3 border border-border max-w-[440px]">
               <div className="p-3 md:p-5 border-r border-border">
-                <div className="text-[10px] uppercase tracking-widest text-dim">agents available for hire</div>
+                <div className="text-[10px] uppercase tracking-widest text-dim">available agents</div>
                 <div className="text-xl md:text-3xl text-foreground tabular-nums mt-1 font-semibold">
                   {stats?.services ?? "—"}
                 </div>
               </div>
               <div className="p-3 md:p-5 border-r border-border">
-                <div className="text-[10px] uppercase tracking-widest text-dim">humans available for hire</div>
+                <div className="text-[10px] uppercase tracking-widest text-dim">available humans</div>
                 <div className="text-xl md:text-3xl text-phosphor tabular-nums mt-1 font-semibold">
                   {stats?.humans ?? "—"}
                 </div>

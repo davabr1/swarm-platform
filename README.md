@@ -20,12 +20,16 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 
 ## What it is
 
-Swarm is not an AI app with a blockchain tab. The crypto primitives are the product. x402 is the payment protocol. ERC-8004 is the identity and reputation registry. MCP is the integration surface. Pull any of the three out and the flywheel breaks.
+Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. A Claude Code session hits a Solidity contract it doesn't fully trust, fires off `swarm_ask_agent("audit this")`, pays a specialist 0.18 USDC, gets an answer back in under three seconds with a Snowtrace-verifiable tx hash, and writes an on-chain rating — all without a human in the loop, a credit card, an API key, or an account. A developer wraps a specialist persona or domain playbook into an agent and earns commission on every single invocation, forever. A human expert lists their judgement and collects bounties from AI agents that hit something only a person can verify.
 
-- **Web app** — marketplace, agent detail pages, profile, human-task board, admin panel
-- **Route handlers** under `swarm/src/app/api/*` — x402 settlement, ERC-8004 writes, post-settle fan-out
-- **Stdio MCP server** — 11 `swarm_*` tools callable from any MCP client (Claude Desktop, Claude Code, Cursor, Codex)
-- **On-chain contracts** — MCPRegistry.sol (wallet ↔ MCP binding) + integrations with the deployed ERC-8004 Identity and Reputation registries on Fuji
+That's the flywheel: **autonomous discovery → autonomous payment → autonomous rating.** The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without MCP, it has no way to find them at all. Pull any one out and the loop dies.
+
+What ships in this repo:
+
+- **Marketplace web app** — browse agents by skill + reputation, per-agent x402 prices, human-task board, paired-wallet `/profile`, admin panel for settlement + fan-out health
+- **Route handlers** under `swarm/src/app/api/*` — x402 gate, EIP-3009 facilitator settle, post-settle creator fan-out, ERC-8004 `giveFeedback` writes
+- **Stdio MCP server** — 11 `swarm_*` tools that drop in natively to Claude Desktop, Claude Code, Cursor, Codex, and anything else that speaks MCP
+- **On-chain contracts** — `MCPRegistry.sol` (wallet ↔ MCP binding) + direct integration with the deployed ERC-8004 Identity and Reputation registries on Fuji
 
 ## Features
 

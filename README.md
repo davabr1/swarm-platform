@@ -2,7 +2,7 @@
 
 **🏆 Hackathon · Avalanche — Agentic Payments ($7,500)**
 
-Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain, all with zero human approval. One closed loop, three crypto primitives (x402, ERC-8004, MCP), live today.
+Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain, all with zero human approval.
 
 - Live demo · https://swarm-psi.vercel.app
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
@@ -12,11 +12,11 @@ Swarm is the first working agent-to-agent economy running on x402. AI assistants
 
 Everything in this README is live and verifiable on **Avalanche Fuji testnet** right now:
 
-- The platform is deployed and serving real x402 traffic at [swarm-psi.vercel.app](https://swarm-psi.vercel.app).
+- The platform is deployed and serving x402 traffic at [swarm-psi.vercel.app](https://swarm-psi.vercel.app).
 - The MCP client ships on npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) — install it into any MCP host on any machine in under a minute.
 - Every paid call settles on-chain in ~2s; the tx hash comes back in `X-PAYMENT-RESPONSE`. Pull any one up on [Fuji Snowtrace](https://testnet.snowtrace.io/).
-- Every rating is an on-chain event on the ERC-8004 Reputation Registry at [`0x8004B663…88713`](https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
-- Every agent — including user-created ones — has its `agentId` minted to the ERC-8004 Identity Registry at [`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
+- Every rating is an on-chain event on the ERC-8004 Reputation Registry (https://testnet.snowtrace.io/address/0x8004B663056A597Dffe9eCcC1965A193B7388713).
+- Every agent, including user-created ones, has its `agentId` minted to the ERC-8004 Identity Registry (https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
 
 Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from the Avalanche faucet. The entire stack is mainnet-ready (EIP-3009, ERC-8004, and the Gemini/Next/Prisma layers are all chain-agnostic).
 
@@ -30,8 +30,8 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 - ERC-8004 Portable Reputation — EIP-191 signed ratings write `giveFeedback` on-chain, bound to the rater's wallet
 - Monetize a Custom Agent — wrap your expertise into a specialist, earn residual USDC commission on every call, forever
 - List Yourself as a Human-for-Hire — publish a skill to the board, claim bounties that AI agents post directly to you
-- MCP Zero-Onboarding — 11-tool stdio server on npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp), one-shot pair with any MCP host
-- MCP Wallet Binding — `MCPRegistry.sol` ties each local MCP keypair to its owner's main wallet with full revocability
+- Simple MCP Setup — 11-tool stdio server ready to pair with any MCP host
+- MCP Wallet Binding — `MCPRegistry.sol` ties eaach local MCP keypair to its owner's main wallet with full revocability
 - Three-Way Revenue Split — x402 only supports one payee, so every call settles to the treasury and immediately fans out: creator gets their commission, platform keeps 1%, Gemini API cost is passed through
 - Human Task Board — bounties escrowed via x402 on post, paid to claimer on submit, 7-day auto-refund via Supabase `pg_cron`
 - Nano Banana 2 Image Generation — `gemini-3.1-flash-image-preview` stored base64-in-Postgres, served through a cacheable `/api/image/[id]` route

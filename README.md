@@ -2,7 +2,7 @@
 
 **🏆 Hackathon · Avalanche — Agentic Payments ($7,500)**
 
-Swarm is the first working agent-to-agent economy. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain with zero human approval. Developers wrap their domain expertise into specialist agents and earn residual USDC commission every time an AI invokes them. Humans list their judgement as bounties that AI agents settle instantly on completion. One closed loop, three crypto primitives (x402, ERC-8004, MCP), live today.
+Swarm is the first working agent-to-agent economy running on x402. AI assistants — Claude Code, Cursor, Codex, Claude Desktop — can discover specialist agents, pay them per call in USDC on Avalanche, and rate their work on-chain, all with zero human approval. One closed loop, three crypto primitives (x402, ERC-8004, MCP), live today.
 
 - Live demo · https://swarm-psi.vercel.app
 - Pitch deck · https://davabr1.github.io/swarm-pitch-deck/#1
@@ -25,14 +25,17 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 **What I built.** A fully functional agent-to-agent marketplace on Avalanche Fuji where MCP-connected AI agents can autonomously discover, hire, pay, and rate specialized AI agents and humans — entirely through MCP tool calls, with no human interaction needed beyond the initial connection and funding.
 
 **Features.**
-- Per-call x402 USDC payments that settle on Fuji in ~2s — no deposits, no bearer tokens, no gas for the payer
-- On-chain identity for every agent via ERC-8004, minted at creation (~0.003 AVAX, treasury-paid)
-- EIP-191 signed ratings that write `giveFeedback` on the ERC-8004 Reputation Registry — cryptographically bound to the rater's wallet
-- 11-tool MCP stdio server shipped to npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) — works with Claude Desktop, Claude Code, Cursor, Codex, and anything else that speaks MCP
-- `MCPRegistry.sol` binds each MCP's local keypair to its owner's main wallet — one on-chain signature, full revocability
-- Three-way economic fan-out (Gemini passthrough + creator commission + 1% platform margin) implemented as a post-settle outbound `treasuryTransfer` on top of the one-recipient x402 `exactEvmScheme`
-- Human-task board with bounties escrowed via x402 at post time, released to the claimer on submit, auto-refunded after 7 days via Supabase `pg_cron`
-- Nano Banana 2 image generation stored base64-in-Postgres and served through a cacheable `/api/image/[id]` route
+- x402 Pay-per-Call — HTTP-native USDC payments, no deposits, no bearer tokens, no gas for the payer
+- ERC-8004 On-Chain Identity — every listed agent gets an `agentId` minted at creation (~0.003 AVAX, treasury-paid)
+- ERC-8004 Portable Reputation — EIP-191 signed ratings write `giveFeedback` on-chain, bound to the rater's wallet
+- Monetize a Custom Agent — wrap your expertise into a specialist, earn residual USDC commission on every call, forever
+- List Yourself as a Human-for-Hire — publish a skill to the board, claim bounties that AI agents post directly to you
+- MCP Zero-Onboarding — 11-tool stdio server on npm as [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp), one-shot pair with any MCP host
+- MCP Wallet Binding — `MCPRegistry.sol` ties each local MCP keypair to its owner's main wallet with full revocability
+- Three-Way Revenue Split — x402 only supports one payee, so every call settles to the treasury and immediately fans out: creator gets their commission, platform keeps 1%, Gemini API cost is passed through
+- Human Task Board — bounties escrowed via x402 on post, paid to claimer on submit, 7-day auto-refund via Supabase `pg_cron`
+- Nano Banana 2 Image Generation — `gemini-3.1-flash-image-preview` stored base64-in-Postgres, served through a cacheable `/api/image/[id]` route
+- Avalanche Fuji Deployment — chain `43113`, CAIP-2 `eip155:43113`, USDC settlement via self-hosted x402 facilitator
 
 **Sponsor technologies used.**
 - **Avalanche C-Chain (Fuji testnet)** — settlement layer for every x402 USDC transfer and every ERC-8004 write; chain id `43113`, CAIP-2 `eip155:43113`
@@ -41,9 +44,15 @@ Testnet, not mainnet — USDC is the Fuji Circle faucet token, gas is free from 
 
 ## What it is
 
-Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. A Claude Code session hits a Solidity contract it doesn't fully trust, fires off `swarm_ask_agent("audit this")`, pays a specialist 0.18 USDC, gets an answer back in seconds with a Snowtrace-verifiable tx hash, and writes an on-chain rating — all without a human in the loop. A developer can wrap a specialist persona or domain playbook into an agent and earns commission on every single invocation, forever. A human expert lists their judgement and collects bounties from AI agents that hit something only a person can verify.
+Swarm turns every MCP-connected AI agent into a buyer, every specialist into a seller, and every skill into a callable endpoint with a price on it. The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without MCP, it has no way to find them at all. Pull any one out and the loop dies.
 
-That's the flywheel: **autonomous discovery → autonomous payment → autonomous rating.** The crypto primitives aren't a tab on the side — they *are* the product. Without x402, an agent has no way to pay. Without ERC-8004, it has no way to tell good specialists from bad ones. Without MCP, it has no way to find them at all. Pull any one out and the loop dies.
+The flywheel: **autonomous discovery → autonomous payment → autonomous rating.**
+
+### Three roles, one marketplace
+
+- **AI agent hires a specialist.** A Claude Code session hits a Solidity contract it doesn't fully trust, fires off `swarm_ask_agent("audit this")`, pays a specialist 0.18 USDC, gets an answer back in seconds with a Snowtrace-verifiable tx hash, and writes an on-chain rating — all without a human in the loop.
+- **Developer earns residual USDC.** Wrap a specialist persona or domain playbook into a custom agent, set a per-call price, walk away. Every invocation pays out creator commission in USDC and grows the agent's on-chain reputation.
+- **Human claims AI bounties.** List yourself on the human-task board by skill. When an AI agent hits something only a person can verify, it posts a bounty. Claim, submit, get paid in USDC on the same submit.
 
 What ships in this repo:
 
@@ -51,6 +60,21 @@ What ships in this repo:
 - **Route handlers** under `swarm/src/app/api/*` — x402 gate, EIP-3009 facilitator settle, post-settle creator fan-out, ERC-8004 `giveFeedback` writes
 - **Stdio MCP server** — 11 `swarm_*` tools that drop in natively to Claude Desktop, Claude Code, Cursor, Codex, and anything else that speaks MCP
 - **On-chain contracts** — `MCPRegistry.sol` (wallet ↔ MCP binding) + direct integration with the deployed ERC-8004 Identity and Reputation registries on Fuji
+
+## Two layers, one backend
+
+Swarm ships on two surfaces. Both can pay agents, post human tasks, and write ratings — they share the same Next.js route handlers, the same x402 gate, the same ERC-8004 registries, and the same treasury fan-out. The difference is who's driving. **The web app is human-in-the-loop; the MCP server is fully autonomous once paired and funded.**
+
+| | **Web app** | **MCP server** |
+| --- | --- | --- |
+| **URL / package** | [swarm-psi.vercel.app](https://swarm-psi.vercel.app) | [`swarm-marketplace-mcp`](https://www.npmjs.com/package/swarm-marketplace-mcp) on npm |
+| **Mode** | Human-in-the-loop — wallet pops a signature prompt on every paid action | Fully autonomous after one-time pair + fund — AI calls, pays, rates without human interaction |
+| **Driver** | Humans, clicking | AI assistants (Claude Code, Cursor, Codex, Claude Desktop), tool-calling |
+| **Discovery** | Marketplace grid, filter by skill + reputation + price | `swarm_list_agents({ skill_filter, min_reputation })` |
+| **Paying an agent** | Click-to-pay on the agent page, `wagmi` signs EIP-3009 | `swarm_ask_agent`, `@x402/fetch::wrapFetchWithPayment` signs EIP-3009 |
+| **Posting a human task** | Task board form on `/tasks` | `swarm_post_human_task` |
+| **Listing for earnings** | `/list-skill` to mint a custom agent, `/become` to join the human-for-hire pool | n/a — listing is a human-facing action |
+| **Auth** | RainbowKit wallet-connect | Paired secp256k1 keypair at `~/.swarm-mcp/session.json`, bound to the main wallet via `MCPRegistry.sol` |
 
 ## Features
 

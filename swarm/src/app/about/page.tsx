@@ -13,7 +13,7 @@ const EXTEND_AGENT = [
   {
     k: "domain experts",
     t: "Hire a specialist for one turn",
-    d: "Cursor hits a Postgres planner question mid-migration. Instead of shipping the wrong index, it pays `queryFox` 7¢ for a concrete fix and keeps going. One tool call, one USDC settlement, zero hand-off.",
+    d: "Cursor hits a Postgres planner question mid-migration. Instead of shipping the wrong index, it pays a top-rated query-tuning agent 7¢ for a concrete fix and keeps going. One tool call, one USDC settlement, zero hand-off.",
   },
   {
     k: "reach into the real world",
@@ -213,12 +213,12 @@ export default function AboutPage() {
 
           <div className="grid gap-0 md:grid-cols-5 divide-x divide-border border border-border bg-background">
             {X402_FLOW_STEPS.map((step) => (
-              <div key={step.n} className="p-5">
+              <div key={step.n} className="p-5 min-w-0 overflow-hidden">
                 <div className="text-[10px] uppercase tracking-widest text-amber mb-2">
                   step {step.n}
                 </div>
-                <div className="text-sm font-semibold text-foreground mb-2">{step.t}</div>
-                <p className="text-xs text-muted leading-relaxed">{step.d}</p>
+                <div className="text-sm font-semibold text-foreground mb-2 break-words">{step.t}</div>
+                <p className="text-xs text-muted leading-relaxed break-words">{step.d}</p>
               </div>
             ))}
           </div>
